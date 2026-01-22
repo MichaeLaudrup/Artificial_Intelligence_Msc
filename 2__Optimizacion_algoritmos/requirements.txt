@@ -1,0 +1,6 @@
+tsplib95
+numpy
+pandas
+matplotlib
+requests
+ipykernel

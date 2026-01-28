@@ -27,7 +27,8 @@ dependencies = [
     "numpy",
     "matplotlib",
     "requests",
-    "seaborn"
+    "seaborn",
+    "scipy"
 ]
 requires-python = "~=3.12.0"
 

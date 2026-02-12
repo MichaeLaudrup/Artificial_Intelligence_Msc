@@ -14,50 +14,59 @@ from educational_ai_analytics.config import PROCESSED_DATA_DIR, RAW_DATA_DIR, IN
 app = typer.Typer()
 
 
-def split_data_by_student(df_students, df_assessments, df_interactions, output_dir: Path):
+def get_data_splits(df_students, df_assessments, df_interactions):
     """
     Divide los datos en train, validation y test basándose en IDs de estudiantes únicos
     para evitar data leakage.
     Distribución: 70% Train, 15% Validation, 15% Test
+    
+    Retorna: diccionario con los splits {'training': (dfs...), 'validation': ..., 'test': ...}
     """
     logger.info("Iniciando división de datos (Splitting)...")
     
-    # Obtener IDs únicos de estudiantes
-    unique_students = df_students['id_student'].unique()
+    # Obtener IDs únicos de estudiantes y sus etiquetas para estratificación
+    # Usamos el primer 'final_result' del estudiante como proxy para estratificar por clase
+    student_labels = df_students.groupby('id_student')['final_result'].first()
+    unique_students = student_labels.index
+    labels = student_labels.values
     
-    # Primera división: Train (70%) vs Temp (30%)
-    train_ids, temp_ids = train_test_split(unique_students, test_size=0.3, random_state=42)
+    # Primera división: Train (70%) vs Temp (30%) - ESTRATIFICADO
+    train_ids, temp_ids, _, temp_labels = train_test_split(
+        unique_students, 
+        labels,
+        test_size=0.3, 
+        random_state=42,
+        stratify=labels
+    )
     
-    # Segunda división: Val (15%) vs Test (15%) - (El 50% del 30% restante es 15% del total)
-    val_ids, test_ids = train_test_split(temp_ids, test_size=0.5, random_state=42)
+    # Segunda división: Val (15%) vs Test (15%) - ESTRATIFICADO
+    val_ids, test_ids = train_test_split(
+        temp_ids, 
+        test_size=0.5, 
+        random_state=42,
+        stratify=temp_labels
+    )
     
     logger.info(f"Estudiantes únicos: {len(unique_students)}")
     logger.info(f" - Train: {len(train_ids)} ({len(train_ids)/len(unique_students):.1%})")
     logger.info(f" - Validation: {len(val_ids)} ({len(val_ids)/len(unique_students):.1%})")
     logger.info(f" - Test: {len(test_ids)} ({len(test_ids)/len(unique_students):.1%})")
 
-    splits = {
+    ids_map = {
         "training": train_ids,
         "validation": val_ids,
         "test": test_ids
     }
-
-    for split_name, ids in splits.items():
-        # Guardar en subcarpetas dentro de 'data/processed/'
-        split_dir = output_dir / split_name
-        split_dir.mkdir(parents=True, exist_ok=True)
-        
-        logger.info(f"Guardando conjunto '{split_name}' en {split_dir}...")
-        
-        # Filtrar tablas por ID de estudiante
-        df_stud_split = df_students[df_students['id_student'].isin(ids)]
-        df_assess_split = df_assessments[df_assessments['id_student'].isin(ids)]
-        df_inter_split = df_interactions[df_interactions['id_student'].isin(ids)]
-        
-        # Guardar CSVs
-        df_stud_split.to_csv(split_dir / "students.csv", index=False)
-        df_assess_split.to_csv(split_dir / "assessments.csv", index=False)
-        df_inter_split.to_csv(split_dir / "interactions.csv", index=False)
+    
+    splits = {}
+    for split_name, ids in ids_map.items():
+        splits[split_name] = {
+            'students': df_students[df_students['id_student'].isin(ids)].copy(),
+            'assessments': df_assessments[df_assessments['id_student'].isin(ids)].copy(),
+            'interactions': df_interactions[df_interactions['id_student'].isin(ids)].copy()
+        }
+    
+    return splits
 
 
 def save_interim_data(df_students, df_assessments, df_interactions):
@@ -79,34 +88,61 @@ def save_interim_data(df_students, df_assessments, df_interactions):
     logger.success("Datos intermedios guardados.")
 
 
-def apply_eda_cleaning(df_students, df_assessments, df_interactions):
+def apply_structural_cleaning(df_students, df_assessments, df_interactions):
     """
-    Aplica las reglas de limpieza derivadas del Análisis Exploratorio de Datos (EDA).
-    Recibe los DataFrames mergeados y devuelve los DataFrames limpios.
+    Aplica limpieza ESTRUCTURAL:
+    - Conversión de tipos.
+    - Manejo de categorías (Unknown).
+    - Eliminación de filas inválidas (sin nota).
+    NO realiza imputaciones estadísticas que dependan de la distribución global.
     """
-    logger.info("Aplicando limpieza basada en conclusiones del EDA...")
+    logger.info("Aplicando limpieza ESTRUCTURAL...")
 
     # --- ESTUDIANTES ---
-    # 1. Imputar Nulos en Fecha de Registro (MEDIANA por presentación)
+    # 1. Conversión de tipos
+    # date_registration se convierte a numérico, pero NO se imputa aquí todavía (data leakage)
     df_students['date_registration'] = pd.to_numeric(df_students['date_registration'], errors='coerce')
-    median_registration = df_students.groupby('code_presentation')['date_registration'].transform('median')
-    df_students['date_registration'] = df_students['date_registration'].fillna(median_registration)
     
-    # 2. Imputar nulos en IMD Band como 'Unknown'
-    df_students['imd_band'] = df_students['imd_band'].fillna('Unknown')
-
-    # 3. Conversión de tipos numéricos
     for col in ['date_unregistration', 'module_presentation_length']:
         if col in df_students.columns:
             df_students[col] = pd.to_numeric(df_students[col], errors='coerce')
 
+    # 2. Imputar nulos en IMD Band como 'Unknown' (Categórico constante)
+    df_students['imd_band'] = df_students['imd_band'].fillna('Unknown')
+
     # --- EVALUACIONES ---
-    # Eliminar filas sin nota
+    # Eliminar filas sin nota (Estructural: datos corruptos/incompletos inservibles)
     df_assessments.dropna(subset=['score'], inplace=True)
     df_assessments['score'] = pd.to_numeric(df_assessments['score'])
 
-    logger.success("Limpieza EDA completada.")
+    logger.success("Limpieza Estructural completada.")
     return df_students, df_assessments, df_interactions
+
+
+def impute_statistical_data(df_students, registration_medians=None):
+    """
+    Realiza la imputación estadística de 'date_registration'.
+    Si se pasan 'registration_medians', se usan (Validacion/Test).
+    Si no (None), se calculan (Train) y se devuelven.
+    """
+    if registration_medians is None:
+        # Modo FIT: Calcular medianas (Solo Train)
+        logger.info("Calculando estadísticas de imputación (Fit en Train)...")
+        registration_medians = df_students.groupby('code_presentation')['date_registration'].median()
+    
+    # Modo TRANSFORM: Aplicar imputación
+    # Mapear la mediana correspondiente a cada presentación
+    median_values = df_students['code_presentation'].map(registration_medians)
+    
+    # Fallback: Si hay alguna presentación en Val/Test que no estaba en Train (raro), 
+    # usar la mediana global de las medianas de Train.
+    if median_values.isna().any():
+        global_median = registration_medians.median()
+        median_values = median_values.fillna(global_median)
+    
+    df_students['date_registration'] = df_students['date_registration'].fillna(median_values)
+    
+    return df_students, registration_medians
 
 
 def process_data(input_dir: Path, output_file: Path):
@@ -115,8 +151,10 @@ def process_data(input_dir: Path, output_file: Path):
     1. Carga los CSVs crudos
     2. Realiza merges entre tablas
     3. Guarda versión intermedia (interim) para EDA
-    4. Aplica limpieza basada en EDA
-    5. Divide en train/validation/test y guarda en processed
+    4. Aplica limpieza ESTRUCTURAL (pre-split)
+    5. Divide en train/validation/test
+    6. Aplica limpieza ESTADÍSTICA (imputación) usando stats de TRAIN
+    7. Guarda en processed
     """
     logger.info(f"Procesando datos desde {input_dir}...")
     
@@ -125,28 +163,24 @@ def process_data(input_dir: Path, output_file: Path):
     registration_path = input_dir / "studentRegistration.csv"
 
     if not all(p.exists() for p in [student_info_path, courses_path, registration_path]):
-        logger.error("No se encontraron los archivos CSV necesarios (studentInfo, courses, studentRegistration).")
+        logger.error("No se encontraron los archivos CSV necesarios.")
         raise FileNotFoundError("Faltan archivos CSV del dataset OULAD.")
 
     logger.info("Cargando CSVs...")
     
-    # --- GRUPO 1: Demográficos y Registro ---
+    # --- Carga ---
     df_student = pd.read_csv(input_dir / "studentInfo.csv")
     df_courses = pd.read_csv(input_dir / "courses.csv")
     df_registration = pd.read_csv(input_dir / "studentRegistration.csv")
-
-    # --- GRUPO 2: Evaluaciones ---
     df_assessments = pd.read_csv(input_dir / "assessments.csv")
     df_student_assessments = pd.read_csv(input_dir / "studentAssessment.csv")
-
-    # --- GRUPO 3: Interacciones (VLE) ---
     df_vle = pd.read_csv(input_dir / "vle.csv")
     df_student_vle = pd.read_csv(input_dir / "studentVle.csv")
     
     # =========================================================
-    # FASE 1: MERGES (unir tablas relacionales)
+    # FASE 1: MERGES
     # =========================================================
-    logger.info("Procesando datos de Estudiantes...")
+    logger.info("Realizando Merges...")
     df_students_merged = pd.merge(
         df_student, df_registration, 
         on=['code_module', 'code_presentation', 'id_student'], how='left'
@@ -157,14 +191,12 @@ def process_data(input_dir: Path, output_file: Path):
     )
     df_students_merged.replace('?', pd.NA, inplace=True)
 
-    logger.info("Procesando datos de Evaluaciones...")
     df_assessments_merged = pd.merge(
         df_student_assessments, df_assessments,
         on=['id_assessment'], how='left'
     )
     df_assessments_merged.replace('?', pd.NA, inplace=True)
 
-    logger.info("Procesando datos de Interacciones (VLE)...")
     df_interactions_merged = pd.merge(
         df_student_vle, df_vle,
         on=['id_site', 'code_module', 'code_presentation'], how='left'
@@ -172,29 +204,59 @@ def process_data(input_dir: Path, output_file: Path):
     df_interactions_merged.replace('?', pd.NA, inplace=True)
 
     # =========================================================
-    # FASE 2: GUARDAR DATOS INTERMEDIOS (para EDA, sin limpiar)
+    # FASE 2: INTERIM DATA
     # =========================================================
     save_interim_data(df_students_merged, df_assessments_merged, df_interactions_merged)
 
     # =========================================================
-    # FASE 3: APLICAR LIMPIEZA BASADA EN EDA
+    # FASE 3: LIMPIEZA ESTRUCTURAL (Global)
     # =========================================================
-    df_students_merged, df_assessments_merged, df_interactions_merged = apply_eda_cleaning(
+    df_students_merged, df_assessments_merged, df_interactions_merged = apply_structural_cleaning(
         df_students_merged, df_assessments_merged, df_interactions_merged
     )
 
     # =========================================================
-    # FASE 4: DIVIDIR Y GUARDAR EN PROCESSED
+    # FASE 4: DIVISIÓN (SPLIT)
     # =========================================================
-    output_dir = output_file.parent
-    if output_dir.exists():
-        shutil.rmtree(output_dir)
-        logger.info(f"Carpeta {output_dir} limpiada.")
-    output_dir.mkdir(parents=True, exist_ok=True)
+    splits = get_data_splits(df_students_merged, df_assessments_merged, df_interactions_merged)
     
-    split_data_by_student(df_students_merged, df_assessments_merged, df_interactions_merged, output_dir)
+    # =========================================================
+    # FASE 5: LIMPIEZA ESTADÍSTICA (Fit on Train, Transform All)
+    # =========================================================
+    logger.info("Aplicando imputación estadística (evitando Data Leakage)...")
     
-    logger.success("Pipeline completado. Datos intermedios, procesados y divididos.")
+    # 1. Fit en Train
+    train_students = splits['training']['students']
+    train_students, registration_stats = impute_statistical_data(train_students, registration_medians=None)
+    splits['training']['students'] = train_students # Update cleaned version
+    
+    logger.info("Estadísticas aprendidas en Train. Aplicando a Val/Test...")
+    
+    # 2. Transform Val & Test
+    for split_name in ['validation', 'test']:
+        df_stud = splits[split_name]['students']
+        df_stud, _ = impute_statistical_data(df_stud, registration_medians=registration_stats)
+        splits[split_name]['students'] = df_stud
+
+    # =========================================================
+    # FASE 6: GUARDADO FINAL
+    # =========================================================
+    root_output_dir = output_file.parent
+    if root_output_dir.exists():
+        shutil.rmtree(root_output_dir)
+        logger.info(f"Limpiando directorio destino: {root_output_dir}")
+    root_output_dir.mkdir(parents=True, exist_ok=True)
+
+    for split_name, data in splits.items():
+        split_dir = root_output_dir / split_name
+        split_dir.mkdir(parents=True, exist_ok=True)
+        
+        logger.info(f"Guardando {split_name} en {split_dir}...")
+        data['students'].to_csv(split_dir / "students.csv", index=False)
+        data['assessments'].to_csv(split_dir / "assessments.csv", index=False)
+        data['interactions'].to_csv(split_dir / "interactions.csv", index=False)
+    
+    logger.success(f"Pipeline completado sin Data Leakage. Datos guardados en {root_output_dir}")
 
 
 def download_dataset(url: str, dest_path: Path, force: bool = True):

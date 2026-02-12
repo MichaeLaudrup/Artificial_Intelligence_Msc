@@ -55,11 +55,24 @@ create_environment:
 # PROJECT RULES                                                                 #
 #################################################################################
 
-
-## Make dataset
+## Make dataset (Descarga + Split)
 .PHONY: data
 data: requirements
 	$(PYTHON_INTERPRETER) educational_ai_analytics/dataset.py
+
+## Make features (Ingeniería de Características)
+.PHONY: features
+features:
+	$(PYTHON_INTERPRETER) -m educational_ai_analytics.features
+
+## Train model
+.PHONY: train
+train:
+	$(PYTHON_INTERPRETER) -m educational_ai_analytics.modeling.train
+
+## Run full pipeline (Dataset → Features → Train)
+.PHONY: pipeline
+pipeline: data features train
 
 
 #################################################################################

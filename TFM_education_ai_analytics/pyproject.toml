@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 [build-system]
 requires = ["flit_core >=3.2,<4"]
 build-backend = "flit_core.buildapi"
@@ -53,3 +54,60 @@ extend-select = ["I"]  # Add import sorting
 known-first-party = ["educational_ai_analytics"]
 force-sort-within-sections = true
 
+=======
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "educational_ai_analytics"
+version = "0.0.1"
+description = "TFM word"
+authors = [
+  { name = "Michael Laudrup Luis Gonz\u00e1lez" },
+]
+license = { file = "LICENSE" }
+readme = "README.md"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License"
+]
+dependencies = [
+    "loguru",
+    "mkdocs",
+    "pip",
+    "python-dotenv",
+    "ruff",
+    "tqdm",
+    "typer",
+    "pandas",
+    "numpy",
+    "matplotlib",
+    "requests",
+    "seaborn",
+    "scipy",
+    "scikit-learn",
+    # --- Deep Learning (Encoder-Decoder) ---
+    "tensorflow[and-cuda]",
+    "tensorboard",
+    "ipykernel",
+    # --- Serialización y utilidades ---
+    "joblib",
+    "h5py",
+]
+requires-python = ">=3.10"
+
+
+[tool.ruff]
+line-length = 99
+src = ["educational_ai_analytics"]
+include = ["pyproject.toml", "educational_ai_analytics/**/*.py"]
+
+[tool.ruff.lint]
+extend-select = ["I"]  # Add import sorting
+
+[tool.ruff.lint.isort]
+known-first-party = ["educational_ai_analytics"]
+force-sort-within-sections = true
+
+>>>>>>> c30dc9262eee8dc25b98d7ef8a910c40c00b5fda

@@ -9,9 +9,28 @@ import shutil
 
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from educational_ai_analytics.config import PROCESSED_DATA_DIR, RAW_DATA_DIR, INTERIM_DATA_DIR, OULAD_DATASET_URL
+from educational_ai_analytics.config import (
+    DATA_DIR,
+    PROCESSED_DATA_DIR,
+    RAW_DATA_DIR,
+    INTERIM_DATA_DIR,
+    OULAD_DATASET_URL
+)
 
 app = typer.Typer()
+
+def clean_data_directory():
+    """Borra todo el contenido del directorio DATA_DIR para empezar de cero."""
+    if DATA_DIR.exists():
+        logger.info(f"🧹 Limpiando todo el contenido de {DATA_DIR}...")
+        for item in DATA_DIR.iterdir():
+            if item.is_dir():
+                shutil.rmtree(item)
+            else:
+                item.unlink()
+        logger.success("Directorio de datos limpio.")
+    else:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def get_data_splits(df_students, df_assessments, df_interactions):
@@ -321,6 +340,9 @@ def main(
     Orquesta el pipeline del dataset: Descarga, Extracción, Procesamiento
     """
     logger.info("Iniciando pipeline de datos...")
+
+    # 0. Limpieza total para empezar de cero
+    clean_data_directory()
 
     # 1. Descarga
     download_dataset(OULAD_DATASET_URL, input_path)

@@ -1,0 +1,20 @@
+{
+  "name": "TFM GPU Container",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "tfm-gpu",
+  "workspaceFolder": "/workspace",
+
+  // Extensiones útiles para Python y Jupyter dentro del contenedor
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-toolsai.jupyter",
+        "ms-azuretools.vscode-docker"
+      ]
+    }
+  },
+    "postCreateCommand": "cd /workspace && pip install --no-deps -e . && python -m ipykernel install --user --name educational_ai_analytics --display-name \"Python (TFM Analytics)\" && (SERVER_DIR=\"$HOME/.antigravity-server/bin\" && mkdir -p \"$SERVER_DIR\" && for dir in \"$SERVER_DIR\"/*-*; do if [ -d \"$dir\" ]; then commit=\"${dir##*-}\"; [ ! -e \"$SERVER_DIR/$commit\" ] && ln -s \"$dir\" \"$SERVER_DIR/$commit\"; fi; done) 2>/dev/null || true",
+
+  "remoteUser": "root"
+}

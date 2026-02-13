@@ -28,9 +28,17 @@ dependencies = [
     "matplotlib",
     "requests",
     "seaborn",
-    "scipy"
+    "scipy",
+    "scikit-learn",
+    # --- Deep Learning (Encoder-Decoder) ---
+    "tensorflow[and-cuda]",
+    "tensorboard",
+    "ipykernel",
+    # --- Serialización y utilidades ---
+    "joblib",
+    "h5py",
 ]
-requires-python = "~=3.12.0"
+requires-python = ">=3.10"
 
 
 [tool.ruff]

@@ -1,0 +1,18 @@
+services:
+  tfm-gpu:
+    build:
+      context: ..
+      dockerfile: TFM_education_ai_analytics/Dockerfile
+    volumes:
+      - ..:/workspace
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    command: tail -f /dev/null  # Keep container running indefinitely
+    restart: unless-stopped
+    ports:
+      - "8888:8888"  # Expose Jupyter port if needed

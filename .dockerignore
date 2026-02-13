@@ -1,0 +1,29 @@
+# Git - Permitimos .git para que el contenedor lo vea
+# .git
+# .gitignore
+
+# Python
+**/.venv
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.egg-info
+
+# IDE
+**/.vscode
+**/.devcontainer
+
+# Data and models (específicos del proyecto, se montan por volumen)
+TFM_education_ai_analytics/data
+TFM_education_ai_analytics/models
+TFM_education_ai_analytics/reports
+TFM_education_ai_analytics/references
+TFM_education_ai_analytics/docs
+TFM_education_ai_analytics/notebooks
+
+# Other
+**/*.pdf
+TFM_education_ai_analytics/temp_memoria.txt
+TFM_education_ai_analytics/Makefile
+TFM_education_ai_analytics/.env
+TFM_education_ai_analytics/.agent

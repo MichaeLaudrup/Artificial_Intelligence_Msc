@@ -37,6 +37,8 @@ dependencies = [
     # --- Serialización y utilidades ---
     "joblib",
     "h5py",
+    # --- Clustering Avanzado ---
+    "umap-learn",
 ]
 requires-python = ">=3.10"
 

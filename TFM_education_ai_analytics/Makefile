@@ -82,6 +82,11 @@ plot_latent:
 plot_pca:
 	$(PYTHON_INTERPRETER) -m educational_ai_analytics.plots latent-space --embeddings-file data/4_embeddings/training/latent_pca.csv --output-name latent_space_pca.png
 
+## 9. Plot AE Sample Flow (Input -> Latent -> Recon)
+.PHONY: plot_ae_sample
+plot_ae_sample:
+	$(PYTHON_INTERPRETER) -m educational_ai_analytics.plots ae-reconstruction
+
 ## Prep latent space (Dataset -> Features -> Train AE -> Encode)
 .PHONY: prep_latent
 prep_latent: data features train_ae encode

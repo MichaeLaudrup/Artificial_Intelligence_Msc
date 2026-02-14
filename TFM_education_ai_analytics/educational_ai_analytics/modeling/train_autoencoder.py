@@ -13,23 +13,15 @@ from educational_ai_analytics.modeling import StudentProfileAutoencoder
 
 app = typer.Typer()
 
-def load_static_data(path: Path):
-    """Carga las features estáticas para el entrenamiento."""
-    logger.info(f"Cargando datos desde: {path}")
-    static = pd.read_csv(path / "static_features.csv", index_col=0)
-    return static.values
 
-@app.command()
-def main(
-    epochs: int = AE_PARAMS.epochs,
-    batch_size: int = AE_PARAMS.batch_size,
-    model_name: str = "best_static_autoencoder.keras"
-):
-    """
-    Entrena el StudentProfileAutoencoder.
-    """
-    # 0. Configuración GPU
-    gpus = tf.config.list_physical_devices('GPU')
+def _set_seed(seed: int = 42):
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    np.random.seed(seed)
+    tf.random.set_seed(seed)
+
+
+def _configure_gpu():
+    gpus = tf.config.list_physical_devices("GPU")
     if gpus:
         try:
             for gpu in gpus:
@@ -38,79 +30,92 @@ def main(
         except RuntimeError as e:
             logger.error(f"Error configuración GPU: {e}")
 
-    # 1. Rutas
-    train_path = FEATURES_DATA_DIR / "training"
-    val_path = FEATURES_DATA_DIR / "validation"
-    os.makedirs(MODELS_DIR, exist_ok=True)
 
-    # 2. Cargar datos
-    if not (train_path / "static_features.csv").exists():
-        logger.error(f"No se encuentran datos en {train_path}. Ejecuta 'make features' primero.")
-        return
+def load_features(path: Path, prefer: str = "engineered_features.csv"):
+    """Carga features para el AE."""
+    prefer_path = path / prefer
+    fallback_path = path / "static_features.csv"
 
-    X_train = load_static_data(train_path)
-    X_val = load_static_data(val_path)
-    
-    # Ajustar input_dim dinámicamente por si ha cambiado
-    actual_input_dim = X_train.shape[1]
-    logger.info(f"Dimensiones de entrada detectadas: {actual_input_dim}")
+    if prefer_path.exists():
+        df = pd.read_csv(prefer_path, index_col=0)
+        used = prefer
+    elif fallback_path.exists():
+        df = pd.read_csv(fallback_path, index_col=0)
+        used = "static_features.csv"
+    else:
+        raise FileNotFoundError(f"No se encontraron features en {path}")
 
-    # 3. Instanciar Modelo
-    model = StudentProfileAutoencoder(
-        input_dim=actual_input_dim,
-        latent_dim=AE_PARAMS.latent_dim,
-        hidden_dims=AE_PARAMS.hidden_dims,
-        dropout_rate=AE_PARAMS.dropout_rate
-    )
+    X = df.replace([np.inf, -np.inf], 0).fillna(0).values.astype(np.float32)
+    return X, df.index, used
 
+
+def make_dataset(X: np.ndarray, batch_size: int, training: bool):
+    ds = tf.data.Dataset.from_tensor_slices((X, X))
+    if training:
+        ds = ds.shuffle(min(len(X), 50000), reshuffle_each_iteration=True)
+    ds = ds.batch(batch_size).cache().prefetch(tf.data.AUTOTUNE)
+    return ds
+
+
+def save_embeddings(model: StudentProfileAutoencoder, X: np.ndarray, index: pd.Index, out_path: Path, batch_size: int = 1024):
+    Z = model.get_embeddings(X, batch_size=batch_size).numpy()
+    z_cols = [f"z_{i:02d}" for i in range(Z.shape[1])]
+    pd.DataFrame(Z, index=index, columns=z_cols).to_csv(out_path)
+    logger.info(f"🧬 Embeddings guardados: {out_path} | shape={Z.shape}")
+
+
+@app.command()
+def main(
+    epochs: int = AE_PARAMS.epochs,
+    batch_size: int = AE_PARAMS.batch_size,
+    model_name: str = "best_static_autoencoder.keras",
+    seed: int = 42,
+    export_latents: bool = True,
+):
+    """Entrena el AE usando los parámetros centralizados en params.py."""
+    _set_seed(seed)
+    _configure_gpu()
+
+    # Cargar datos
+    X_train, idx_train, _ = load_features(FEATURES_DATA_DIR / "training")
+    X_val, idx_val, _ = load_features(FEATURES_DATA_DIR / "validation")
+
+    # Instanciar Modelo (usa AE_PARAMS por defecto en su __init__)
+    model = StudentProfileAutoencoder(input_dim=X_train.shape[1])
+
+    # Compilación (usando parámetros de params.py si existieran allí, o defaults seguros)
+    loss_fn = tf.keras.losses.Huber(delta=1.0)
     model.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=AE_PARAMS.learning_rate),
-        loss='mse'
+        loss=loss_fn,
     )
 
-    # 4. Callbacks
+    # Callbacks simplificados
     callbacks = [
-        ModelCheckpoint(
-            MODELS_DIR / model_name,
-            save_best_only=True,
-            monitor='val_loss',
-            mode='min',
-            verbose=1
-        ),
-        EarlyStopping(
-            monitor='val_loss',
-            patience=AE_PARAMS.early_stopping_patience,
-            restore_best_weights=True,
-            verbose=1
-        ),
-        ReduceLROnPlateau(
-            monitor='val_loss', 
-            factor=AE_PARAMS.reduce_lr_factor, 
-            patience=AE_PARAMS.reduce_lr_patience, 
-            min_lr=AE_PARAMS.min_learning_rate,
-            verbose=1
-        )
+        ModelCheckpoint(MODELS_DIR / model_name, save_best_only=True, monitor="val_loss", verbose=1),
+        EarlyStopping(monitor="val_loss", patience=AE_PARAMS.early_stopping_patience, restore_best_weights=True, verbose=1),
+        ReduceLROnPlateau(monitor="val_loss", factor=AE_PARAMS.reduce_lr_factor, patience=AE_PARAMS.reduce_lr_patience, verbose=1),
     ]
 
-    # 5. Entrenar
-    logger.info(f"🚀 Entrenando Autoencoder Estático: {epochs} épocas...")
-    history = model.fit(
-        x=X_train,
-        y=X_train,
-        validation_data=(X_val, X_val),
-        epochs=epochs,
-        batch_size=batch_size,
-        callbacks=callbacks,
-        verbose=1
-    )
+    # Entrenar
+    ds_train = make_dataset(X_train, batch_size=batch_size, training=True)
+    ds_val = make_dataset(X_val, batch_size=batch_size, training=False)
+    
+    logger.info(f"🚀 Entrenando Autoencoder: epochs={epochs} | latent_dim={AE_PARAMS.latent_dim}")
+    history = model.fit(ds_train, validation_data=ds_val, epochs=epochs, callbacks=callbacks, verbose=1)
 
-    # 6. Guardar historial para gráficas
+    # Reportes y Embeddings
     os.makedirs(REPORTS_DIR, exist_ok=True)
-    hist_df = pd.DataFrame(history.history)
-    hist_df.to_csv(REPORTS_DIR / "ae_training_history.csv", index=False)
-    logger.info(f"📊 Historial de entrenamiento guardado en {REPORTS_DIR / 'ae_training_history.csv'}")
+    pd.DataFrame(history.history).to_csv(REPORTS_DIR / "ae_training_history.csv", index=False)
 
-    logger.success(f"✨ Modelo guardado en {MODELS_DIR / model_name}")
+    if export_latents:
+        lat_dir = REPORTS_DIR / "latents"
+        lat_dir.mkdir(parents=True, exist_ok=True)
+        save_embeddings(model, X_train, idx_train, lat_dir / "train_latents.csv")
+        save_embeddings(model, X_val, idx_val, lat_dir / "val_latents.csv")
+
+    logger.success(f"✨ Proceso completado. Modelo en {MODELS_DIR / model_name}")
+
 
 if __name__ == "__main__":
     app()

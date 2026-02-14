@@ -175,7 +175,7 @@ def ae_reconstruction(
     fig, axes = plt.subplots(1, 3, figsize=(20, 6), constrained_layout=True)
     
     axes[0].scatter(p_in[:, 0], p_in[:, 1], s=3, alpha=0.3, color="gray")
-    axes[0].set_title("1. Datos Originales (43D)\n(Proyección PCA)")
+    axes[0].set_title("1. Datos Originales (43D)")
     
     axes[1].scatter(p_lat[:, 0], p_lat[:, 1], s=3, alpha=0.4, color="crimson")
     axes[1].set_title(f"2. Espacio Latente ({Z_lat.shape[1]}D)\n(Compresión IA)")

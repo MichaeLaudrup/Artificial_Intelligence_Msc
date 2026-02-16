@@ -8,8 +8,8 @@ import logging
 import typer
 
 from educational_ai_analytics.config import FEATURES_DATA_DIR, EMBEDDINGS_DATA_DIR, MODELS_DIR
-from educational_ai_analytics.modeling.params import AE_PARAMS
-from educational_ai_analytics.modeling.autoencoder import StudentProfileAutoencoder
+from .hyperparams import AE_PARAMS
+from educational_ai_analytics.modeling.ae.autoencoder import StudentProfileAutoencoder
 
 # Configuración de logs
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)-8s | %(message)s")

@@ -16,11 +16,15 @@ INTERIM_DATA_DIR = DATA_DIR / "1_interim"
 PROCESSED_DATA_DIR = DATA_DIR / "2_processed"
 FEATURES_DATA_DIR = DATA_DIR / "3_features"
 EMBEDDINGS_DATA_DIR = DATA_DIR / "4_embeddings"
+SEGMENTED_DATA_DIR = DATA_DIR / "5_students_segmented"
 
 MODELS_DIR = PROJ_ROOT / "models"
 
 REPORTS_DIR = PROJ_ROOT / "reports"
-FIGURES_DIR = REPORTS_DIR / "figures"
+FIGURES_DIR = REPORTS_DIR / "figures"  # Legacy/General
+AE_REPORTS_DIR = REPORTS_DIR / "ae"
+CLUSTERING_REPORTS_DIR = REPORTS_DIR / "clustering"
+TRANSFORMERS_REPORTS_DIR = REPORTS_DIR / "transformers"
 
 
 OULAD_DATASET_URL = "https://analyse.kmi.open.ac.uk/open-dataset/download"

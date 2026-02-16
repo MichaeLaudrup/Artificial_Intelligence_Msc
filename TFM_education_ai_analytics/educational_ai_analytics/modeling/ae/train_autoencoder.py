@@ -8,8 +8,8 @@ import typer
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLROnPlateau
 
 from educational_ai_analytics.config import FEATURES_DATA_DIR, MODELS_DIR, REPORTS_DIR
-from educational_ai_analytics.modeling.params import AE_PARAMS
-from educational_ai_analytics.modeling import StudentProfileAutoencoder
+from .hyperparams import AE_PARAMS
+from .autoencoder import StudentProfileAutoencoder
 
 app = typer.Typer()
 
@@ -70,7 +70,6 @@ def main(
     batch_size: int = AE_PARAMS.batch_size,
     model_name: str = "best_static_autoencoder.keras",
     seed: int = 42,
-    export_latents: bool = True,
 ):
     """Entrena el AE usando los parámetros centralizados en params.py."""
     _set_seed(seed)
@@ -104,15 +103,9 @@ def main(
     logger.info(f"🚀 Entrenando Autoencoder: epochs={epochs} | latent_dim={AE_PARAMS.latent_dim}")
     history = model.fit(ds_train, validation_data=ds_val, epochs=epochs, callbacks=callbacks, verbose=1)
 
-    # Reportes y Embeddings
+    # Reportes
     os.makedirs(REPORTS_DIR, exist_ok=True)
     pd.DataFrame(history.history).to_csv(REPORTS_DIR / "ae_training_history.csv", index=False)
-
-    if export_latents:
-        lat_dir = REPORTS_DIR / "latents"
-        lat_dir.mkdir(parents=True, exist_ok=True)
-        save_embeddings(model, X_train, idx_train, lat_dir / "train_latents.csv")
-        save_embeddings(model, X_val, idx_val, lat_dir / "val_latents.csv")
 
     logger.success(f"✨ Proceso completado. Modelo en {MODELS_DIR / model_name}")
 

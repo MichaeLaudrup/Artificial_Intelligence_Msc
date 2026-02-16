@@ -1,6 +1,6 @@
 import tensorflow as tf
 from tensorflow.keras import layers, regularizers
-from educational_ai_analytics.modeling.params import AE_PARAMS
+from .hyperparams import AE_PARAMS
 
 
 class StudentProfileAutoencoder(tf.keras.Model):

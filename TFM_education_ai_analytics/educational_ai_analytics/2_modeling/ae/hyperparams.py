@@ -4,17 +4,17 @@ from typing import List
 @dataclass
 class AutoencoderParams:
     """Configuración para el modelo StudentProfileAutoencoder (Arquitectura Pro)."""
-    input_dim: int = 43  
-    latent_dim: int = 24
+    input_dim: int = 60  
+    latent_dim: int = 32
     hidden_dims: List[int] = field(default_factory=lambda: [32])
-    dropout_rate: float = 0.03
-    denoise_std: float = 0.03
-    l2_latent: float = 1e-5
-    z_norm_penalty: float = 1e-4
+    dropout_rate: float = 0.01
+    denoise_std: float = 0.01
+    l2_latent: float = 1e-6
+    z_norm_penalty: float = 1e-6
     activation: str = "leaky_relu"
     
     # Entrenamiento
-    epochs: int = 50
+    epochs: int = 10
     batch_size: int = 128
     learning_rate: float = 0.001
     

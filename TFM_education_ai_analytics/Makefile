@@ -40,57 +40,63 @@ format:
 ## 0. Make dataset (Descarga + Split) -> data/2_processed
 .PHONY: data
 data:
-	$(PYTHON_INTERPRETER) educational_ai_analytics/dataset.py
+	$(PYTHON_INTERPRETER) educational_ai_analytics/0_data/0_dataset.py
 
 ## 1. Make features (Ingeniería de Características) -> data/2_processed/{split}/features
 .PHONY: features
 features:
-	$(PYTHON_INTERPRETER) -m educational_ai_analytics.features
+	$(PYTHON_INTERPRETER) educational_ai_analytics/1_features/__main__.py
 
 ## 2. Train Autoencoder
 .PHONY: train_ae
 train_ae:
-	$(PYTHON_INTERPRETER) -m educational_ai_analytics.modeling.ae.train_autoencoder
+	$(PYTHON_INTERPRETER) -m educational_ai_analytics.2_modeling.ae.train_autoencoder
 
 ## 3. Generate Latent Space (Embeddings) -> data/3_embeddings
 .PHONY: encode
 encode:
-	$(PYTHON_INTERPRETER) -m educational_ai_analytics.modeling.ae.generate_embeddings
+	$(PYTHON_INTERPRETER) -m educational_ai_analytics.2_modeling.ae.generate_embeddings
 
 ## 4. Train Clustering (K-Means, etc.)
 .PHONY: train_clustering
 train_clustering:
-	$(PYTHON_INTERPRETER) -m educational_ai_analytics.modeling.clustering.train_clustering
+	$(PYTHON_INTERPRETER) -m educational_ai_analytics.2_modeling.clustering.train_clustering
 
 ## 5. Predict Clustering (Inferencia GMM) -> data/4_embeddings/{split}/segmentation_gmm_ae.csv
 .PHONY: predict_clustering
 predict_clustering:
-	$(PYTHON_INTERPRETER) -m educational_ai_analytics.modeling.clustering.predict_clustering
+	$(PYTHON_INTERPRETER) -m educational_ai_analytics.2_modeling.clustering.predict_clustering
 
 ## 6. Train Transformer (Future)
 .PHONY: train_transformer
 train_transformer:
-	$(PYTHON_INTERPRETER) -m educational_ai_analytics.modeling.transformers.train_transformer
+	$(PYTHON_INTERPRETER) -m educational_ai_analytics.2_modeling.transformers.train_transformer
 
 ## 7. Plot Learning Curves (AE)
-.PHONY: plot_loss
-plot_loss:
+.PHONY: plot_ae_loss
+plot_ae_loss:
 	$(PYTHON_INTERPRETER) -m educational_ai_analytics.plots.plot_ae loss-curve
 
 ## 8. Plot Latent Space (AE)
-.PHONY: plot_latent
-plot_latent:
+.PHONY: plot_ae_latent
+plot_ae_latent:
 	$(PYTHON_INTERPRETER) -m educational_ai_analytics.plots.plot_ae latent-space
 
-## 9. Plot PCA Latent Space (AE)
-.PHONY: plot_pca
-plot_pca:
-	$(PYTHON_INTERPRETER) -m educational_ai_analytics.plots.plot_ae latent-space --embeddings-file data/4_embeddings/training/latent_pca.csv --output-name latent_space_pca.png
-
-## 10. Plot AE Sample Flow (Input -> Latent -> Recon)
+## 9. Plot AE Sample Flow (Input -> Latent -> Recon)
 .PHONY: plot_ae_sample
 plot_ae_sample:
 	$(PYTHON_INTERPRETER) -m educational_ai_analytics.plots.plot_ae ae-reconstruction
+
+## 10. Plot comparison grid (PCA vs AE for multiple W)
+.PHONY: plot_ae_compare_pca
+plot_ae_compare_pca:
+	$(PYTHON_INTERPRETER) -m educational_ai_analytics.plots.plot_ae compare-pca-vs-ae
+
+## 11. Plot all AE reports for default W
+.PHONY: plot_ae
+plot_ae:
+	$(PYTHON_INTERPRETER) -m educational_ai_analytics.plots.plot_ae clean
+	$(MAKE) plot_ae_latent plot_ae_sample plot_ae_compare_pca
 
 ## Generar todos los plots de clustering (outcomes + profiles)
 .PHONY: plot_clustering

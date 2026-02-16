@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 from tensorflow.keras import layers, regularizers
 from .hyperparams import AE_PARAMS
 
@@ -88,10 +89,10 @@ class StudentProfileAutoencoder(tf.keras.Model):
         z_linear = self.latent_residual(x)
 
         # Mezcla con gate aprendido (por dimensión)
-        g = self.gate(x_deep)  # (batch, latent_dim) en [0,1]
+        g = self.gate(x_deep)
         z = g * z_deep + (1.0 - g) * z_linear
 
-        # Penalización suave de norma del embedding (para embeddings más “clustereables”)
+        # Penalización mucho más suave (o eliminada si z_norm_penalty=0)
         if training and self.z_norm_penalty > 0:
             self.add_loss(self.z_norm_penalty * tf.reduce_mean(tf.reduce_sum(tf.square(z), axis=1)))
 
@@ -107,12 +108,30 @@ class StudentProfileAutoencoder(tf.keras.Model):
 
     # Helper útil: embeddings directamente (para clustering)
     def get_embeddings(self, x, batch_size: int = 1024):
+        # Convertir a tensor si es numpy para evitar problemas de re-tracing
+        if isinstance(x, np.ndarray):
+            x = tf.convert_to_tensor(x)
+        
         ds = tf.data.Dataset.from_tensor_slices(x).batch(batch_size)
         zs = []
         for xb in ds:
             z = self.encode(xb, training=False)
             zs.append(z)
         return tf.concat(zs, axis=0)
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "input_dim": self.input_dim,
+            "latent_dim": self.latent_dim,
+            "denoise_std": self.denoise_std,
+            "z_norm_penalty": self.z_norm_penalty,
+        })
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
 
 
 # ---------------------------------------------------------------------

@@ -1,3 +1,11 @@
+import os
+import warnings
+
+# Silenciar warnings de Protobuf y logs de TensorFlow
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+warnings.filterwarnings("ignore", category=UserWarning, module="google.protobuf")
+warnings.filterwarnings("ignore", category=UserWarning, module="tensorflow")
+
 # educational_ai_analytics/modeling/clustering/predict_clustering.py
 from __future__ import annotations
 

@@ -1,3 +1,10 @@
+import os
+import warnings
+# Silence Protobuf and TF warnings
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+warnings.filterwarnings("ignore", category=UserWarning, module="google.protobuf")
+warnings.filterwarnings("ignore", category=UserWarning, module="tensorflow")
+
 import logging
 import shutil
 import pandas as pd

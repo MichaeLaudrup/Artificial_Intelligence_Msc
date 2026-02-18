@@ -23,6 +23,7 @@ class StudentProfileAutoencoder(tf.keras.Model):
         denoise_std: float = AE_PARAMS.denoise_std,
         l2_latent: float = AE_PARAMS.l2_latent,
         z_norm_penalty: float = AE_PARAMS.z_norm_penalty,
+        normalize_latent: bool = AE_PARAMS.normalize_latent,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -30,6 +31,7 @@ class StudentProfileAutoencoder(tf.keras.Model):
         self.latent_dim = latent_dim
         self.denoise_std = float(denoise_std)
         self.z_norm_penalty = float(z_norm_penalty)
+        self.normalize_latent = bool(normalize_latent)
 
         # -----------------------
         # Encoder
@@ -95,6 +97,10 @@ class StudentProfileAutoencoder(tf.keras.Model):
         # Penalización mucho más suave (o eliminada si z_norm_penalty=0)
         if training and self.z_norm_penalty > 0:
             self.add_loss(self.z_norm_penalty * tf.reduce_mean(tf.reduce_sum(tf.square(z), axis=1)))
+        
+        # Normalización L2 opcional (esfera unitaria)
+        if self.normalize_latent:
+            z = tf.math.l2_normalize(z, axis=1)
 
         return z
 
@@ -126,6 +132,7 @@ class StudentProfileAutoencoder(tf.keras.Model):
             "latent_dim": self.latent_dim,
             "denoise_std": self.denoise_std,
             "z_norm_penalty": self.z_norm_penalty,
+            "normalize_latent": self.normalize_latent,
         })
         return config
 

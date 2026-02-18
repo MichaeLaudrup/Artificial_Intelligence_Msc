@@ -1,5 +1,12 @@
-from pathlib import Path
+import os
+import warnings
 
+# Silenciar warnings de Protobuf y logs de TensorFlow
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+warnings.filterwarnings("ignore", category=UserWarning, module="google.protobuf")
+warnings.filterwarnings("ignore", category=UserWarning, module="tensorflow")
+
+from pathlib import Path
 from loguru import logger
 from tqdm import tqdm
 import typer

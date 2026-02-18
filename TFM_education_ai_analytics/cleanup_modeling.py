@@ -1,4 +1,4 @@
-import os
+siimport os
 from pathlib import Path
 
 base_dir = Path("/workspace/TFM_education_ai_analytics/educational_ai_analytics/modeling")

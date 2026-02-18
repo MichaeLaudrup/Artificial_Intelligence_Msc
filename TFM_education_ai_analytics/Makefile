@@ -5,6 +5,7 @@
 PROJECT_NAME = educational_ai_analytics
 PYTHON_VERSION = 3.12
 PYTHON_INTERPRETER = python
+METHOD = pca
 
 #################################################################################
 # COMMANDS                                                                      #
@@ -75,43 +76,53 @@ train_transformer:
 ## 7. Plot Learning Curves (AE)
 .PHONY: plot_ae_loss
 plot_ae_loss:
-	$(PYTHON_INTERPRETER) -m educational_ai_analytics.plots.plot_ae loss-curve
+	$(PYTHON_INTERPRETER) -m educational_ai_analytics.3_plots.plot_ae loss-curve
 
 ## 8. Plot Latent Space (AE)
 .PHONY: plot_ae_latent
 plot_ae_latent:
-	$(PYTHON_INTERPRETER) -m educational_ai_analytics.plots.plot_ae latent-space
+	$(PYTHON_INTERPRETER) -m educational_ai_analytics.3_plots.plot_ae latent-space --method $(METHOD)
 
 ## 9. Plot AE Sample Flow (Input -> Latent -> Recon)
 .PHONY: plot_ae_sample
 plot_ae_sample:
-	$(PYTHON_INTERPRETER) -m educational_ai_analytics.plots.plot_ae ae-reconstruction
+	$(PYTHON_INTERPRETER) -m educational_ai_analytics.3_plots.plot_ae ae-reconstruction
 
 ## 10. Plot comparison grid (PCA vs AE for multiple W)
 .PHONY: plot_ae_compare_pca
 plot_ae_compare_pca:
-	$(PYTHON_INTERPRETER) -m educational_ai_analytics.plots.plot_ae compare-pca-vs-ae
+	$(PYTHON_INTERPRETER) -m educational_ai_analytics.3_plots.plot_ae compare-pca-vs-ae --method $(METHOD)
 
-## 11. Plot all AE reports for default W
+## 11. Plot comparison of latent spaces across W
+.PHONY: plot_ae_compare_latent
+plot_ae_compare_latent:
+	$(PYTHON_INTERPRETER) -m educational_ai_analytics.3_plots.plot_ae compare-latent-spaces --method $(METHOD)
+
+## 12. Plot all AE reports for default W
 .PHONY: plot_ae
 plot_ae:
-	$(PYTHON_INTERPRETER) -m educational_ai_analytics.plots.plot_ae clean
-	$(MAKE) plot_ae_latent plot_ae_sample plot_ae_compare_pca
+	$(PYTHON_INTERPRETER) -m educational_ai_analytics.3_plots.plot_ae clean
+	$(MAKE) plot_ae_latent plot_ae_sample plot_ae_compare_pca plot_ae_compare_latent
 
 ## Generar todos los plots de clustering (outcomes + profiles)
 .PHONY: plot_clustering
 plot_clustering:
-	$(PYTHON_INTERPRETER) -m educational_ai_analytics.plots.plot_clustering outcomes
-	$(PYTHON_INTERPRETER) -m educational_ai_analytics.plots.plot_clustering profiles
-	$(PYTHON_INTERPRETER) -m educational_ai_analytics.plots.plot_clustering diagnose-modules
-	$(PYTHON_INTERPRETER) -m educational_ai_analytics.plots.plot_clustering verify-module-success
+	$(PYTHON_INTERPRETER) -m educational_ai_analytics.3_plots.plot_clustering outcomes
+	$(PYTHON_INTERPRETER) -m educational_ai_analytics.3_plots.plot_clustering profiles
+	$(PYTHON_INTERPRETER) -m educational_ai_analytics.3_plots.plot_clustering diagnose-modules
+	$(PYTHON_INTERPRETER) -m educational_ai_analytics.3_plots.plot_clustering verify-module-success
 
 plot_profiles:
-	$(PYTHON_INTERPRETER) -m educational_ai_analytics.plots.plot_clustering profiles
+	$(PYTHON_INTERPRETER) -m educational_ai_analytics.3_plots.plot_clustering profiles
 
 ## Prep latent space (Dataset -> Features -> Train AE -> Encode)
 .PHONY: prep_latent
-prep_latent: data features train_ae encode
+prep_latent: data features train_ae encode plot_ae
+
+## Full AE Pipeline with UMAP (Train + Encode + Plot UMAP)
+.PHONY: ae_full_umap
+ae_full_umap: train_ae encode
+	$(MAKE) plot_ae METHOD=umap
 
 ## Run full pipeline
 .PHONY: pipeline

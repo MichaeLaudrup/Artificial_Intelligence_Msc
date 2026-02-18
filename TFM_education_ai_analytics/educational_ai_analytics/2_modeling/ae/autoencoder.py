@@ -4,14 +4,68 @@ from tensorflow.keras import layers, regularizers
 from .hyperparams import AE_PARAMS
 
 
+@tf.keras.utils.register_keras_serializable(package="edu")
+class ClusteringLayer(layers.Layer):
+    """
+    DEC/IDEC-style clustering layer using Student's t-distribution kernel.
+
+    Given embeddings z (B, D) and trainable cluster centers mu (K, D),
+    returns soft assignments q (B, K).
+
+    q_ij ∝ (1 + ||z_i - mu_j||^2 / alpha)^(-(alpha+1)/2)
+    """
+    def __init__(self, n_clusters: int, alpha: float = 1.0, **kwargs):
+        super().__init__(**kwargs)
+        self.n_clusters = int(n_clusters)
+        self.alpha = float(alpha)
+
+    def build(self, input_shape):
+        # input_shape: (batch, latent_dim)
+        if len(input_shape) != 2:
+            raise ValueError(f"ClusteringLayer expects rank-2 input (B, D). Got: {input_shape}")
+
+        latent_dim = int(input_shape[-1])
+        self.clusters = self.add_weight(
+            name="clusters",
+            shape=(self.n_clusters, latent_dim),
+            initializer="glorot_uniform",
+            trainable=True,
+        )
+        super().build(input_shape)
+
+    def call(self, inputs):
+        # inputs: (B, D)
+        z = tf.expand_dims(inputs, axis=1)           # (B, 1, D)
+        mu = tf.expand_dims(self.clusters, axis=0)   # (1, K, D)
+        dist = tf.reduce_sum(tf.square(z - mu), axis=2)  # (B, K)
+
+        q = 1.0 / (1.0 + dist / self.alpha)
+        q = tf.pow(q, (self.alpha + 1.0) / 2.0)
+
+        # Normalize row-wise to get probabilities
+        q = q / tf.reduce_sum(q, axis=1, keepdims=True)
+
+        return q
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "n_clusters": self.n_clusters,
+            "alpha": self.alpha,
+        })
+        return config
+
+
+@tf.keras.utils.register_keras_serializable(package="edu")
 class StudentProfileAutoencoder(tf.keras.Model):
     """
-    Cambios vs tu versión:
-    1) Mezcla Wide+Deep con GATE aprendible (por dimensión): z = g*z_deep + (1-g)*z_linear
-       -> evita que uno de los dos caminos domine sin control.
-    2) Denoising opcional (ruido gaussiano SOLO en training) en vez de depender del dropout "a ciegas".
-    3) Regularización L2 en las proyecciones latentes + penalización suave de norma del embedding (opcional).
-    4) Guardrails: clip del gate (vía sigmoid), y dropout más bajo por defecto.
+    Autoencoder + DEC clustering head.
+
+    - Encoder: MLP (deep) + linear residual (wide) + per-dimension learned gate
+    - Latent regularization: optional L2 norm penalty + optional L2-normalization
+    - Outputs:
+        1) reconstruction (B, input_dim)  [name: "reconstruction"]
+        2) soft cluster assignments q (B, n_clusters) [layer name: "clustering_output"]
     """
 
     def __init__(
@@ -19,86 +73,105 @@ class StudentProfileAutoencoder(tf.keras.Model):
         input_dim: int = AE_PARAMS.input_dim,
         latent_dim: int = AE_PARAMS.latent_dim,
         hidden_dims=AE_PARAMS.hidden_dims,
+        n_clusters: int = AE_PARAMS.n_clusters if hasattr(AE_PARAMS, "n_clusters") else 6,
         dropout_rate: float = AE_PARAMS.dropout_rate,
         denoise_std: float = AE_PARAMS.denoise_std,
         l2_latent: float = AE_PARAMS.l2_latent,
         z_norm_penalty: float = AE_PARAMS.z_norm_penalty,
         normalize_latent: bool = AE_PARAMS.normalize_latent,
+        alpha: float = 1.0,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.input_dim = input_dim
-        self.latent_dim = latent_dim
+
+        self.input_dim = int(input_dim)
+        self.latent_dim = int(latent_dim)
+        self.n_clusters = int(n_clusters)
+
+        self.hidden_dims = list(hidden_dims)
+        self.dropout_rate = float(dropout_rate)
         self.denoise_std = float(denoise_std)
+        self.l2_latent = float(l2_latent)
         self.z_norm_penalty = float(z_norm_penalty)
         self.normalize_latent = bool(normalize_latent)
+        self.alpha = float(alpha)
 
         # -----------------------
         # Encoder
         # -----------------------
         enc = []
-        for dims in hidden_dims:
-            enc.append(layers.Dense(dims))
+        for dims in self.hidden_dims:
+            enc.append(layers.Dense(int(dims)))
             enc.append(layers.BatchNormalization())
             enc.append(layers.LeakyReLU(0.1))
-            if dropout_rate and dropout_rate > 0:
-                enc.append(layers.Dropout(dropout_rate))
+            if self.dropout_rate and self.dropout_rate > 0:
+                enc.append(layers.Dropout(self.dropout_rate))
         self.encoder_layers = tf.keras.Sequential(enc, name="encoder")
 
-        # Latent: Deep (no lineal)
+        # Latent projections
         self.latent_deep = layers.Dense(
-            latent_dim,
+            self.latent_dim,
             name="latent_deep",
-            kernel_regularizer=regularizers.l2(l2_latent),
+            kernel_regularizer=regularizers.l2(self.l2_latent),
         )
 
-        # Latent: Residual (lineal / wide)
         self.latent_residual = layers.Dense(
-            latent_dim,
+            self.latent_dim,
             use_bias=False,
             name="latent_residual",
-            kernel_regularizer=regularizers.l2(l2_latent),
+            kernel_regularizer=regularizers.l2(self.l2_latent),
         )
 
-        # Gate por dimensión (0..1): decide cuánto usar deep vs linear
         self.gate = layers.Dense(
-            latent_dim,
+            self.latent_dim,
             activation="sigmoid",
             name="latent_gate",
+        )
+
+        # Clustering head
+        self.clustering_layer = ClusteringLayer(
+            n_clusters=self.n_clusters,
+            alpha=self.alpha,
+            name="clustering_output",
         )
 
         # -----------------------
         # Decoder
         # -----------------------
         dec = []
-        for dims in reversed(tuple(hidden_dims)):
-            dec.append(layers.Dense(dims))
+        for dims in reversed(tuple(self.hidden_dims)):
+            dec.append(layers.Dense(int(dims)))
             dec.append(layers.BatchNormalization())
             dec.append(layers.LeakyReLU(0.1))
-            if dropout_rate and dropout_rate > 0:
-                dec.append(layers.Dropout(dropout_rate))
+            if self.dropout_rate and self.dropout_rate > 0:
+                dec.append(layers.Dropout(self.dropout_rate))
         self.decoder_layers = tf.keras.Sequential(dec, name="decoder")
 
-        self.output_layer = layers.Dense(input_dim, activation="linear", name="reconstruction")
+        self.output_layer = layers.Dense(
+            self.input_dim,
+            activation="linear",
+            name="reconstruction",
+        )
 
     def encode(self, x, training: bool = False):
-        # Denoising: añade ruido SOLO en training (si denoise_std > 0)
+        # Denoising only during training
         if training and self.denoise_std > 0:
-            x = x + tf.random.normal(tf.shape(x), stddev=self.denoise_std)
+            noise = tf.random.normal(tf.shape(x), stddev=self.denoise_std, dtype=x.dtype)
+            x = x + noise
 
         x_deep = self.encoder_layers(x, training=training)
         z_deep = self.latent_deep(x_deep)
         z_linear = self.latent_residual(x)
 
-        # Mezcla con gate aprendido (por dimensión)
         g = self.gate(x_deep)
         z = g * z_deep + (1.0 - g) * z_linear
 
-        # Penalización mucho más suave (o eliminada si z_norm_penalty=0)
+        # Soft L2 norm penalty (optional)
         if training and self.z_norm_penalty > 0:
-            self.add_loss(self.z_norm_penalty * tf.reduce_mean(tf.reduce_sum(tf.square(z), axis=1)))
-        
-        # Normalización L2 opcional (esfera unitaria)
+            penalty = self.z_norm_penalty * tf.reduce_mean(tf.reduce_sum(tf.square(z), axis=1))
+            self.add_loss(tf.cast(penalty, tf.float32))
+
+        # Optional L2 normalization (unit sphere)
         if self.normalize_latent:
             z = tf.math.l2_normalize(z, axis=1)
 
@@ -110,15 +183,16 @@ class StudentProfileAutoencoder(tf.keras.Model):
 
     def call(self, inputs, training: bool = False):
         z = self.encode(inputs, training=training)
-        return self.decode(z, training=training)
+        x_recon = self.decode(z, training=training)
+        q = self.clustering_layer(z)
+        return x_recon, q
 
-    # Helper útil: embeddings directamente (para clustering)
     def get_embeddings(self, x, batch_size: int = 1024):
-        # Convertir a tensor si es numpy para evitar problemas de re-tracing
+        # Convert to tensor to avoid retracing & improve throughput
         if isinstance(x, np.ndarray):
-            x = tf.convert_to_tensor(x)
-        
-        ds = tf.data.Dataset.from_tensor_slices(x).batch(batch_size)
+            x = tf.convert_to_tensor(x, dtype=tf.float32)
+
+        ds = tf.data.Dataset.from_tensor_slices(x).batch(int(batch_size))
         zs = []
         for xb in ds:
             z = self.encode(xb, training=False)
@@ -130,29 +204,17 @@ class StudentProfileAutoencoder(tf.keras.Model):
         config.update({
             "input_dim": self.input_dim,
             "latent_dim": self.latent_dim,
+            "hidden_dims": self.hidden_dims,
+            "n_clusters": self.n_clusters,
+            "dropout_rate": self.dropout_rate,
             "denoise_std": self.denoise_std,
+            "l2_latent": self.l2_latent,
             "z_norm_penalty": self.z_norm_penalty,
             "normalize_latent": self.normalize_latent,
+            "alpha": self.alpha,
         })
         return config
 
     @classmethod
     def from_config(cls, config):
         return cls(**config)
-
-
-# ---------------------------------------------------------------------
-# Ejemplo de uso (opcional)
-# ---------------------------------------------------------------------
-if __name__ == "__main__":
-    # Dummy run
-    ae = StudentProfileAutoencoder(input_dim=43, latent_dim=16, hidden_dims=(32,), denoise_std=0.03)
-
-    # Compilación recomendada para tabular estandarizado
-    ae.compile(optimizer=tf.keras.optimizers.Adam(1e-3), loss=tf.keras.losses.Huber(delta=1.0))
-
-    x = tf.random.normal((256, 43))
-    ae.fit(x, x, epochs=2, batch_size=64, verbose=1)
-
-    z = ae.get_embeddings(x)
-    print("Embeddings:", z.shape)

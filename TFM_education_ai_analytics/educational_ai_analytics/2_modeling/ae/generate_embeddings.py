@@ -141,11 +141,28 @@ def main(
                 )
 
         if ae_to_use is not None:
-            logger.info(f"   🧠 Generando AE Latent alineado...")
+            logger.info(f"   🧠 Generando AE Latent y DEC Clusters...")
             for split_name, (X, idx) in data_all_windows[W].items():
                 out_dir = EMBEDDINGS_DATA_DIR / split_name / f"upto_w{W:02d}"
-                Z_ae = ae_to_use.get_embeddings(X, batch_size=batch_size).numpy()
-                save_csv(Z_ae, idx, out_dir / "ae_latent.csv", "z")
+                # Get both embeddings and cluster assignments
+                # StudentProfileAutoencoder.call returns (x_recon, q)
+                # But we want z too. We can use model(X) or encode(X) + clustering_layer(z)
+                z = ae_to_use.get_embeddings(X, batch_size=batch_size).numpy()
+                q = ae_to_use.clustering_layer(z).numpy()
+                
+                # Save embeddings
+                save_csv(z, idx, out_dir / "ae_latent.csv", "z")
+                
+                # Save DEC Segmentation
+                cluster_id = q.argmax(axis=1)
+                seg_df = pd.DataFrame(index=idx)
+                seg_df["cluster_id"] = cluster_id
+                for j in range(q.shape[1]):
+                    seg_df[f"p_cluster_{j}"] = q[:, j]
+                
+                seg_path = out_dir / "segmentation_dec.csv"
+                seg_df.to_csv(seg_path)
+                logger.info(f"   📍 Saved DEC Segmentation: {seg_path}")
         else:
             logger.warning(f"   ⚠️ No se encontró modelo AE para W{W:02d}")
 

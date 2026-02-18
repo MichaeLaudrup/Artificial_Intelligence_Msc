@@ -20,6 +20,7 @@ from educational_ai_analytics.config import (
     FEATURES_DATA_DIR,
     MODELS_DIR,
     CLUSTERING_REPORTS_DIR,
+    W_WINDOWS,
 )
 from .style import set_style
 
@@ -29,40 +30,51 @@ set_style()
 @app.command("outcomes")
 def clustering_outcomes_by_split(
     splits: str = typer.Option("training,validation,test", help="Splits a procesar separados por coma."),
-    segmentation_name: str = typer.Option("segmentation_gmm_ae.csv", help="Nombre del archivo de segmentación."),
+    segmentation_name: str = typer.Option("segmentation_dec.csv", help="Nombre del archivo de segmentación."),
+    window: int = typer.Option(max(W_WINDOWS) if W_WINDOWS else 24, help="Ventana temporal a usar."),
     out_dir: Path = typer.Option(CLUSTERING_REPORTS_DIR, help="Directorio de salida para los reportes."),
     seed: int = typer.Option(42, help="Semilla aleatoria.")
 ):
     """
     Generas gráficas de distribución de resultados académicos por clúster (OULAD).
     """
-    _run_outcomes(splits, segmentation_name, out_dir, seed)
+    _run_outcomes(splits, segmentation_name, window, out_dir, seed)
 
 @app.command("profiles")
 def clustering_profiles(
-    segmentation_name: str = typer.Option("segmentation_gmm_ae.csv", help="Nombre del archivo de segmentación."),
+    segmentation_name: str = typer.Option("segmentation_dec.csv", help="Nombre del archivo de segmentación."),
+    window: int = typer.Option(max(W_WINDOWS) if W_WINDOWS else 24, help="Ventana temporal a usar."),
     out_dir: Path = typer.Option(CLUSTERING_REPORTS_DIR, help="Directorio de salida."),
 ):
     """
     Genera un mapa de calor visualizando el perfil de cada clúster según sus variables.
     (Solo para el split de TRAINING).
     """
-    _run_profiles(segmentation_name, out_dir)
+    _run_profiles(segmentation_name, window, out_dir)
 
 @app.command("diagnose-modules")
 def diagnose_modules(
-    segmentation_name: str = typer.Option("segmentation_gmm_ae.csv", help="Nombre del archivo de segmentación."),
+    segmentation_name: str = typer.Option("segmentation_dec.csv", help="Nombre del archivo de segmentación."),
+    window: int = typer.Option(max(W_WINDOWS) if W_WINDOWS else 24, help="Ventana temporal a usar."),
     out_dir: Path = typer.Option(CLUSTERING_REPORTS_DIR, help="Directorio de salida."),
 ):
     """
     Analiza si los clústeres están dominados por módulos específicos (diagnóstico de sesgo).
     """
-    _run_module_diagnosis(segmentation_name, out_dir)
+    _run_module_diagnosis(segmentation_name, window, out_dir)
 
 @app.command("info")
 def info():
     """Muestra información sobre este módulo de visualización."""
     logger.info("Módulo de visualización de clustering para TFM.")
+
+def _get_segmentation_path(split: str, name: str, window: int) -> Path:
+    # 1. Mirar en la raíz de embeddings (estilo antiguo)
+    p1 = EMBEDDINGS_DATA_DIR / split / name
+    if p1.exists(): return p1
+    # 2. Mirar en la subcarpeta de la ventana (estilo nuevo/multi-W)
+    p2 = EMBEDDINGS_DATA_DIR / split / f"upto_w{int(window):02d}" / name
+    return p2
 
 def _get_dynamic_mapping():
     mapping_path = MODELS_DIR / "cluster_mapping.json"
@@ -82,12 +94,12 @@ def _get_dynamic_mapping():
             logger.warning(f"Error cargando mapping: {e}")
     return mapping
 
-def _run_profiles(segmentation_name, out_dir):
+def _run_profiles(segmentation_name, window, out_dir):
     out_dir.mkdir(parents=True, exist_ok=True)
     
     # Solo trabajamos con training para el perfilado base
     split = "training"
-    seg_path = EMBEDDINGS_DATA_DIR / split / segmentation_name
+    seg_path = _get_segmentation_path(split, segmentation_name, window)
     feat_path = FEATURES_DATA_DIR / split / "engineered_features.csv"
 
     if not seg_path.exists() or not feat_path.exists():
@@ -171,10 +183,10 @@ def _run_profiles(segmentation_name, out_dir):
     plt.close()
     logger.success(f"📈 Perfiles de clúster guardados en: {out_file}")
 
-def _run_module_diagnosis(segmentation_name, out_dir):
+def _run_module_diagnosis(segmentation_name, window, out_dir):
     out_dir.mkdir(parents=True, exist_ok=True)
     split = "training"
-    seg_path = EMBEDDINGS_DATA_DIR / split / segmentation_name
+    seg_path = _get_segmentation_path(split, segmentation_name, window)
     
     if not seg_path.exists():
         logger.error(f"No existe segmentation en {seg_path}")
@@ -303,7 +315,7 @@ def _run_module_success_verification(out_dir):
     plt.close()
     logger.success(f"🖼️ Gráfico de éxito por módulo: {out_png}")
 
-def _run_outcomes(splits, segmentation_name, out_dir, seed):
+def _run_outcomes(splits, segmentation_name, window, out_dir, seed):
     out_dir.mkdir(parents=True, exist_ok=True)
 
     mapping = _get_dynamic_mapping()
@@ -317,7 +329,7 @@ def _run_outcomes(splits, segmentation_name, out_dir, seed):
     split_list = [s.strip() for s in splits.split(",") if s.strip()]
     
     def _load_split(split: str):
-        seg_path = EMBEDDINGS_DATA_DIR / split / segmentation_name
+        seg_path = _get_segmentation_path(split, segmentation_name, window)
         tgt_path = FEATURES_DATA_DIR / split / "target.csv"
 
         if not seg_path.exists():

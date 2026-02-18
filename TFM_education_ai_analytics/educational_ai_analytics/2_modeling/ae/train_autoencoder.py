@@ -1,5 +1,6 @@
 import os
 import warnings
+
 # Silence Protobuf and TF warnings
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 warnings.filterwarnings("ignore", category=UserWarning, module="google.protobuf")
@@ -11,13 +12,11 @@ import tensorflow as tf
 from pathlib import Path
 from loguru import logger
 import typer
-from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLROnPlateau
+from sklearn.cluster import KMeans
 
 from educational_ai_analytics.config import (
     FEATURES_DATA_DIR,
-    EMBEDDINGS_DATA_DIR,
     MODELS_DIR,
-    REPORTS_DIR,
     W_WINDOWS,
 )
 
@@ -45,130 +44,237 @@ def _configure_gpu():
 
 
 def load_features(path: Path, W: int):
-    """
-    Carga y concatena features para el AE (Static + Dynamic UptoW).
-    """
     X0_path = path / "day0_static_features.csv"
     Xdyn_path = path / "ae_uptow_features" / f"ae_uptow_features_w{W:02d}.csv"
 
-    if not X0_path.exists():
-        raise FileNotFoundError(f"Falta {X0_path}")
-    if not Xdyn_path.exists():
-        raise FileNotFoundError(f"Falta {Xdyn_path}")
+    if not X0_path.exists() or not Xdyn_path.exists():
+        raise FileNotFoundError(f"Faltan features en {path} para W{W}")
 
     df0 = pd.read_csv(X0_path, index_col=0)
     dfdyn = pd.read_csv(Xdyn_path, index_col=0)
 
-    # Concat y alineación
     df = pd.concat([df0, dfdyn.reindex(df0.index)], axis=1).fillna(0.0)
     X = df.replace([np.inf, -np.inf], 0.0).fillna(0.0).values.astype(np.float32)
     return X
 
 
-def make_dataset(X: np.ndarray, batch_size: int, training: bool):
-    ds = tf.data.Dataset.from_tensor_slices((X, X))
-    if training:
-        ds = ds.shuffle(min(len(X), 100000), reshuffle_each_iteration=True)
-        ds = ds.batch(batch_size).cache().prefetch(tf.data.AUTOTUNE)
-    else:
-        ds = ds.batch(batch_size).prefetch(tf.data.AUTOTUNE)
-    return ds
+def target_distribution(q: np.ndarray, eps: float = 1e-12) -> np.ndarray:
+    """
+    DEC target distribution P (sharpening), stabilized.
+    q: (N, K)
+    """
+    q = np.clip(q, eps, 1.0)
+    weight = (q ** 2) / (q.sum(axis=0, keepdims=True) + eps)
+    p = weight / (weight.sum(axis=1, keepdims=True) + eps)
+    return p.astype(np.float32)
 
 
 @app.command()
 def main(
-    epochs: int = AE_PARAMS.epochs,
+    pretrain_epochs: int = AE_PARAMS.pretrain_epochs,
+    joint_epochs: int = AE_PARAMS.joint_epochs,
     batch_size: int = AE_PARAMS.batch_size,
     seed: int = 42,
-    windows_str: str = "",
+    update_interval: int = 5,     # 🔥 speed + stability
+    sample_frac: float = AE_PARAMS.sample_frac,     # 🔥 compute P on subset (0.3–0.7 recommended)
+    shuffle_buf: int = 10000,
+    use_mixed_precision: bool = True,
+    save_best: bool = True,
 ):
     """
-    Entrena un ÚNICO Autoencoder apilando todas las semanas (W_WINDOWS).
-    Esto crea un espacio latente común y alineado para todas las fases del curso.
+    Entrenamiento DCN/DEC:
+    1) Pretrain: reconstrucción
+    2) Init: KMeans en embeddings
+    3) Joint: reconstrucción + KL(P||Q)
+       Optimizado: update_interval mayor + P sobre subset + tf.function + prefetch + mixed precision
     """
     _configure_gpu()
     _set_seed(seed)
 
+    if use_mixed_precision:
+        from tensorflow.keras import mixed_precision
+        mixed_precision.set_global_policy("mixed_float16")
+        logger.info("⚡ Mixed precision: ACTIVADO (mixed_float16)")
+
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
-    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    windows = sorted([int(w) for w in W_WINDOWS])
 
-    if windows_str:
-        windows = [int(w.strip()) for w in windows_str.split(",") if w.strip()]
-    else:
-        windows = [int(w) for w in W_WINDOWS]
-    
-    logger.info(f"🧠 Preparando entrenamiento GLOBAL apilando ventanas: {windows}")
+    logger.info(f"🧠 DCN Training | Ventanas: {windows} | K={AE_PARAMS.n_clusters} | N≈? | batch={batch_size}")
 
-    # 1) Carga y Apilado Vertical
-    X_train_list = []
-    X_val_list = []
-
+    # -----------------------
+    # 1) Load data
+    # -----------------------
+    X_train_list, X_val_list = [], []
     for W in windows:
         try:
-            xt = load_features(FEATURES_DATA_DIR / "training", W=W)
-            xv = load_features(FEATURES_DATA_DIR / "validation", W=W)
-            X_train_list.append(xt)
-            X_val_list.append(xv)
-            logger.info(f"   📥 W{W:02d} cargada: train={xt.shape}, val={xv.shape}")
+            X_train_list.append(load_features(FEATURES_DATA_DIR / "training", W))
+            X_val_list.append(load_features(FEATURES_DATA_DIR / "validation", W))
         except Exception as e:
-            logger.warning(f"   ⚠️ Error cargando W{W:02d}: {e}")
+            logger.warning(f"   ⚠️ W{W:02d}: {e}")
 
     if not X_train_list:
-        logger.error("❌ No hay datos para entrenar.")
-        return
+        raise RuntimeError("No se pudieron cargar features de training en ninguna ventana.")
 
-    X_train_full = np.vstack(X_train_list)
-    X_val_full = np.vstack(X_val_list)
+    X_train = np.vstack(X_train_list).astype(np.float32)
+    X_val = np.vstack(X_val_list).astype(np.float32) if X_val_list else None
 
-    logger.info(f"📊 Dataset GLOBAL apilado: Train={X_train_full.shape}, Val={X_val_full.shape}")
+    logger.info(f"📦 X_train: {X_train.shape} | X_val: {None if X_val is None else X_val.shape}")
 
-    # 2) Definición del Modelo
-    model = StudentProfileAutoencoder(input_dim=X_train_full.shape[1])
-    model.compile(
-        optimizer=tf.keras.optimizers.Adam(learning_rate=AE_PARAMS.learning_rate),
-        loss=tf.keras.losses.Huber(delta=1.0),
-        metrics=[
-            tf.keras.metrics.MeanSquaredError(name="mse"),
-            tf.keras.metrics.MeanAbsoluteError(name="mae"),
-        ],
+    # -----------------------
+    # 2) Phase 1: Pretrain (reconstruction)
+    # -----------------------
+    logger.info("🚀 Fase 1: Pre-entrenamiento (Reconstrucción)...")
+    model = StudentProfileAutoencoder(
+        input_dim=X_train.shape[1],
+        n_clusters=AE_PARAMS.n_clusters,
     )
 
-    model_path = MODELS_DIR / "ae_best_global.keras"
-    # Guardar en carpeta oculta para no ensuciar reports/ae
-    hist_dir = REPORTS_DIR / "ae" / ".history"
-    hist_dir.mkdir(parents=True, exist_ok=True)
-    history_path = hist_dir / "ae_training_history_global.csv"
+    # Subclassed model -> list of losses is robust
+    model.compile(
+        optimizer=tf.keras.optimizers.Adam(AE_PARAMS.learning_rate),
+        loss=[tf.keras.losses.Huber(), tf.keras.losses.MeanSquaredError()],
+        loss_weights=[1.0, 0.0],
+    )
 
-    # 3) Callbacks
-    callbacks = [
-        ModelCheckpoint(model_path, save_best_only=True, monitor="val_loss", verbose=1),
-        EarlyStopping(
-            monitor="val_loss",
-            patience=AE_PARAMS.early_stopping_patience,
-            restore_best_weights=True,
-            verbose=1,
-        ),
-        ReduceLROnPlateau(
-            monitor="val_loss",
-            factor=AE_PARAMS.reduce_lr_factor,
-            patience=AE_PARAMS.reduce_lr_patience,
-            min_lr=AE_PARAMS.min_learning_rate,
-            verbose=1,
-        ),
-    ]
+    y_dummy_train = np.zeros((len(X_train), AE_PARAMS.n_clusters), dtype=np.float32)
+    if X_val is not None:
+        y_dummy_val = np.zeros((len(X_val), AE_PARAMS.n_clusters), dtype=np.float32)
+        val_data = (X_val, [X_val, y_dummy_val])
+    else:
+        val_data = None
 
-    # 4) Entrenamiento
-    ds_train = make_dataset(X_train_full, batch_size=batch_size, training=True)
-    ds_val = make_dataset(X_val_full, batch_size=batch_size, training=False)
+    model.fit(
+        X_train,
+        [X_train, y_dummy_train],
+        validation_data=val_data,
+        epochs=pretrain_epochs,
+        batch_size=batch_size,
+        verbose=1,
+    )
 
-    logger.info(f"🚀 Iniciando FIT Global | epochs={epochs} | latent_dim={AE_PARAMS.latent_dim}")
-    history = model.fit(ds_train, validation_data=ds_val, epochs=epochs, callbacks=callbacks, verbose=1)
+    # -----------------------
+    # 3) Phase 2: KMeans init
+    # -----------------------
+    logger.info("📍 Fase 2: Inicializando centroides con KMeans...")
+    z = model.get_embeddings(X_train, batch_size=max(1024, batch_size))
+    kmeans = KMeans(n_clusters=AE_PARAMS.n_clusters, n_init=20, random_state=seed)
+    y_pred = kmeans.fit_predict(z.numpy())
 
-    # 5) Guardar Historial
-    pd.DataFrame(history.history).to_csv(history_path, index=False)
-    logger.success(f"✨ Entrenamiento GLOBAL completado.")
-    logger.info(f"💾 Modelo: {model_path}")
-    logger.info(f"📈 History: {history_path}")
+    model.get_layer("clustering_output").set_weights([kmeans.cluster_centers_])
+    logger.success("✅ Centroides cargados en la capa de clustering_output.")
+
+    # -----------------------
+    # 4) Phase 3: Joint training (optimized)
+    # -----------------------
+    logger.info("🧬 Fase 3: Optimización Conjunta (DCN) [OPTIMIZADA]...")
+
+    optimizer = tf.keras.optimizers.Adam(AE_PARAMS.learning_rate / 5.0)
+    loss_recon = tf.keras.losses.Huber()
+    loss_kl = tf.keras.losses.KLDivergence()
+
+    # Best checkpoint tracking (phase 3)
+    best_t = float("inf")
+    best_path = MODELS_DIR / "ae_best_global.keras"
+    last_path = MODELS_DIR / "ae_last_global.keras"
+
+    @tf.function
+    def train_step(x_batch, p_batch):
+        with tf.GradientTape() as tape:
+            x_rec, q_batch = model(x_batch, training=True)
+
+            # guardrails for KL
+            q_batch = tf.clip_by_value(q_batch, 1e-12, 1.0)
+            p_batch = tf.clip_by_value(p_batch, 1e-12, 1.0)
+
+            l_rec = loss_recon(x_batch, x_rec)
+            l_cl = loss_kl(p_batch, q_batch)
+
+            total = l_rec + tf.cast(AE_PARAMS.clustering_loss_weight, l_rec.dtype) * l_cl
+
+            # include model.add_loss() terms (e.g., z_norm_penalty)
+            if model.losses:
+                total = total + tf.add_n(model.losses)
+
+        grads = tape.gradient(total, model.trainable_variables)
+        optimizer.apply_gradients(zip(grads, model.trainable_variables))
+        return total, l_rec, l_cl
+
+    train_p_ds = None
+    # Early Stopping tracking
+    patience_counter = 0
+    patience_limit = AE_PARAMS.early_stopping_patience
+
+    for epoch in range(joint_epochs):
+        # Recompute P (target distribution) every update_interval epochs
+        if epoch % update_interval == 0:
+            logger.info(f"   🔄 Actualizando distribución objetivo (Epoch {epoch})...")
+
+            m = int(len(X_train) * float(sample_frac))
+            m = max(m, AE_PARAMS.n_clusters * 50)  # small safety floor
+            m = min(m, len(X_train))
+
+            idx = np.random.choice(len(X_train), m, replace=False)
+            X_p = X_train[idx]
+
+            # Fast inference for q on subset
+            _, q = model.predict(X_p, batch_size=batch_size, verbose=0)
+            q = q.astype(np.float32)
+            p = target_distribution(q)
+
+            # label-change diagnostic
+            y_curr = q.argmax(1)
+            y_prev_subset = y_pred[idx] if len(y_pred) == len(X_train) else y_pred[:m]
+            delta_label = float(np.mean(y_curr != y_prev_subset)) * 100.0
+            if len(y_pred) == len(X_train):
+                y_pred[idx] = y_curr
+
+            logger.info(f"   📊 Cambio en etiquetas (subset): {delta_label:.4f}% | subset={m}")
+
+            train_p_ds = (
+                tf.data.Dataset.from_tensor_slices((X_p, p))
+                .shuffle(shuffle_buf)
+                .batch(batch_size, drop_remainder=False)
+                .prefetch(tf.data.AUTOTUNE)
+            )
+
+        if train_p_ds is None:
+            raise RuntimeError("train_p_ds no inicializado.")
+
+        epoch_t = tf.keras.metrics.Mean()
+        epoch_r = tf.keras.metrics.Mean()
+        epoch_c = tf.keras.metrics.Mean()
+
+        from tqdm import tqdm
+        pbar = tqdm(train_p_ds, desc=f"   Epoch {epoch+1:02d}/{joint_epochs}", leave=False)
+        for x_batch, p_batch in pbar:
+            total, l_rec, l_cl = train_step(x_batch, p_batch)
+            epoch_t.update_state(total)
+            epoch_r.update_state(l_rec)
+            epoch_c.update_state(l_cl)
+            
+            pbar.set_postfix({"T": f"{total.numpy():.4f}", "R": f"{l_rec.numpy():.4f}", "C": f"{l_cl.numpy():.4f}"})
+
+        t_val = float(epoch_t.result().numpy())
+        r_val = float(epoch_r.result().numpy())
+        c_val = float(epoch_c.result().numpy())
+
+        logger.info(f"   📉 Finalizado Epoch {epoch+1:02d}/{joint_epochs} | T-Loss: {t_val:.4f} | R: {r_val:.4f} | C: {c_val:.4f}")
+
+        # Save best checkpoint & Early Stopping logic
+        if save_best and t_val < best_t:
+            best_t = t_val
+            patience_counter = 0  # Reset patience
+            model.save(best_path)
+            logger.info(f"   💾 Guardado BEST (Phase 3) | T-Loss: {best_t:.4f} -> {best_path.name}")
+        else:
+            patience_counter += 1
+            if patience_counter >= patience_limit:
+                logger.warning(f"   🛑 Early Stopping activado! No hay mejora en {patience_limit} épocas.")
+                break
+
+    # Save last state
+    model.save(last_path)
+    logger.success(f"✨ DCN completado. BEST: {best_path} | LAST: {last_path}")
 
 
 if __name__ == "__main__":

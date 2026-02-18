@@ -168,20 +168,27 @@ def build_mapping_from_target(
 
     # etiquetas “human-friendly” (ajusta a tu gusto)
     # Orden conceptual: peor → mejor
-    label_pack = [
-        ("CRITICAL_RISK_INACTIVE", "Riesgo crítico (inactivos)"),
-        ("STANDARD_PROFILE", "Perfil estándar"),
-        ("METHODICAL_EXPLORER", "Exploradores metódicos"),
-        ("CONSISTENT_GOOD", "Consistentes (buen nivel)"),
-        ("ENGAGED_FATIGUE", "Comprometidos (con fatiga)"),
-        ("STRATEGIC_HIGH_PERFORMER", "Alto rendimiento (estratégico)"),
-    ]
-
-    # Si k != 6, crea algo genérico para los sobrantes/faltantes
-    if k != 6:
-        label_pack = []
-        for i in range(k):
-            label_pack.append((f"CLUSTER_{i}", f"Cluster {i}"))
+    # etiquetas “human-friendly”
+    # Orden conceptual: peor (worst) → mejor (best)
+    if k == 5:
+        label_pack = [
+            ("CRITICAL_RISK_INACTIVE", "Riesgo crítico (inactivos)"),
+            ("STANDARD_PROFILE", "Perfil estándar"),
+            ("METHODICAL_EXPLORER", "Exploradores metódicos"),
+            ("CONSISTENT_GOOD", "Consistentes (buen nivel)"),
+            ("STRATEGIC_HIGH_PERFORMER", "Alto rendimiento (estratégico)"),
+        ]
+    elif k == 6:
+        label_pack = [
+            ("CRITICAL_RISK_INACTIVE", "Riesgo crítico (inactivos)"),
+            ("STANDARD_PROFILE", "Perfil estándar"),
+            ("METHODICAL_EXPLORER", "Exploradores metódicos"),
+            ("CONSISTENT_GOOD", "Consistentes (buen nivel)"),
+            ("ENGAGED_FATIGUE", "Comprometidos (con fatiga)"),
+            ("STRATEGIC_HIGH_PERFORMER", "Alto rendimiento (estratégico)"),
+        ]
+    else:
+        label_pack = [(f"CLUSTER_{i}", f"Cluster {i}") for i in range(k)]
 
     # asignación por ranking worst->best
     mapping: Dict[str, Dict[str, Any]] = {}

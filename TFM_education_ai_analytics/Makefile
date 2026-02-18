@@ -120,9 +120,9 @@ plot_profiles:
 prep_latent: data features train_ae encode plot_ae
 
 ## Full AE Pipeline with UMAP (Train + Encode + Plot UMAP)
-.PHONY: ae_full_umap
-ae_full_umap: train_ae encode
-	$(MAKE) plot_ae METHOD=umap
+.PHONY: ae_full_pca
+ae_full_pca: train_ae encode
+	$(MAKE) plot_ae METHOD=pca
 
 ## Run full pipeline
 .PHONY: pipeline

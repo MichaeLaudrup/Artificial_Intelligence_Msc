@@ -1,0 +1,2 @@
+class GLUTransParans:
+    pass

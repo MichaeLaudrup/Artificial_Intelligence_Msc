@@ -8,7 +8,7 @@ import pandas as pd
 import typer
 from loguru import logger
 
-from educational_ai_analytics.config import EMBEDDINGS_DATA_DIR, CLUSTERING_MODELS_DIR, MODELS_DIR
+from educational_ai_analytics.config import EMBEDDINGS_DATA_DIR, CLUSTERING_MODELS_DIR, MODELS_DIR, SEGMENTED_DATA_DIR
 
 from .hyperparams import CLUSTERING_PARAMS
 
@@ -128,7 +128,13 @@ def _predict_one(split: str, window: int, latent_filename: str, out_filename: st
     out_path = out_dir / out_filename
     out.to_csv(out_path)
 
+    segmented_dir = SEGMENTED_DATA_DIR / split
+    segmented_dir.mkdir(parents=True, exist_ok=True)
+    segmented_path = segmented_dir / f"students_segmented_uptW{int(window):02d}.csv"
+    out.to_csv(segmented_path)
+
     logger.success(f"✅ [{split}] W{window:02d}: {out_path.name} | N={len(out)} | K={probs.shape[1]}")
+    logger.info(f"📦 [{split}] W{window:02d}: export segmentado -> {segmented_path}")
     return out_path
 
 

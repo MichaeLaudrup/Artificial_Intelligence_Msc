@@ -6,6 +6,7 @@ PROJECT_NAME = educational_ai_analytics
 PYTHON_VERSION = 3.12
 PYTHON_INTERPRETER = python
 METHOD = pca
+SHELL := /bin/bash
 
 #################################################################################
 # COMMANDS                                                                      #
@@ -130,11 +131,50 @@ pipeline: prep_latent train_clustering predict_clustering
 .PHONY: pipeline_clustering_plots
 pipeline_clustering_plots: data features train_ae encode train_clustering predict_clustering plot_clustering
 
+## Grouped: all plots (AE + Clustering)
+.PHONY: all_plots
+all_plots: plot_ae plot_clustering
+
+## Grouped: from raw data to clustering prediction
+.PHONY: from_data_to_clustering_predict
+from_data_to_clustering_predict: data features train_ae encode train_clustering predict_clustering
+
+## Grouped: from AE training to clustering prediction
+.PHONY: from_ae_train_to_predict
+from_ae_train_to_predict: train_ae encode train_clustering predict_clustering
+
+## Grouped: full pipeline (data -> features -> AE -> clustering -> prediction -> plots)
+.PHONY: full_pipeline
+full_pipeline: pipeline_clustering_plots
+
+## Menú interactivo con opciones numeradas
+.PHONY: menu
+menu:
+	@echo ""
+	@echo "================= 📋 MENU PIPELINES ================="
+	@echo "  1) full_pipeline"
+	@echo "  2) all_plots"
+	@echo "  3) from_data_to_clustering_predict"
+	@echo "  4) from_ae_train_to_predict"
+	@echo "  5) plot_clustering"
+	@echo "  6) help"
+	@echo "====================================================="
+	@read -p "Elige una opción [1-6]: " opt; \
+	case $$opt in \
+		1) $(MAKE) full_pipeline ;; \
+		2) $(MAKE) all_plots ;; \
+		3) $(MAKE) from_data_to_clustering_predict ;; \
+		4) $(MAKE) from_ae_train_to_predict ;; \
+		5) $(MAKE) plot_clustering ;; \
+		6) $(MAKE) help ;; \
+		*) echo "❌ Opción inválida. Ejecuta 'make menu' de nuevo." ;; \
+	esac
+
 #################################################################################
 # Self Documenting Commands                                                     #
 #################################################################################
 
-.DEFAULT_GOAL := help
+.DEFAULT_GOAL := menu
 
 define PRINT_HELP_PYSCRIPT
 import re, sys; \

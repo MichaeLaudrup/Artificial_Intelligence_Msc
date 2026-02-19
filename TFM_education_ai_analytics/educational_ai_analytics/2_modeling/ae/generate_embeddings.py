@@ -16,6 +16,7 @@ from sklearn.decomposition import PCA
 from educational_ai_analytics.config import (
     FEATURES_DATA_DIR,
     EMBEDDINGS_DATA_DIR,
+    AE_MODELS_DIR,
     MODELS_DIR,
     W_WINDOWS,
 )
@@ -100,7 +101,9 @@ def main(
     logger.success(f"✅ PCA Global ajustado con {X_train_full.shape} registros.")
 
     # 3) Carga del Modelo Autoencoder Único (Global)
-    global_model_path = MODELS_DIR / "ae_best_global.keras"
+    global_model_path = AE_MODELS_DIR / "ae_best_global.keras"
+    if not global_model_path.exists():
+        global_model_path = MODELS_DIR / "ae_best_global.keras"
     ae_global = None
     if use_global_model:
         if global_model_path.exists():
@@ -131,7 +134,9 @@ def main(
         ae_to_use = ae_global
         if ae_to_use is None:
             # Fallback a modelo específico de W si no hay global
-            model_w_path = MODELS_DIR / f"ae_best_w{W:02d}.keras"
+            model_w_path = AE_MODELS_DIR / f"ae_best_w{W:02d}.keras"
+            if not model_w_path.exists():
+                model_w_path = MODELS_DIR / f"ae_best_w{W:02d}.keras"
             if model_w_path.exists():
                 logger.info(f"   🧠 Cargando fallback AE para W{W:02d}...")
                 ae_to_use = tf.keras.models.load_model(

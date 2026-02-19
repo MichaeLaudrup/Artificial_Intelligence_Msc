@@ -1,7 +1,6 @@
 import json
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 import joblib
 import numpy as np
@@ -9,193 +8,170 @@ import pandas as pd
 import typer
 from loguru import logger
 
-from educational_ai_analytics.config import EMBEDDINGS_DATA_DIR, MODELS_DIR, W_WINDOWS
+from educational_ai_analytics.config import EMBEDDINGS_DATA_DIR, CLUSTERING_MODELS_DIR, MODELS_DIR
+
+from .hyperparams import CLUSTERING_PARAMS
 
 app = typer.Typer(add_completion=False)
 
-DEFAULT_SPLITS = ("training", "validation", "test")
-DEFAULT_WINDOW = int(max(W_WINDOWS)) if W_WINDOWS else 24
+
+def _parse_csv_list(value: Optional[str], default_values: List[str]) -> List[str]:
+    if not value:
+        return list(default_values)
+    return [x.strip() for x in value.split(",") if x.strip()]
 
 
-@dataclass(frozen=True)
-class Paths:
-    embeddings_dir: Path = EMBEDDINGS_DATA_DIR
-    models_dir: Path = MODELS_DIR
-    out_dir: Path = EMBEDDINGS_DATA_DIR
-
-    latent_filename: str = "ae_latent.csv"
-    gmm_filename: str = "gmm_ae.joblib"
-    scaler_filename: str = "scaler_latent_ae.joblib"
-    mapping_filename: str = "cluster_mapping.json"
+def _parse_windows(value: Optional[str]) -> List[int]:
+    if not value:
+        return [int(w) for w in CLUSTERING_PARAMS.windows]
+    return sorted({int(x.strip()) for x in value.split(",") if x.strip()})
 
 
-def _load_latent(path: Path) -> pd.DataFrame:
+def _latent_path(split: str, window: int, latent_filename: str) -> Path:
+    return EMBEDDINGS_DATA_DIR / split / f"upto_w{int(window):02d}" / latent_filename
+
+
+def _artifact_paths(window: int) -> Dict[str, Path]:
+    return {
+        "gmm": CLUSTERING_MODELS_DIR / f"{CLUSTERING_PARAMS.model_prefix}_w{int(window):02d}.joblib",
+        "scaler": CLUSTERING_MODELS_DIR / f"{CLUSTERING_PARAMS.scaler_prefix}_w{int(window):02d}.joblib",
+        "mapping": CLUSTERING_MODELS_DIR / f"{CLUSTERING_PARAMS.mapping_prefix}_w{int(window):02d}.json",
+    }
+
+
+def _legacy_artifact_paths() -> Dict[str, Path]:
+    return {
+        "gmm": CLUSTERING_MODELS_DIR / f"{CLUSTERING_PARAMS.model_prefix}.joblib",
+        "scaler": CLUSTERING_MODELS_DIR / f"{CLUSTERING_PARAMS.scaler_prefix}.joblib",
+        "mapping": CLUSTERING_MODELS_DIR / f"{CLUSTERING_PARAMS.mapping_prefix}.json",
+    }
+
+
+def _very_legacy_artifact_paths() -> Dict[str, Path]:
+    return {
+        "gmm": MODELS_DIR / f"{CLUSTERING_PARAMS.model_prefix}.joblib",
+        "scaler": MODELS_DIR / f"{CLUSTERING_PARAMS.scaler_prefix}.joblib",
+        "mapping": MODELS_DIR / f"{CLUSTERING_PARAMS.mapping_prefix}.json",
+    }
+
+
+def _safe_read_csv(path: Path) -> pd.DataFrame:
     if not path.exists():
-        raise FileNotFoundError(f"Latent file not found: {path}")
-    df = pd.read_csv(path, index_col=0)
-    df = df.replace([np.inf, -np.inf], np.nan).fillna(0)
-    return df.sort_index()
+        return pd.DataFrame()
+    return pd.read_csv(path, index_col=0).replace([np.inf, -np.inf], np.nan).fillna(0.0)
 
 
 def _load_mapping(path: Path, k: int) -> Dict[str, Dict[str, str]]:
-    """
-    Expected mapping JSON:
-    {
-      "0": {"label": "...", "name": "..."},
-      ...
-    }
-    """
     if path.exists():
         mp = json.loads(path.read_text())
-        # ensure all keys exist
         for i in range(k):
             mp.setdefault(str(i), {"label": f"CLUSTER_{i}", "name": f"Cluster {i}"})
         return mp
-    # default mapping if not present
     return {str(i): {"label": f"CLUSTER_{i}", "name": f"Cluster {i}"} for i in range(k)}
 
 
-def _entropy(p: np.ndarray, eps: float = 1e-12) -> np.ndarray:
-    """Shannon entropy per row. p shape (N, K)."""
-    return -(p * np.log(p + eps)).sum(axis=1)
+def _entropy(probs: np.ndarray, eps: float = 1e-12) -> np.ndarray:
+    return -(probs * np.log(probs + eps)).sum(axis=1)
 
 
-def _predict_one_split(
-    split: str,
-    window: int,
-    paths: Paths,
-    gmm,
-    scaler,
-    mapping: Dict[str, Dict[str, str]],
-    write_outputs: bool = True,
-) -> Optional[Path]:
-    latent_path = paths.embeddings_dir / split / f"upto_w{int(window):02d}" / paths.latent_filename
-    if not latent_path.exists():
-        logger.warning(f"[{split}] No latent file at {latent_path}. Skipping.")
+def _predict_one(split: str, window: int, latent_filename: str, out_filename: str) -> Optional[Path]:
+    lat_path = _latent_path(split=split, window=window, latent_filename=latent_filename)
+    df_lat = _safe_read_csv(lat_path)
+    if df_lat.empty:
+        logger.warning(f"⚠️ [{split}] W{window:02d}: embeddings no encontrados/vacíos en {lat_path}")
         return None
 
-    df_lat = _load_latent(latent_path)
+    artifacts = _artifact_paths(window)
+    if not artifacts["gmm"].exists() or not artifacts["scaler"].exists():
+        logger.warning(f"⚠️ [{split}] W{window:02d}: artefactos por ventana no encontrados, intentando legacy...")
+        artifacts = _legacy_artifact_paths()
+
+    if not artifacts["gmm"].exists() or not artifacts["scaler"].exists():
+        logger.warning(f"⚠️ [{split}] W{window:02d}: legacy en clustering_models no encontrado, intentando models raíz...")
+        artifacts = _very_legacy_artifact_paths()
+
+    if not artifacts["gmm"].exists() or not artifacts["scaler"].exists():
+        logger.error(f"❌ [{split}] W{window:02d}: no hay modelo/scaler para inferencia")
+        return None
+
+    gmm = joblib.load(artifacts["gmm"])
+    scaler = joblib.load(artifacts["scaler"])
+
+    k = int(getattr(gmm, "n_components", 0))
+    mapping = _load_mapping(artifacts["mapping"], k=k)
+
     X = df_lat.values.astype(np.float32)
     Xs = scaler.transform(X)
 
-    p = gmm.predict_proba(Xs)  # (N,K)
-    cluster_id = p.argmax(axis=1).astype(int)
-    confidence = p.max(axis=1)
+    probs = gmm.predict_proba(Xs)
+    labels = probs.argmax(axis=1).astype(int)
+    confidence = probs.max(axis=1)
+    entropy = _entropy(probs)
+    entropy_norm = entropy / np.log(probs.shape[1])
 
-    ent = _entropy(p)
-    ent_norm = ent / np.log(p.shape[1])  # [0,1] approx
-
-    # build output DF
     out = pd.DataFrame(index=df_lat.index)
     out.index.name = df_lat.index.name
 
-    out["cluster_id"] = cluster_id
-    out["cluster_label"] = [mapping[str(i)]["label"] for i in cluster_id]
-    out["cluster_name"] = [mapping[str(i)]["name"] for i in cluster_id]
+    out["cluster_id"] = labels
+    out["cluster_label"] = [mapping[str(i)]["label"] for i in labels]
+    out["cluster_name"] = [mapping[str(i)]["name"] for i in labels]
 
-    # probs
-    for j in range(p.shape[1]):
-        out[f"p_cluster_{j}"] = p[:, j]
+    for j in range(probs.shape[1]):
+        out[f"p_cluster_{j}"] = probs[:, j]
 
     out["confidence"] = confidence
-    out["entropy"] = ent
-    out["entropy_norm"] = ent_norm
+    out["entropy"] = entropy
+    out["entropy_norm"] = entropy_norm
 
-    # (optional) keep latent dims? usually NO for downstream, but nice for debugging:
-    # out = out.join(df_lat.add_prefix("latent_"))
-
-    if not write_outputs:
-        logger.info(f"[{split}] Computed segmentation (not saved). shape={out.shape}")
-        return None
-
-    out_dir = paths.out_dir / split / f"upto_w{int(window):02d}"
+    out_dir = EMBEDDINGS_DATA_DIR / split / f"upto_w{int(window):02d}"
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / "segmentation_gmm_ae.csv"
+    out_path = out_dir / out_filename
     out.to_csv(out_path)
 
-    logger.success(f"[{split}] ✅ Saved segmentation: {out_path} | N={len(out)} | K={p.shape[1]}")
+    logger.success(f"✅ [{split}] W{window:02d}: {out_path.name} | N={len(out)} | K={probs.shape[1]}")
     return out_path
 
 
 @app.command()
 def main(
-    splits: str = typer.Option(
-        "training,validation,test",
-        help="Comma-separated splits to run (e.g. 'training,validation,test' or 'validation,test').",
+    splits: Optional[str] = typer.Option(
+        None,
+        help="Splits separados por coma. Por defecto usa hyperparams (training,validation,test).",
     ),
-    embeddings_dir: Path = typer.Option(EMBEDDINGS_DATA_DIR, help="Base embeddings dir (contains split subfolders)."),
-    window: int = typer.Option(DEFAULT_WINDOW, help="Ventana W a usar (upto_wXX)."),
-    latent_filename: str = typer.Option("ae_latent.csv", help="Latent CSV name inside each split folder."),
-    models_dir: Path = typer.Option(MODELS_DIR, help="Models directory."),
-    gmm_filename: str = typer.Option("gmm_ae.joblib", help="GMM artifact filename."),
-    scaler_filename: str = typer.Option("scaler_latent_ae.joblib", help="Scaler artifact filename."),
-    mapping_filename: str = typer.Option("cluster_mapping.json", help="Cluster mapping JSON filename."),
-    out_dir: Path = typer.Option(
-        EMBEDDINGS_DATA_DIR,
-        help="Output base directory (default: embeddings, same split/upto_wXX).",
+    windows: Optional[str] = typer.Option(
+        None,
+        help="Ventanas separadas por coma (ej: 12,18,24). Por defecto usa W_WINDOWS de config.py.",
     ),
+    latent_filename: str = typer.Option(CLUSTERING_PARAMS.latent_filename, help="Nombre del CSV latente de entrada."),
+    out_filename: str = typer.Option("segmentation_gmm_ae.csv", help="Nombre del CSV de salida por split/ventana."),
 ):
     """
-    Production inference of clustering (AE+GMM):
-    - Loads ae_latent.csv for each split in upto_wXX
-    - Loads scaler_latent_ae.joblib + gmm_ae.joblib
-    - Computes p_cluster_0..K-1 + confidence + entropy(+norm) + cluster_name/label
-    - Saves segmentation_gmm_ae.csv per split in embeddings/{split}/upto_wXX
+    Inferencia GMM multi-ventana:
+      - Carga artefactos por ventana (gmm_ae_wXX, scaler_latent_ae_wXX, mapping_wXX)
+      - Predice por split y ventana
+      - Guarda segmentation_gmm_ae.csv en embeddings/{split}/upto_wXX
     """
-    split_list = tuple([s.strip() for s in splits.split(",") if s.strip()])
-    if not split_list:
-        logger.error("No splits provided.")
-        raise typer.Exit(code=1)
+    split_list = _parse_csv_list(splits, CLUSTERING_PARAMS.split_predict)
+    window_list = _parse_windows(windows)
 
-    paths = Paths(
-        embeddings_dir=embeddings_dir,
-        models_dir=models_dir,
-        out_dir=out_dir,
-        latent_filename=latent_filename,
-        gmm_filename=gmm_filename,
-        scaler_filename=scaler_filename,
-        mapping_filename=mapping_filename,
-    )
+    logger.info(f"🔮 Clustering PREDICT | splits={split_list} | windows={window_list}")
 
-    gmm_path = paths.models_dir / paths.gmm_filename
-    scaler_path = paths.models_dir / paths.scaler_filename
-    mapping_path = paths.models_dir / paths.mapping_filename
+    generated = 0
+    for w in window_list:
+        for split in split_list:
+            out_path = _predict_one(
+                split=split,
+                window=int(w),
+                latent_filename=latent_filename,
+                out_filename=out_filename,
+            )
+            if out_path is not None:
+                generated += 1
 
-    if not gmm_path.exists():
-        logger.error(f"GMM artifact not found: {gmm_path}")
-        raise typer.Exit(code=1)
-    if not scaler_path.exists():
-        logger.error(f"Scaler artifact not found: {scaler_path}")
-        raise typer.Exit(code=1)
+    if generated == 0:
+        raise RuntimeError("No se generó ninguna segmentación. Revisa embeddings/artefactos/modelos.")
 
-    logger.info(f"Loading GMM: {gmm_path}")
-    gmm = joblib.load(gmm_path)
-
-    logger.info(f"Loading scaler: {scaler_path}")
-    scaler = joblib.load(scaler_path)
-
-    # Determine K from gmm
-    try:
-        k = int(gmm.n_components)
-    except Exception:
-        # fallback from means_
-        k = int(getattr(gmm, "means_").shape[0])
-
-    mapping = _load_mapping(mapping_path, k)
-
-    logger.info(f"Running clustering inference for splits={split_list} | W={window} | K={k}")
-    for split in split_list:
-        _predict_one_split(
-            split,
-            window=window,
-            paths=paths,
-            gmm=gmm,
-            scaler=scaler,
-            mapping=mapping,
-            write_outputs=True,
-        )
-
-    logger.success("✅ Done.")
+    logger.success(f"🎯 Segmentaciones generadas: {generated}")
 
 
 if __name__ == "__main__":

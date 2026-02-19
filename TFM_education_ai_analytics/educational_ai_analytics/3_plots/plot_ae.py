@@ -18,6 +18,7 @@ import tensorflow as tf
 from educational_ai_analytics.config import (
     REPORTS_DIR,
     EMBEDDINGS_DATA_DIR,
+    AE_MODELS_DIR,
     MODELS_DIR,
     FEATURES_DATA_DIR,
     AE_REPORTS_DIR,
@@ -33,6 +34,13 @@ from .style import set_style
 set_style()
 
 app = typer.Typer(help="Visualizaciones para el Autoencoder Global.")
+
+
+def _ae_model_path() -> Path:
+    p = AE_MODELS_DIR / "ae_best_global.keras"
+    if p.exists():
+        return p
+    return MODELS_DIR / "ae_best_global.keras"
 
 def _safe_read_csv(path: Path) -> pd.DataFrame:
     if not path.exists(): return pd.DataFrame()
@@ -92,7 +100,7 @@ def loss_curve():
 def ae_reconstruction(split: str = "training"):
     """Visualiza el flujo del AE para todas las semanas: Original -> Latente -> Recon."""
     split_dir = FEATURES_DATA_DIR / split
-    model_path = MODELS_DIR / "ae_best_global.keras"
+    model_path = _ae_model_path()
     if not model_path.exists(): 
         logger.error(f"❌ No se encuentra el modelo en {model_path}")
         return
@@ -183,7 +191,7 @@ def latent_space(W: int = W_WINDOWS[0], split: str = "train", method: str = "pca
         plt.scatter(Z[:, 0], Z[:, 1], s=6, alpha=0.3, color="#3498db")
     
     # Intentar mostrar centros de DEC
-    model_path = MODELS_DIR / "ae_best_global.keras"
+    model_path = _ae_model_path()
     if model_path.exists():
         try:
             ae = tf.keras.models.load_model(

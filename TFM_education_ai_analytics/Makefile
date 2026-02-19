@@ -107,10 +107,8 @@ plot_ae:
 ## Generar todos los plots de clustering (outcomes + profiles)
 .PHONY: plot_clustering
 plot_clustering:
-	$(PYTHON_INTERPRETER) -m educational_ai_analytics.3_plots.plot_clustering outcomes
-	$(PYTHON_INTERPRETER) -m educational_ai_analytics.3_plots.plot_clustering profiles
-	$(PYTHON_INTERPRETER) -m educational_ai_analytics.3_plots.plot_clustering diagnose-modules
-	$(PYTHON_INTERPRETER) -m educational_ai_analytics.3_plots.plot_clustering verify-module-success
+	$(PYTHON_INTERPRETER) -m educational_ai_analytics.3_plots.plot_clustering clean
+	$(PYTHON_INTERPRETER) -m educational_ai_analytics.3_plots.plot_clustering weekly-reports
 
 plot_profiles:
 	$(PYTHON_INTERPRETER) -m educational_ai_analytics.3_plots.plot_clustering profiles
@@ -127,6 +125,10 @@ ae_full_pca: train_ae encode
 ## Run full pipeline
 .PHONY: pipeline
 pipeline: prep_latent train_clustering predict_clustering
+
+## End-to-end pipeline with clustering plots (data -> features -> AE -> clustering -> plots)
+.PHONY: pipeline_clustering_plots
+pipeline_clustering_plots: data features train_ae encode train_clustering predict_clustering plot_clustering
 
 #################################################################################
 # Self Documenting Commands                                                     #

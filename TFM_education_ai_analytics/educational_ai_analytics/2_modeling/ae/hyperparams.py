@@ -22,7 +22,7 @@ class AutoencoderParams:
 
     # ✅ NEW: Configuración para Deep Clustering (DCN)
     n_clusters: int = 5
-    clustering_loss_weight: float = 0.1  # Influencia reducida para permitir estructura natural
+    clustering_loss_weight: float = 0.2  # Importancia que le damos a intentar hacer clusters más definidos
     sample_frac: float = 1.0              # Fracción de datos para calcular el target P (0.1 a 1.0)
     
     # Callbacks

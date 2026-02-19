@@ -19,6 +19,8 @@ EMBEDDINGS_DATA_DIR = DATA_DIR / "4_embeddings"
 SEGMENTED_DATA_DIR = DATA_DIR / "5_students_segmented"
 
 MODELS_DIR = PROJ_ROOT / "models"
+AE_MODELS_DIR = MODELS_DIR / "ae_models"
+CLUSTERING_MODELS_DIR = MODELS_DIR / "clustering_models"
 
 REPORTS_DIR = PROJ_ROOT / "reports"
 FIGURES_DIR = REPORTS_DIR / "figures"  # Legacy/General

@@ -16,7 +16,7 @@ from sklearn.cluster import KMeans
 
 from educational_ai_analytics.config import (
     FEATURES_DATA_DIR,
-    MODELS_DIR,
+    AE_MODELS_DIR,
     W_WINDOWS,
 )
 
@@ -97,7 +97,7 @@ def main(
         mixed_precision.set_global_policy("mixed_float16")
         logger.info("⚡ Mixed precision: ACTIVADO (mixed_float16)")
 
-    MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    AE_MODELS_DIR.mkdir(parents=True, exist_ok=True)
     windows = sorted([int(w) for w in W_WINDOWS])
 
     target_blend = float(np.clip(target_blend, 0.0, 1.0))
@@ -183,8 +183,8 @@ def main(
 
     # Best checkpoint tracking (phase 3)
     best_obj = float("inf")
-    best_path = MODELS_DIR / "ae_best_global.keras"
-    last_path = MODELS_DIR / "ae_last_global.keras"
+    best_path = AE_MODELS_DIR / "ae_best_global.keras"
+    last_path = AE_MODELS_DIR / "ae_last_global.keras"
 
     @tf.function
     def train_step(x_batch, p_batch):

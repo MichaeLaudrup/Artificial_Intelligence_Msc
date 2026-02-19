@@ -1,118 +1,116 @@
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import joblib
 import numpy as np
 import pandas as pd
 import typer
+from loguru import logger
+from sklearn.metrics import calinski_harabasz_score, davies_bouldin_score, silhouette_score
 from sklearn.mixture import GaussianMixture
 from sklearn.preprocessing import StandardScaler
 
 from educational_ai_analytics.config import (
+    CLUSTERING_REPORTS_DIR,
     EMBEDDINGS_DATA_DIR,
     FEATURES_DATA_DIR,
-    MODELS_DIR,
-    REPORTS_DIR,
-    W_WINDOWS,
+    CLUSTERING_MODELS_DIR,
 )
+
+from .hyperparams import CLUSTERING_PARAMS
 
 app = typer.Typer(add_completion=False)
 
 
-# -------------------------
-# Config (production-safe)
-# -------------------------
-@dataclass(frozen=True)
-class ClusteringConfig:
-    k: int = 6
-    covariance_type: str = "diag"
-    n_init: int = 5
-    max_iter: int = 800
-    reg_covar: float = 1e-6
-    seed: int = 42
-    doubtful_threshold: float = 0.60
+def _parse_windows(windows: Optional[str]) -> List[int]:
+    if not windows:
+        return [int(w) for w in CLUSTERING_PARAMS.windows]
+    return sorted({int(x.strip()) for x in windows.split(",") if x.strip()})
 
 
-# -------------------------
-# Default paths
-# -------------------------
-DEFAULT_WINDOW = int(max(W_WINDOWS)) if W_WINDOWS else 24
-EMBED_TRAIN_PATH = EMBEDDINGS_DATA_DIR / "training" / f"upto_w{DEFAULT_WINDOW:02d}" / "ae_latent.csv"
-TARGET_TRAIN_PATH = FEATURES_DATA_DIR / "training" / "target.csv"
-OUT_GMM = MODELS_DIR / "gmm_ae.joblib"
-OUT_SCALER = MODELS_DIR / "scaler_latent_ae.joblib"
-OUT_MAPPING = MODELS_DIR / "cluster_mapping.json"
-OUT_METRICS = REPORTS_DIR / "train_clustering_metrics.json"
+def _latent_path(split: str, window: int, latent_filename: str) -> Path:
+    return EMBEDDINGS_DATA_DIR / split / f"upto_w{int(window):02d}" / latent_filename
 
 
-# -------------------------
-# Helpers
-# -------------------------
-def load_latent_embeddings(path: Path) -> pd.DataFrame:
+def _safe_read_csv(path: Path) -> pd.DataFrame:
     if not path.exists():
-        raise FileNotFoundError(f"Embeddings file not found: {path}")
-    df = pd.read_csv(path, index_col=0)
-    df = df.replace([np.inf, -np.inf], np.nan).fillna(0)
-    return df.sort_index()
+        return pd.DataFrame()
+    return pd.read_csv(path, index_col=0).replace([np.inf, -np.inf], np.nan).fillna(0.0)
 
 
-def resolve_embeddings_path(path: Optional[Path], window: int, latent_filename: str) -> Path:
-    if path is not None:
-        return path
-    return EMBEDDINGS_DATA_DIR / "training" / f"upto_w{int(window):02d}" / latent_filename
-
-
-def load_target(path: Path, index_like: pd.Index) -> pd.DataFrame:
-    if not path.exists():
-        raise FileNotFoundError(f"Target file not found: {path}")
-    df = pd.read_csv(path, index_col=0).sort_index()
-    common = index_like.intersection(df.index)
-    df = df.loc[common].copy()
-    return df
-
-
-def fit_scaler_and_gmm(
-    df_latent: pd.DataFrame,
-    cfg: ClusteringConfig
-) -> tuple[StandardScaler, GaussianMixture, np.ndarray, np.ndarray]:
-    """Returns scaler, gmm, probs_max (N,), labels (N,) on TRAIN."""
-    X = df_latent.values.astype(np.float32)
-
-    scaler = StandardScaler()
-    Xs = scaler.fit_transform(X)
-
-    gmm = GaussianMixture(
-        n_components=cfg.k,
-        covariance_type=cfg.covariance_type,
-        random_state=cfg.seed,
-        n_init=cfg.n_init,
-        max_iter=cfg.max_iter,
-        reg_covar=cfg.reg_covar,
-        init_params="kmeans",
+def _build_gmm(X: np.ndarray, n_components: int) -> GaussianMixture:
+    return GaussianMixture(
+        n_components=int(n_components),
+        covariance_type=CLUSTERING_PARAMS.covariance_type,
+        reg_covar=CLUSTERING_PARAMS.reg_covar,
+        n_init=CLUSTERING_PARAMS.n_init,
+        max_iter=CLUSTERING_PARAMS.max_iter,
+        init_params=CLUSTERING_PARAMS.init_params,
+        random_state=CLUSTERING_PARAMS.random_state,
     )
-    gmm.fit(Xs)
-
-    probs = gmm.predict_proba(Xs)
-    probs_max = probs.max(axis=1)
-    labels = probs.argmax(axis=1).astype(int)
-    return scaler, gmm, probs_max, labels
 
 
-def build_default_mapping(k: int) -> Dict[str, Dict[str, str]]:
-    return {str(i): {"label": f"CLUSTER_{i}", "name": f"Cluster {i}"} for i in range(k)}
+def _k_diagnostics(X_std: np.ndarray, k_range: List[int]) -> pd.DataFrame:
+    rows = []
+    prev_bic = None
+    prev_aic = None
+
+    for k in k_range:
+        gmm = _build_gmm(X_std, n_components=int(k))
+        gmm.fit(X_std)
+
+        bic = float(gmm.bic(X_std))
+        aic = float(gmm.aic(X_std))
+
+        bic_gain = (prev_bic - bic) if prev_bic is not None else np.nan
+        aic_gain = (prev_aic - aic) if prev_aic is not None else np.nan
+
+        bic_gain_pct = (bic_gain / abs(prev_bic) * 100.0) if prev_bic not in (None, 0) else np.nan
+        aic_gain_pct = (aic_gain / abs(prev_aic) * 100.0) if prev_aic not in (None, 0) else np.nan
+
+        rows.append(
+            {
+                "k": int(k),
+                "bic": bic,
+                "aic": aic,
+                "delta_bic": bic_gain,
+                "delta_aic": aic_gain,
+                "delta_bic_pct": bic_gain_pct,
+                "delta_aic_pct": aic_gain_pct,
+            }
+        )
+        prev_bic = bic
+        prev_aic = aic
+
+    return pd.DataFrame(rows)
 
 
-def _cluster_stats_from_target(
-    labels: np.ndarray,
-    df_target: pd.DataFrame,
-    k: int
-) -> pd.DataFrame:
-    """
-    df_target expects column 'final_result' with mapping:
-      0 Withdrawn, 1 Fail, 2 Pass, 3 Distinction
-    """
+def _pick_k(diag: pd.DataFrame) -> Dict[str, Any]:
+    if CLUSTERING_PARAMS.use_fixed_k:
+        return {"k": int(CLUSTERING_PARAMS.n_clusters), "reason": "fixed_k"}
+
+    d = diag.sort_values("k").copy()
+    thr = float(CLUSTERING_PARAMS.marginal_gain_pct_threshold)
+    cond = (d["delta_bic_pct"] < thr) & (d["delta_aic_pct"] < thr)
+
+    if cond.any():
+        return {
+            "k": int(d.loc[cond, "k"].iloc[0]),
+            "reason": f"first_k_with_marginal_gain_below_{thr:.2f}pct",
+        }
+
+    if CLUSTERING_PARAMS.use_bic:
+        return {"k": int(d.loc[d["bic"].idxmin(), "k"]), "reason": "min_bic"}
+
+    if CLUSTERING_PARAMS.use_aic:
+        return {"k": int(d.loc[d["aic"].idxmin(), "k"]), "reason": "min_aic"}
+
+    return {"k": int(CLUSTERING_PARAMS.n_clusters), "reason": "fallback_fixed_k"}
+
+
+def _cluster_stats_from_target(labels: np.ndarray, df_target: pd.DataFrame, k: int) -> pd.DataFrame:
     if "final_result" not in df_target.columns:
         raise ValueError("target.csv must contain 'final_result' column")
 
@@ -120,28 +118,32 @@ def _cluster_stats_from_target(
     is_withdrawn = (y == 0).astype(int)
     is_success = np.isin(y, [2, 3]).astype(int)
 
-    tmp = pd.DataFrame({
-        "cluster_id": labels,
-        "is_withdrawn": is_withdrawn,
-        "is_success": is_success,
-    }, index=df_target.index)
+    tmp = pd.DataFrame(
+        {
+            "cluster_id": labels,
+            "is_withdrawn": is_withdrawn,
+            "is_success": is_success,
+        },
+        index=df_target.index,
+    )
 
-    grp = tmp.groupby("cluster_id").agg(
-        n=("cluster_id", "size"),
-        withdrawn_rate=("is_withdrawn", "mean"),
-        success_rate=("is_success", "mean"),
-    ).reset_index()
+    grp = (
+        tmp.groupby("cluster_id")
+        .agg(n=("cluster_id", "size"), withdrawn_rate=("is_withdrawn", "mean"), success_rate=("is_success", "mean"))
+        .reset_index()
+    )
 
-    # asegurar todos los clusters
     present = set(grp["cluster_id"].tolist())
     missing = [c for c in range(k) if c not in present]
     if missing:
-        filler = pd.DataFrame({
-            "cluster_id": missing,
-            "n": [0]*len(missing),
-            "withdrawn_rate": [0.0]*len(missing),
-            "success_rate": [0.0]*len(missing),
-        })
+        filler = pd.DataFrame(
+            {
+                "cluster_id": missing,
+                "n": [0] * len(missing),
+                "withdrawn_rate": [0.0] * len(missing),
+                "success_rate": [0.0] * len(missing),
+            }
+        )
         grp = pd.concat([grp, filler], ignore_index=True)
 
     grp["withdrawn_pct"] = 100.0 * grp["withdrawn_rate"]
@@ -149,25 +151,10 @@ def _cluster_stats_from_target(
     return grp.sort_values("cluster_id").reset_index(drop=True)
 
 
-def build_mapping_from_target(
-    stats: pd.DataFrame,
-) -> Dict[str, Dict[str, Any]]:
-    """
-    Asigna etiquetas/nombres de forma estable basándose en TRAIN:
-      - Peor (max withdrawn) -> CRITICAL_RISK_INACTIVE
-      - Mejor (max success)  -> STRATEGIC_HIGH_PERFORMER
-      - Intermedios: STANDARD_PROFILE / METHODICAL_EXPLORER / CONSISTENT_GOOD / ENGAGED_FATIGUE
-    """
-    # ranking por withdrawn desc (peor arriba)
+def _build_mapping_from_target(stats: pd.DataFrame) -> Dict[str, Dict[str, Any]]:
     worst_to_best = stats.sort_values(["withdrawn_rate", "success_rate"], ascending=[False, True]).reset_index(drop=True)
-    best_to_worst = stats.sort_values(["success_rate", "withdrawn_rate"], ascending=[False, True]).reset_index(drop=True)
-
     k = len(stats)
 
-    # etiquetas “human-friendly” (ajusta a tu gusto)
-    # Orden conceptual: peor → mejor
-    # etiquetas “human-friendly”
-    # Orden conceptual: peor (worst) → mejor (best)
     if k == 5:
         label_pack = [
             ("CRITICAL_RISK_INACTIVE", "Riesgo crítico (inactivos)"),
@@ -188,11 +175,10 @@ def build_mapping_from_target(
     else:
         label_pack = [(f"CLUSTER_{i}", f"Cluster {i}") for i in range(k)]
 
-    # asignación por ranking worst->best
     mapping: Dict[str, Dict[str, Any]] = {}
     for rank, row in worst_to_best.iterrows():
         cid = int(row["cluster_id"])
-        label, name = label_pack[min(rank, len(label_pack)-1)]
+        label, name = label_pack[min(rank, len(label_pack) - 1)]
         mapping[str(cid)] = {
             "label": label,
             "name": name,
@@ -201,161 +187,199 @@ def build_mapping_from_target(
             "withdrawn_pct": float(row["withdrawn_pct"]),
             "success_pct": float(row["success_pct"]),
         }
-
-    # extra: guardar también quién es el “best” según success por claridad
-    best_cid = int(best_to_worst.iloc[0]["cluster_id"])
-    worst_cid = int(worst_to_best.iloc[0]["cluster_id"])
-    mapping["_meta"] = {
-        "best_by_success_cluster_id": best_cid,
-        "worst_by_withdrawn_cluster_id": worst_cid,
-        "note": "Mapping generado automáticamente usando target TRAIN (solo para nombrar, no afecta al clustering).",
-    }
     return mapping
 
 
-def compute_metrics(
-    df_latent: pd.DataFrame,
-    scaler: StandardScaler,
-    gmm: GaussianMixture,
-    probs_max: np.ndarray,
-    labels: np.ndarray,
-    cfg: ClusteringConfig,
-) -> Dict[str, Any]:
-    counts = np.bincount(labels, minlength=cfg.k)
-    min_cluster_pct = float(counts.min() / counts.sum()) if counts.sum() else 0.0
-    doubtful_pct = float(np.mean(probs_max < cfg.doubtful_threshold))
+def _safe_silhouette(X: np.ndarray, labels: np.ndarray) -> float:
+    if len(np.unique(labels)) < 2:
+        return float("nan")
+    n = X.shape[0]
+    sample_n = min(int(CLUSTERING_PARAMS.silhouette_sample_size), max(2, n - 1))
+    if sample_n < 2:
+        return float("nan")
+    return float(
+        silhouette_score(
+            X,
+            labels,
+            sample_size=sample_n,
+            random_state=CLUSTERING_PARAMS.random_state,
+        )
+    )
 
-    X = df_latent.values.astype(np.float32)
-    Xs = scaler.transform(X)
 
-    metrics: Dict[str, Any] = {
-        "n_students": int(len(df_latent)),
-        "latent_dim": int(df_latent.shape[1]),
-        "k": int(cfg.k),
-        "covariance_type": cfg.covariance_type,
-        "seed": int(cfg.seed),
-        "n_init": int(cfg.n_init),
-        "max_iter": int(cfg.max_iter),
-        "reg_covar": float(cfg.reg_covar),
-        "log_likelihood_mean": float(gmm.score(Xs)),
-        "bic": float(gmm.bic(Xs)),
-        "aic": float(gmm.aic(Xs)),
-        "confidence_mean": float(np.mean(probs_max)),
-        "confidence_median": float(np.median(probs_max)),
-        "doubtful_threshold": float(cfg.doubtful_threshold),
-        "doubtful_pct": float(doubtful_pct),
-        "min_cluster_pct": float(min_cluster_pct),
-        "cluster_sizes": {str(i): int(counts[i]) for i in range(cfg.k)},
+def _compute_metrics(X_std: np.ndarray, gmm: GaussianMixture, probs: np.ndarray, labels: np.ndarray) -> Dict[str, Any]:
+    counts = np.bincount(labels, minlength=int(gmm.n_components))
+    confidence = probs.max(axis=1)
+
+    metrics = {
+        "n_students": int(X_std.shape[0]),
+        "latent_dim": int(X_std.shape[1]),
+        "k": int(gmm.n_components),
+        "bic": float(gmm.bic(X_std)),
+        "aic": float(gmm.aic(X_std)),
+        "log_likelihood_mean": float(gmm.score(X_std)),
+        "confidence_mean": float(np.mean(confidence)),
+        "confidence_median": float(np.median(confidence)),
+        "doubtful_threshold": float(CLUSTERING_PARAMS.confidence_doubtful_threshold),
+        "doubtful_pct": float(np.mean(confidence < CLUSTERING_PARAMS.confidence_doubtful_threshold)),
+        "cluster_sizes": {str(i): int(counts[i]) for i in range(len(counts))},
+        "min_cluster_pct": float(counts.min() / counts.sum()) if counts.sum() else 0.0,
+        "silhouette": _safe_silhouette(X_std, labels),
+        "calinski_harabasz": float(calinski_harabasz_score(X_std, labels)) if len(np.unique(labels)) > 1 else float("nan"),
+        "davies_bouldin": float(davies_bouldin_score(X_std, labels)) if len(np.unique(labels)) > 1 else float("nan"),
     }
     return metrics
 
 
-# -------------------------
-# CLI
-# -------------------------
 @app.command()
 def main(
-    embeddings_path: Optional[Path] = typer.Option(
+    windows: Optional[str] = typer.Option(
         None,
-        help="Ruta manual al CSV latente de training. Si no se indica, usa embeddings_dir/training/upto_wXX/ae_latent.csv.",
+        help="Ventanas separadas por coma (ej: 12,18,24). Si se omite usa W_WINDOWS de config.py.",
     ),
-    window: int = typer.Option(DEFAULT_WINDOW, help="Ventana W a usar (upto_wXX)."),
-    latent_filename: str = typer.Option("ae_latent.csv", help="Nombre del CSV latente dentro de upto_wXX."),
-    target_path: Path = typer.Option(TARGET_TRAIN_PATH, help="TRAIN target.csv (para auto-nombrar clusters)."),
-    out_gmm: Path = typer.Option(OUT_GMM, help="Output path for fitted GMM artifact (.joblib)."),
-    out_scaler: Path = typer.Option(OUT_SCALER, help="Output path for fitted scaler artifact (.joblib)."),
-    out_mapping: Path = typer.Option(OUT_MAPPING, help="Output path for cluster mapping JSON."),
-    out_metrics: Path = typer.Option(OUT_METRICS, help="Output path for training metrics JSON."),
-
-    k: int = typer.Option(6, help="Number of GMM components."),
-    covariance_type: str = typer.Option("diag", help="GMM covariance_type: 'full'|'tied'|'diag'|'spherical'."),
-    n_init: int = typer.Option(5, help="GMM n_init."),
-    max_iter: int = typer.Option(800, help="GMM max_iter."),
-    reg_covar: float = typer.Option(1e-6, help="GMM reg_covar (stability)."),
-    seed: int = typer.Option(42, help="Random seed (single seed in production)."),
-    doubtful_threshold: float = typer.Option(0.60, help="Posterior max threshold below which assignments are 'doubtful'."),
-
-    auto_mapping: bool = typer.Option(True, help="Si True, genera cluster_mapping.json automáticamente usando target TRAIN."),
-    mapping_json_in: Optional[Path] = typer.Option(None, help="(Override) Mapping JSON manual a copiar."),
+    latent_filename: str = typer.Option(CLUSTERING_PARAMS.latent_filename, help="Nombre del CSV latente."),
+    split_train: str = typer.Option(CLUSTERING_PARAMS.split_train, help="Split usado para entrenar."),
+    save_legacy_latest: bool = typer.Option(
+        True,
+        help="Además de artefactos por ventana, guarda alias legacy para la última ventana.",
+    ),
 ):
     """
-    Production training for clustering (AE latent + GMM) + mapping dinámico:
-    - Fit scaler + GMM en TRAIN
-    - Guarda artefactos
-    - Genera mapping human-friendly automáticamente (usando target TRAIN) para estabilidad entre ejecuciones
+    Entrena GMM en producción para cada ventana W en W_WINDOWS.
+
+    Salidas por ventana (models/clustering_models/):
+      - gmm_ae_wXX.joblib
+      - scaler_latent_ae_wXX.joblib
+      - cluster_mapping_wXX.json
+
+    Reportes (reports/clustering/):
+      - train_clustering_metrics_wXX.json
+      - gmm_k_diagnostics.csv
     """
-    cfg = ClusteringConfig(
-        k=k,
-        covariance_type=covariance_type,
-        n_init=n_init,
-        max_iter=max_iter,
-        reg_covar=reg_covar,
-        seed=seed,
-        doubtful_threshold=doubtful_threshold,
-    )
+    selected_windows = _parse_windows(windows)
+    logger.info(f"🧠 Clustering TRAIN | split={split_train} | windows={selected_windows}")
 
-    latent_path = resolve_embeddings_path(embeddings_path, window=window, latent_filename=latent_filename)
-    df_latent = load_latent_embeddings(latent_path)
-    scaler, gmm, probs_max, labels = fit_scaler_and_gmm(df_latent, cfg)
-    metrics = compute_metrics(df_latent, scaler, gmm, probs_max, labels, cfg)
-    metrics["window"] = int(window)
-    metrics["embeddings_path"] = str(latent_path)
+    CLUSTERING_MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    CLUSTERING_REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Ensure dirs
-    out_gmm.parent.mkdir(parents=True, exist_ok=True)
-    out_scaler.parent.mkdir(parents=True, exist_ok=True)
-    out_mapping.parent.mkdir(parents=True, exist_ok=True)
-    out_metrics.parent.mkdir(parents=True, exist_ok=True)
+    all_diag_rows: List[Dict[str, Any]] = []
+    summary_rows: List[Dict[str, Any]] = []
 
-    # Save artifacts
-    joblib.dump(gmm, out_gmm)
-    joblib.dump(scaler, out_scaler)
+    for w in selected_windows:
+        latent_path = _latent_path(split=split_train, window=w, latent_filename=latent_filename)
+        df_lat = _safe_read_csv(latent_path)
+        if df_lat.empty:
+            logger.warning(f"⚠️ W{w:02d}: embeddings vacíos/no encontrados en {latent_path}")
+            continue
 
-    # ---- Mapping: prioridad -> mapping_json_in > auto_mapping(target) > default
-    if mapping_json_in is not None:
-        if not mapping_json_in.exists():
-            raise FileNotFoundError(f"Provided mapping_json_in does not exist: {mapping_json_in}")
-        mapping = json.loads(mapping_json_in.read_text())
+        X = df_lat.values.astype(np.float32)
+        scaler = StandardScaler()
+        X_std = scaler.fit_transform(X)
 
-    elif auto_mapping:
-        # genera mapping basado en TRAIN target (solo naming)
-        df_target = load_target(target_path, df_latent.index)
-        # alinear labels al índice común de target
-        common = df_latent.index.intersection(df_target.index)
-        if len(common) == 0:
-            raise ValueError("No hay solapamiento de índices entre latent_ae y target.csv")
-        # recomputar labels/probs sobre el subset común si hiciera falta
-        # (normalmente common == todo train)
-        idx_pos = df_latent.index.get_indexer(common)
-        labels_common = labels[idx_pos]
+        if CLUSTERING_PARAMS.use_fixed_k:
+            diag = pd.DataFrame()
+            k_pick = {"k": int(CLUSTERING_PARAMS.n_clusters), "reason": "fixed_k"}
+        else:
+            diag = _k_diagnostics(X_std, k_range=[int(k) for k in CLUSTERING_PARAMS.gmm_k_range])
+            diag["window"] = int(w)
+            all_diag_rows.extend(diag.to_dict(orient="records"))
+            k_pick = _pick_k(diag)
 
-        stats = _cluster_stats_from_target(labels_common, df_target.loc[common], cfg.k)
-        mapping = build_mapping_from_target(stats)
+        k_final = int(k_pick["k"])
 
-        # también añadimos un snapshot de stats completo al metrics report
-        metrics["cluster_outcome_stats_train"] = stats.to_dict(orient="records")
+        gmm = _build_gmm(X_std, n_components=k_final)
+        gmm.fit(X_std)
 
-    else:
-        mapping = build_default_mapping(cfg.k)
+        probs = gmm.predict_proba(X_std)
+        labels = probs.argmax(axis=1).astype(int)
 
-    out_mapping.write_text(json.dumps(mapping, indent=2, ensure_ascii=False))
+        target_path = FEATURES_DATA_DIR / split_train / "target.csv"
+        df_target = _safe_read_csv(target_path)
+        common = df_lat.index.intersection(df_target.index)
 
-    # Save metrics
-    out_metrics.write_text(json.dumps({"config": asdict(cfg), "metrics": metrics}, indent=2, ensure_ascii=False))
+        if len(common) > 0 and "final_result" in df_target.columns:
+            idx_pos = df_lat.index.get_indexer(common)
+            stats = _cluster_stats_from_target(labels[idx_pos], df_target.loc[common], k=k_final)
+            mapping = _build_mapping_from_target(stats)
+            stats_records = stats.to_dict(orient="records")
+        else:
+            mapping = {str(i): {"label": f"CLUSTER_{i}", "name": f"Cluster {i}"} for i in range(k_final)}
+            stats_records = []
 
-    # Console summary
-    typer.echo("✅ GMM training finished (TRAIN full).")
-    typer.echo(f"   - Window: W{int(window):02d} | embeddings: {latent_path}")
-    typer.echo(f"   - N students: {metrics['n_students']} | latent_dim: {metrics['latent_dim']}")
-    typer.echo(f"   - k={metrics['k']} cov={metrics['covariance_type']} seed={metrics['seed']}")
-    typer.echo(f"   - BIC: {metrics['bic']:.0f} | LogLik(mean): {metrics['log_likelihood_mean']:.4f}")
-    typer.echo(f"   - Confidence(mean): {metrics['confidence_mean']:.2%} | doubtful<{cfg.doubtful_threshold}: {metrics['doubtful_pct']:.2%}")
-    typer.echo(f"   - min_cluster_pct: {metrics['min_cluster_pct']:.2%}")
-    typer.echo(f"🗂  Mapping: {'manual' if mapping_json_in else ('auto(target)' if auto_mapping else 'default')}")
-    typer.echo(f"📦 Saved: {out_gmm}")
-    typer.echo(f"📦 Saved: {out_scaler}")
-    typer.echo(f"🗂  Saved: {out_mapping}")
-    typer.echo(f"📄 Saved: {out_metrics}")
+        metrics = _compute_metrics(X_std, gmm, probs, labels)
+        metrics["window"] = int(w)
+        metrics["latent_path"] = str(latent_path)
+        metrics["k_selection_reason"] = str(k_pick["reason"])
+        metrics["cluster_outcome_stats_train"] = stats_records
+
+        out_gmm = CLUSTERING_MODELS_DIR / f"{CLUSTERING_PARAMS.model_prefix}_w{w:02d}.joblib"
+        out_scaler = CLUSTERING_MODELS_DIR / f"{CLUSTERING_PARAMS.scaler_prefix}_w{w:02d}.joblib"
+        out_mapping = CLUSTERING_MODELS_DIR / f"{CLUSTERING_PARAMS.mapping_prefix}_w{w:02d}.json"
+        out_metrics = CLUSTERING_REPORTS_DIR / f"{CLUSTERING_PARAMS.metrics_prefix}_w{w:02d}.json"
+
+        joblib.dump(gmm, out_gmm)
+        joblib.dump(scaler, out_scaler)
+        out_mapping.write_text(json.dumps(mapping, indent=2, ensure_ascii=False))
+        out_metrics.write_text(
+            json.dumps(
+                {
+                    "hyperparams": asdict(CLUSTERING_PARAMS),
+                    "selected_k": k_final,
+                    "k_selection": k_pick,
+                    "k_diagnostics": diag.to_dict(orient="records") if not diag.empty else [],
+                    "metrics": metrics,
+                },
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+
+        summary_rows.append(
+            {
+                "window": int(w),
+                "k": int(k_final),
+                "bic": float(metrics["bic"]),
+                "aic": float(metrics["aic"]),
+                "silhouette": float(metrics["silhouette"]),
+                "min_cluster_pct": float(metrics["min_cluster_pct"]),
+            }
+        )
+
+        logger.success(
+            f"✅ W{w:02d} | K={k_final} ({k_pick['reason']}) | "
+            f"BIC={metrics['bic']:.1f} | Sil={metrics['silhouette']:.4f}"
+        )
+
+    if not summary_rows:
+        raise RuntimeError("No se entrenó ningún modelo GMM: revisa embeddings y ventanas.")
+
+    diag_path = CLUSTERING_REPORTS_DIR / CLUSTERING_PARAMS.diagnostics_filename
+    if all_diag_rows:
+        pd.DataFrame(all_diag_rows).to_csv(diag_path, index=False)
+    elif diag_path.exists():
+        diag_path.unlink()
+
+    summary_path = CLUSTERING_REPORTS_DIR / "train_clustering_summary.json"
+    summary_path.write_text(json.dumps(summary_rows, indent=2, ensure_ascii=False))
+
+    if save_legacy_latest:
+        max_w = max([int(r["window"]) for r in summary_rows])
+        src_gmm = CLUSTERING_MODELS_DIR / f"{CLUSTERING_PARAMS.model_prefix}_w{max_w:02d}.joblib"
+        src_scaler = CLUSTERING_MODELS_DIR / f"{CLUSTERING_PARAMS.scaler_prefix}_w{max_w:02d}.joblib"
+        src_mapping = CLUSTERING_MODELS_DIR / f"{CLUSTERING_PARAMS.mapping_prefix}_w{max_w:02d}.json"
+
+        dst_gmm = CLUSTERING_MODELS_DIR / f"{CLUSTERING_PARAMS.model_prefix}.joblib"
+        dst_scaler = CLUSTERING_MODELS_DIR / f"{CLUSTERING_PARAMS.scaler_prefix}.joblib"
+        dst_mapping = CLUSTERING_MODELS_DIR / f"{CLUSTERING_PARAMS.mapping_prefix}.json"
+
+        joblib.dump(joblib.load(src_gmm), dst_gmm)
+        joblib.dump(joblib.load(src_scaler), dst_scaler)
+        dst_mapping.write_text(src_mapping.read_text())
+
+        logger.info(f"📌 Alias legacy actualizados con W{max_w:02d} en {CLUSTERING_MODELS_DIR}")
+
+    logger.success(f"📄 Diagnóstico K guardado en: {diag_path}")
+    logger.success(f"📄 Resumen TRAIN guardado en: {summary_path}")
 
 
 if __name__ == "__main__":

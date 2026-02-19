@@ -100,14 +100,17 @@ def _run_profiles(segmentation_name, window, out_dir):
     # Solo trabajamos con training para el perfilado base
     split = "training"
     seg_path = _get_segmentation_path(split, segmentation_name, window)
-    feat_path = FEATURES_DATA_DIR / split / "engineered_features.csv"
+    day0_path = FEATURES_DATA_DIR / split / "day0_static_features.csv"
+    dyn_path = FEATURES_DATA_DIR / split / "ae_uptow_features" / f"ae_uptow_features_w{int(window):02d}.csv"
 
-    if not seg_path.exists() or not feat_path.exists():
-        logger.error(f"Faltan archivos para el perfilado en {split}")
+    if not seg_path.exists() or not day0_path.exists() or not dyn_path.exists():
+        logger.error(f"Faltan archivos para el perfilado en {split} (seg/day0/dyn).")
         return
 
     df_seg = pd.read_csv(seg_path, index_col=0)
-    df_feat = pd.read_csv(feat_path, index_col=0)
+    df_day0 = pd.read_csv(day0_path, index_col=0)
+    df_dyn = pd.read_csv(dyn_path, index_col=0)
+    df_feat = pd.concat([df_day0, df_dyn.reindex(df_day0.index)], axis=1).fillna(0.0)
     
     mapping = _get_dynamic_mapping()
     if mapping:

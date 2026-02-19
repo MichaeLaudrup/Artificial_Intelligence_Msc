@@ -1,18 +1,7 @@
-import os
-import warnings
-
-# Silenciar warnings de Protobuf y logs de TensorFlow
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-warnings.filterwarnings("ignore", category=UserWarning, module="google.protobuf")
-warnings.filterwarnings("ignore", category=UserWarning, module="tensorflow")
-
-# educational_ai_analytics/modeling/clustering/train_clustering.py
-from __future__ import annotations
-
 import json
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Any, Dict, Optional
 
 import joblib
 import numpy as np
@@ -20,6 +9,14 @@ import pandas as pd
 import typer
 from sklearn.mixture import GaussianMixture
 from sklearn.preprocessing import StandardScaler
+
+from educational_ai_analytics.config import (
+    EMBEDDINGS_DATA_DIR,
+    FEATURES_DATA_DIR,
+    MODELS_DIR,
+    REPORTS_DIR,
+    W_WINDOWS,
+)
 
 app = typer.Typer(add_completion=False)
 
@@ -41,17 +38,12 @@ class ClusteringConfig:
 # -------------------------
 # Default paths
 # -------------------------
-PROJECT_DIR = Path("/workspace/TFM_education_ai_analytics")
-
-EMBED_TRAIN_PATH = PROJECT_DIR / "data/4_embeddings/training/latent_ae.csv"
-TARGET_TRAIN_PATH = PROJECT_DIR / "data/3_features/training/target.csv"
-
-MODELS_DIR = PROJECT_DIR / "models"
+DEFAULT_WINDOW = int(max(W_WINDOWS)) if W_WINDOWS else 24
+EMBED_TRAIN_PATH = EMBEDDINGS_DATA_DIR / "training" / f"upto_w{DEFAULT_WINDOW:02d}" / "ae_latent.csv"
+TARGET_TRAIN_PATH = FEATURES_DATA_DIR / "training" / "target.csv"
 OUT_GMM = MODELS_DIR / "gmm_ae.joblib"
 OUT_SCALER = MODELS_DIR / "scaler_latent_ae.joblib"
 OUT_MAPPING = MODELS_DIR / "cluster_mapping.json"
-
-REPORTS_DIR = PROJECT_DIR / "reports"
 OUT_METRICS = REPORTS_DIR / "train_clustering_metrics.json"
 
 
@@ -64,6 +56,12 @@ def load_latent_embeddings(path: Path) -> pd.DataFrame:
     df = pd.read_csv(path, index_col=0)
     df = df.replace([np.inf, -np.inf], np.nan).fillna(0)
     return df.sort_index()
+
+
+def resolve_embeddings_path(path: Optional[Path], window: int, latent_filename: str) -> Path:
+    if path is not None:
+        return path
+    return EMBEDDINGS_DATA_DIR / "training" / f"upto_w{int(window):02d}" / latent_filename
 
 
 def load_target(path: Path, index_like: pd.Index) -> pd.DataFrame:
@@ -257,7 +255,12 @@ def compute_metrics(
 # -------------------------
 @app.command()
 def main(
-    embeddings_path: Path = typer.Option(EMBED_TRAIN_PATH, help="TRAIN latent embeddings CSV (latent_ae.csv)."),
+    embeddings_path: Optional[Path] = typer.Option(
+        None,
+        help="Ruta manual al CSV latente de training. Si no se indica, usa embeddings_dir/training/upto_wXX/ae_latent.csv.",
+    ),
+    window: int = typer.Option(DEFAULT_WINDOW, help="Ventana W a usar (upto_wXX)."),
+    latent_filename: str = typer.Option("ae_latent.csv", help="Nombre del CSV latente dentro de upto_wXX."),
     target_path: Path = typer.Option(TARGET_TRAIN_PATH, help="TRAIN target.csv (para auto-nombrar clusters)."),
     out_gmm: Path = typer.Option(OUT_GMM, help="Output path for fitted GMM artifact (.joblib)."),
     out_scaler: Path = typer.Option(OUT_SCALER, help="Output path for fitted scaler artifact (.joblib)."),
@@ -291,9 +294,12 @@ def main(
         doubtful_threshold=doubtful_threshold,
     )
 
-    df_latent = load_latent_embeddings(embeddings_path)
+    latent_path = resolve_embeddings_path(embeddings_path, window=window, latent_filename=latent_filename)
+    df_latent = load_latent_embeddings(latent_path)
     scaler, gmm, probs_max, labels = fit_scaler_and_gmm(df_latent, cfg)
     metrics = compute_metrics(df_latent, scaler, gmm, probs_max, labels, cfg)
+    metrics["window"] = int(window)
+    metrics["embeddings_path"] = str(latent_path)
 
     # Ensure dirs
     out_gmm.parent.mkdir(parents=True, exist_ok=True)
@@ -339,6 +345,7 @@ def main(
 
     # Console summary
     typer.echo("✅ GMM training finished (TRAIN full).")
+    typer.echo(f"   - Window: W{int(window):02d} | embeddings: {latent_path}")
     typer.echo(f"   - N students: {metrics['n_students']} | latent_dim: {metrics['latent_dim']}")
     typer.echo(f"   - k={metrics['k']} cov={metrics['covariance_type']} seed={metrics['seed']}")
     typer.echo(f"   - BIC: {metrics['bic']:.0f} | LogLik(mean): {metrics['log_likelihood_mean']:.4f}")

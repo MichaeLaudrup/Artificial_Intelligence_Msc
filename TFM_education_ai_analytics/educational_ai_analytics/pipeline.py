@@ -12,34 +12,38 @@ Uso:
   python -m educational_ai_analytics.pipeline --step features  # Solo features
 """
 
+import importlib
+import runpy
+
 import typer
-from pathlib import Path
 from loguru import logger
 
-from educational_ai_analytics.config import RAW_DATA_DIR, PROCESSED_DATA_DIR
+from educational_ai_analytics.config import PROJ_ROOT
 
 app = typer.Typer()
 
 
 def step_dataset():
     """Paso 1: Descarga, Merge, Limpieza Estructural, Split, Imputación."""
-    from educational_ai_analytics.dataset import main as dataset_main
     logger.info("=" * 60)
     logger.info("PASO 1: DATASET (Descarga + Procesamiento + Split)")
     logger.info("=" * 60)
-    dataset_main(
-        input_path=RAW_DATA_DIR / "OULAD_dataset" / "oulad_dataset.zip",
-        output_path=PROCESSED_DATA_DIR / "dataset.csv",
+    dataset_mod = importlib.import_module("educational_ai_analytics.0_data.0_dataset")
+    dataset_mod.main(
+        input_path=PROJ_ROOT / "data" / "0_raw" / "OULAD_dataset" / "oulad_dataset.zip",
+        output_path=PROJ_ROOT / "data" / "2_processed" / "dataset.csv",
     )
 
 
 def step_features():
     """Paso 2: Ingeniería de Características."""
-    from educational_ai_analytics.features import run_feature_pipeline
     logger.info("=" * 60)
     logger.info("PASO 2: FEATURE ENGINEERING")
     logger.info("=" * 60)
-    run_feature_pipeline()
+    runpy.run_path(
+        str(PROJ_ROOT / "educational_ai_analytics" / "1_features" / "__main__.py"),
+        run_name="__main__",
+    )
 
 
 def step_train():

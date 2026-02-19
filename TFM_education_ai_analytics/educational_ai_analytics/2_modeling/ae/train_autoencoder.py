@@ -75,8 +75,9 @@ def main(
     joint_epochs: int = AE_PARAMS.joint_epochs,
     batch_size: int = AE_PARAMS.batch_size,
     seed: int = 42,
-    update_interval: int = 5,     # 🔥 speed + stability
+    update_interval: int = 10,    # 🔥 menos oscilación al recalcular P
     sample_frac: float = AE_PARAMS.sample_frac,     # 🔥 compute P on subset (0.3–0.7 recommended)
+    target_blend: float = 0.35,   # 0->usar Q (suave), 1->DEC puro (más agresivo)
     shuffle_buf: int = 10000,
     use_mixed_precision: bool = True,
     save_best: bool = True,
@@ -99,7 +100,12 @@ def main(
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
     windows = sorted([int(w) for w in W_WINDOWS])
 
-    logger.info(f"🧠 DCN Training | Ventanas: {windows} | K={AE_PARAMS.n_clusters} | N≈? | batch={batch_size}")
+    target_blend = float(np.clip(target_blend, 0.0, 1.0))
+
+    logger.info(
+        f"🧠 DCN Training | Ventanas: {windows} | K={AE_PARAMS.n_clusters} | "
+        f"batch={batch_size} | update_interval={update_interval} | target_blend={target_blend:.2f}"
+    )
 
     # -----------------------
     # 1) Load data
@@ -118,7 +124,10 @@ def main(
     X_train = np.vstack(X_train_list).astype(np.float32)
     X_val = np.vstack(X_val_list).astype(np.float32) if X_val_list else None
 
-    logger.info(f"📦 X_train: {X_train.shape} | X_val: {None if X_val is None else X_val.shape}")
+    logger.info(
+        f"📦 X_train: {X_train.shape} | X_val: {None if X_val is None else X_val.shape} "
+        f"| N_train={len(X_train)} | N_val={0 if X_val is None else len(X_val)}"
+    )
 
     # -----------------------
     # 2) Phase 1: Pretrain (reconstruction)
@@ -173,7 +182,7 @@ def main(
     loss_kl = tf.keras.losses.KLDivergence()
 
     # Best checkpoint tracking (phase 3)
-    best_t = float("inf")
+    best_obj = float("inf")
     best_path = MODELS_DIR / "ae_best_global.keras"
     last_path = MODELS_DIR / "ae_last_global.keras"
 
@@ -189,15 +198,13 @@ def main(
             l_rec = loss_recon(x_batch, x_rec)
             l_cl = loss_kl(p_batch, q_batch)
 
-            total = l_rec + tf.cast(AE_PARAMS.clustering_loss_weight, l_rec.dtype) * l_cl
-
-            # include model.add_loss() terms (e.g., z_norm_penalty)
-            if model.losses:
-                total = total + tf.add_n(model.losses)
+            w_cl = tf.cast(AE_PARAMS.clustering_loss_weight, l_rec.dtype)
+            l_aux = tf.add_n(model.losses) if model.losses else tf.zeros_like(l_rec)
+            total = l_rec + w_cl * l_cl + l_aux
 
         grads = tape.gradient(total, model.trainable_variables)
         optimizer.apply_gradients(zip(grads, model.trainable_variables))
-        return total, l_rec, l_cl
+        return total, l_rec, l_cl, l_aux
 
     train_p_ds = None
     # Early Stopping tracking
@@ -219,7 +226,12 @@ def main(
             # Fast inference for q on subset
             _, q = model.predict(X_p, batch_size=batch_size, verbose=0)
             q = q.astype(np.float32)
-            p = target_distribution(q)
+            p_hard = target_distribution(q)
+            # suaviza el salto tras cada refresh de P para estabilizar KL
+            p = ((1.0 - target_blend) * q) + (target_blend * p_hard)
+            p = np.clip(p, 1e-12, 1.0)
+            p = p / p.sum(axis=1, keepdims=True)
+            p = p.astype(np.float32)
 
             # label-change diagnostic
             y_curr = q.argmax(1)
@@ -243,29 +255,36 @@ def main(
         epoch_t = tf.keras.metrics.Mean()
         epoch_r = tf.keras.metrics.Mean()
         epoch_c = tf.keras.metrics.Mean()
+        epoch_a = tf.keras.metrics.Mean()
 
         from tqdm import tqdm
         pbar = tqdm(train_p_ds, desc=f"   Epoch {epoch+1:02d}/{joint_epochs}", leave=False)
         for x_batch, p_batch in pbar:
-            total, l_rec, l_cl = train_step(x_batch, p_batch)
+            total, l_rec, l_cl, l_aux = train_step(x_batch, p_batch)
             epoch_t.update_state(total)
             epoch_r.update_state(l_rec)
             epoch_c.update_state(l_cl)
+            epoch_a.update_state(l_aux)
             
             pbar.set_postfix({"T": f"{total.numpy():.4f}", "R": f"{l_rec.numpy():.4f}", "C": f"{l_cl.numpy():.4f}"})
 
         t_val = float(epoch_t.result().numpy())
         r_val = float(epoch_r.result().numpy())
         c_val = float(epoch_c.result().numpy())
+        a_val = float(epoch_a.result().numpy())
+        obj_val = r_val + float(AE_PARAMS.clustering_loss_weight) * c_val
 
-        logger.info(f"   📉 Finalizado Epoch {epoch+1:02d}/{joint_epochs} | T-Loss: {t_val:.4f} | R: {r_val:.4f} | C: {c_val:.4f}")
+        logger.info(
+            f"   📉 Finalizado Epoch {epoch+1:02d}/{joint_epochs} | "
+            f"T: {t_val:.4f} | Obj(R+λC): {obj_val:.4f} | R: {r_val:.4f} | C: {c_val:.4f} | Aux: {a_val:.4f}"
+        )
 
         # Save best checkpoint & Early Stopping logic
-        if save_best and t_val < best_t:
-            best_t = t_val
+        if save_best and obj_val < best_obj:
+            best_obj = obj_val
             patience_counter = 0  # Reset patience
             model.save(best_path)
-            logger.info(f"   💾 Guardado BEST (Phase 3) | T-Loss: {best_t:.4f} -> {best_path.name}")
+            logger.info(f"   💾 Guardado BEST (Phase 3) | Obj(R+λC): {best_obj:.4f} -> {best_path.name}")
         else:
             patience_counter += 1
             if patience_counter >= patience_limit:

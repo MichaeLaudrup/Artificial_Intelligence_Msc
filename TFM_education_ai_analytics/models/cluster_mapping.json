@@ -1,55 +1,55 @@
 {
-  "5": {
+  "4": {
     "label": "CRITICAL_RISK_INACTIVE",
     "name": "Riesgo crítico (inactivos)",
     "rank_worst_to_best": 0,
-    "n": 3990,
-    "withdrawn_pct": 80.42606516290726,
-    "success_pct": 0.05012531328320802
+    "n": 2384,
+    "withdrawn_pct": 88.6744966442953,
+    "success_pct": 0.12583892617449663
   },
-  "4": {
+  "2": {
     "label": "STANDARD_PROFILE",
     "name": "Perfil estándar",
     "rank_worst_to_best": 1,
-    "n": 4941,
-    "withdrawn_pct": 30.155838899008298,
-    "success_pct": 48.59340214531471
+    "n": 511,
+    "withdrawn_pct": 85.51859099804305,
+    "success_pct": 0.19569471624266144
   },
-  "3": {
+  "1": {
     "label": "METHODICAL_EXPLORER",
     "name": "Exploradores metódicos",
     "rank_worst_to_best": 2,
-    "n": 1165,
-    "withdrawn_pct": 21.888412017167383,
-    "success_pct": 63.433476394849784
+    "n": 2330,
+    "withdrawn_pct": 63.175965665236056,
+    "success_pct": 1.8454935622317596
   },
-  "0": {
+  "3": {
     "label": "CONSISTENT_GOOD",
     "name": "Consistentes (buen nivel)",
     "rank_worst_to_best": 3,
-    "n": 10093,
-    "withdrawn_pct": 20.836223124938076,
-    "success_pct": 53.04666600614287
+    "n": 6001,
+    "withdrawn_pct": 44.59256790534911,
+    "success_pct": 15.330778203632727
   },
-  "1": {
+  "0": {
     "label": "ENGAGED_FATIGUE",
     "name": "Comprometidos (con fatiga)",
     "rank_worst_to_best": 4,
-    "n": 1279,
-    "withdrawn_pct": 2.9710711493354185,
-    "success_pct": 81.23534010946052
+    "n": 6869,
+    "withdrawn_pct": 4.1345173970010185,
+    "success_pct": 80.95792691803756
   },
-  "2": {
+  "5": {
     "label": "STRATEGIC_HIGH_PERFORMER",
     "name": "Alto rendimiento (estratégico)",
     "rank_worst_to_best": 5,
-    "n": 1317,
-    "withdrawn_pct": 0.759301442672741,
-    "success_pct": 90.8883826879271
+    "n": 4690,
+    "withdrawn_pct": 2.601279317697228,
+    "success_pct": 89.63752665245202
   },
   "_meta": {
-    "best_by_success_cluster_id": 2,
-    "worst_by_withdrawn_cluster_id": 5,
+    "best_by_success_cluster_id": 5,
+    "worst_by_withdrawn_cluster_id": 4,
     "note": "Mapping generado automáticamente usando target TRAIN (solo para nombrar, no afecta al clustering)."
   }
 }

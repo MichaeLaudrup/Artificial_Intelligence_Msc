@@ -1,18 +1,7 @@
-import os
-import warnings
-
-# Silenciar warnings de Protobuf y logs de TensorFlow
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-warnings.filterwarnings("ignore", category=UserWarning, module="google.protobuf")
-warnings.filterwarnings("ignore", category=UserWarning, module="tensorflow")
-
-# educational_ai_analytics/modeling/clustering/predict_clustering.py
-from __future__ import annotations
-
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Optional
 
 import joblib
 import numpy as np
@@ -20,20 +9,21 @@ import pandas as pd
 import typer
 from loguru import logger
 
-from educational_ai_analytics.config import EMBEDDINGS_DATA_DIR, MODELS_DIR, SEGMENTED_DATA_DIR
+from educational_ai_analytics.config import EMBEDDINGS_DATA_DIR, MODELS_DIR, W_WINDOWS
 
 app = typer.Typer(add_completion=False)
 
 DEFAULT_SPLITS = ("training", "validation", "test")
+DEFAULT_WINDOW = int(max(W_WINDOWS)) if W_WINDOWS else 24
 
 
 @dataclass(frozen=True)
 class Paths:
     embeddings_dir: Path = EMBEDDINGS_DATA_DIR
     models_dir: Path = MODELS_DIR
-    out_dir: Path = SEGMENTED_DATA_DIR  # Changed to the new segmentation dir
+    out_dir: Path = EMBEDDINGS_DATA_DIR
 
-    latent_filename: str = "latent_ae.csv"
+    latent_filename: str = "ae_latent.csv"
     gmm_filename: str = "gmm_ae.joblib"
     scaler_filename: str = "scaler_latent_ae.joblib"
     mapping_filename: str = "cluster_mapping.json"
@@ -72,13 +62,14 @@ def _entropy(p: np.ndarray, eps: float = 1e-12) -> np.ndarray:
 
 def _predict_one_split(
     split: str,
+    window: int,
     paths: Paths,
     gmm,
     scaler,
     mapping: Dict[str, Dict[str, str]],
     write_outputs: bool = True,
 ) -> Optional[Path]:
-    latent_path = paths.embeddings_dir / split / paths.latent_filename
+    latent_path = paths.embeddings_dir / split / f"upto_w{int(window):02d}" / paths.latent_filename
     if not latent_path.exists():
         logger.warning(f"[{split}] No latent file at {latent_path}. Skipping.")
         return None
@@ -117,7 +108,7 @@ def _predict_one_split(
         logger.info(f"[{split}] Computed segmentation (not saved). shape={out.shape}")
         return None
 
-    out_dir = paths.out_dir / split
+    out_dir = paths.out_dir / split / f"upto_w{int(window):02d}"
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / "segmentation_gmm_ae.csv"
     out.to_csv(out_path)
@@ -133,19 +124,23 @@ def main(
         help="Comma-separated splits to run (e.g. 'training,validation,test' or 'validation,test').",
     ),
     embeddings_dir: Path = typer.Option(EMBEDDINGS_DATA_DIR, help="Base embeddings dir (contains split subfolders)."),
-    latent_filename: str = typer.Option("latent_ae.csv", help="Latent CSV name inside each split folder."),
+    window: int = typer.Option(DEFAULT_WINDOW, help="Ventana W a usar (upto_wXX)."),
+    latent_filename: str = typer.Option("ae_latent.csv", help="Latent CSV name inside each split folder."),
     models_dir: Path = typer.Option(MODELS_DIR, help="Models directory."),
     gmm_filename: str = typer.Option("gmm_ae.joblib", help="GMM artifact filename."),
     scaler_filename: str = typer.Option("scaler_latent_ae.joblib", help="Scaler artifact filename."),
     mapping_filename: str = typer.Option("cluster_mapping.json", help="Cluster mapping JSON filename."),
-    out_dir: Path = typer.Option(SEGMENTED_DATA_DIR, help="Output base directory (will create split subfolders)."),
+    out_dir: Path = typer.Option(
+        EMBEDDINGS_DATA_DIR,
+        help="Output base directory (default: embeddings, same split/upto_wXX).",
+    ),
 ):
     """
     Production inference of clustering (AE+GMM):
-    - Loads latent_ae.csv for each split
+    - Loads ae_latent.csv for each split in upto_wXX
     - Loads scaler_latent_ae.joblib + gmm_ae.joblib
     - Computes p_cluster_0..K-1 + confidence + entropy(+norm) + cluster_name/label
-    - Saves segmentation_gmm_ae.csv per split (training/validation/test)
+    - Saves segmentation_gmm_ae.csv per split in embeddings/{split}/upto_wXX
     """
     split_list = tuple([s.strip() for s in splits.split(",") if s.strip()])
     if not split_list:
@@ -188,9 +183,17 @@ def main(
 
     mapping = _load_mapping(mapping_path, k)
 
-    logger.info(f"Running clustering inference for splits={split_list} | K={k}")
+    logger.info(f"Running clustering inference for splits={split_list} | W={window} | K={k}")
     for split in split_list:
-        _predict_one_split(split, paths, gmm=gmm, scaler=scaler, mapping=mapping, write_outputs=True)
+        _predict_one_split(
+            split,
+            window=window,
+            paths=paths,
+            gmm=gmm,
+            scaler=scaler,
+            mapping=mapping,
+            write_outputs=True,
+        )
 
     logger.success("✅ Done.")
 

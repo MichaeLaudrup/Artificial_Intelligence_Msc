@@ -131,9 +131,9 @@ pipeline: prep_latent train_clustering predict_clustering
 .PHONY: pipeline_clustering_plots
 pipeline_clustering_plots: data features train_ae encode train_clustering predict_clustering plot_clustering
 
-## Grouped: all plots (AE + Clustering)
+## Grouped: all plots (AE + Clustering + Profiles)
 .PHONY: all_plots
-all_plots: plot_ae plot_clustering
+all_plots: plot_ae plot_clustering plot_profiles
 
 ## Grouped: from raw data to clustering prediction
 .PHONY: from_data_to_clustering_predict
@@ -145,7 +145,7 @@ from_ae_train_to_predict: train_ae encode train_clustering predict_clustering
 
 ## Grouped: full pipeline (data -> features -> AE -> clustering -> prediction -> plots)
 .PHONY: full_pipeline
-full_pipeline: pipeline_clustering_plots
+full_pipeline: from_data_to_clustering_predict all_plots
 
 ## Menú interactivo con opciones numeradas
 .PHONY: menu

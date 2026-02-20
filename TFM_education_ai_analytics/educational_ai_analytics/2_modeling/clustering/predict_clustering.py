@@ -130,7 +130,7 @@ def _predict_one(split: str, window: int, latent_filename: str, out_filename: st
 
     segmented_dir = SEGMENTED_DATA_DIR / split
     segmented_dir.mkdir(parents=True, exist_ok=True)
-    segmented_path = segmented_dir / f"students_segmented_uptW{int(window):02d}.csv"
+    segmented_path = segmented_dir / f"students_segmented_uptoW{int(window)}.csv"
     out.to_csv(segmented_path)
 
     logger.success(f"✅ [{split}] W{window:02d}: {out_path.name} | N={len(out)} | K={probs.shape[1]}")

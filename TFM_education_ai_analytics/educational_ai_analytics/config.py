@@ -32,7 +32,7 @@ TRANSFORMERS_REPORTS_DIR = REPORTS_DIR / "transformers"
 OULAD_DATASET_URL = "https://analyse.kmi.open.ac.uk/open-dataset/download"
 
 # Feature Engineering Config
-W_WINDOWS = [12,18,24]
+W_WINDOWS = [5, 10, 15, 20, 25]
 
 # If tqdm is installed, configure loguru with tqdm.write
 # https://github.com/Delgan/loguru/issues/135

@@ -184,8 +184,8 @@ class DayZeroFeaturesBuilder:
         index_uids = pd.Index(index_uids)
 
         keep_cols = [
-            "code_module", "code_presentation", "gender", "region", "highest_education",
-            "imd_band", "age_band", "disability", "num_of_prev_attempts", "studied_credits",
+            "code_module", "code_presentation", "region", "highest_education",
+            "imd_band", "age_band", "num_of_prev_attempts", "studied_credits",
             "date_registration", "module_presentation_length",
         ]
         X_demo = stu[[c for c in keep_cols if c in stu.columns]].copy()
@@ -251,7 +251,7 @@ class DayZeroFeaturesBuilder:
         df = self.extract_raw_features(df_students, df_interactions, index_uids=index_uids)
 
         # normaliza '?' -> NA
-        for c in ["gender", "disability", "region", "highest_education", "imd_band", "age_band"]:
+        for c in ["region", "highest_education", "imd_band", "age_band"]:
             if c in df.columns:
                 df[c] = df[c].replace("?", pd.NA)
 
@@ -292,18 +292,6 @@ class DayZeroFeaturesBuilder:
             .map(self.region_map).fillna(-1).astype(int)
         )
 
-        # OHE sobre categóricas
-        cat_cols = ["gender", "disability"]
-        for c in cat_cols:
-            if c not in df.columns:
-                df[c] = "Unknown"
-            df[c] = df[c].fillna("Unknown").astype(str)
-
-        ohe_values = self.ohe.fit_transform(df[cat_cols]) if fit else self.ohe.transform(df[cat_cols])
-        o_cols = self.ohe.get_feature_names_out(cat_cols)
-        ohe_cols = [re.sub(r"[^a-zA-Z0-9_]", "_", n.lower()) for n in o_cols]
-        df_ohe = pd.DataFrame(ohe_values, columns=ohe_cols, index=df.index).astype("int8")
-
         base_cols = [
             "imd_band", "age_band", "highest_education",
             "num_of_prev_attempts", "studied_credits", "region_encoded",
@@ -316,7 +304,7 @@ class DayZeroFeaturesBuilder:
             if c not in df.columns:
                 df[c] = 0.0
 
-        out_df = pd.concat([df[base_cols], df_ohe], axis=1)
+        out_df = df[base_cols].copy()
 
         # columnas a normalizar por curso (todas las numéricas para evitar sesgos de escala)
         norm_cols = [

@@ -27,8 +27,8 @@ from educational_ai_analytics.config import (
 
 # Import del modelo
 import importlib
-_mod_modeling = importlib.import_module("educational_ai_analytics.2_modeling")
-StudentProfileAutoencoder = _mod_modeling.StudentProfileAutoencoder
+_mod_modeling_ae = importlib.import_module("educational_ai_analytics.2_modeling.ae.autoencoder")
+StudentProfileAutoencoder = _mod_modeling_ae.StudentProfileAutoencoder
 
 from .style import set_style
 set_style()

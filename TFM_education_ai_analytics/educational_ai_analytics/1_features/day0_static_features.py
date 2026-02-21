@@ -255,7 +255,6 @@ class DayZeroFeaturesBuilder:
             if c in df.columns:
                 df[c] = df[c].replace("?", pd.NA)
 
-        # aprende modas y region_map SOLO en fit
         if fit:
             self.learned_stats["moda_age"] = (
                 df["age_band"].mode().iloc[0] if ("age_band" in df.columns and not df["age_band"].mode().empty) else "0-35"

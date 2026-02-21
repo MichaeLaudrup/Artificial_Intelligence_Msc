@@ -69,10 +69,15 @@ train_clustering:
 predict_clustering:
 	$(PYTHON_INTERPRETER) -m educational_ai_analytics.2_modeling.clustering.predict_clustering
 
-## 6. Train Transformer (Future)
+## 6. Generate Transformer Features -> data/6_transformer_features
+.PHONY: transformer_features
+transformer_features:
+	$(PYTHON_INTERPRETER) educational_ai_analytics/1_features/__transformer_main__.py
+
+## 7. Train Transformer
 .PHONY: train_transformer
 train_transformer:
-	$(PYTHON_INTERPRETER) -m educational_ai_analytics.2_modeling.transformers.train_transformer
+	$(PYTHON_INTERPRETER) educational_ai_analytics/2_modeling/transformers/train_transformer.py
 
 ## 7. Plot Learning Curves (AE)
 .PHONY: plot_ae_loss

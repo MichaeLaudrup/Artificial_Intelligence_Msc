@@ -1,0 +1,146 @@
+[
+    {
+        "timestamp": "2026-02-21 17:24:25",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "batch_size": 256,
+            "epochs": 80,
+            "with_static": true,
+            "latent_d": 64,
+            "num_heads": 2,
+            "ff_dim": 64,
+            "dropout": 0.1,
+            "num_layers": 1,
+            "static_hidden": [
+                128,
+                64
+            ],
+            "head_hidden": [
+                64,
+                32
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.5,
+            "reduce_lr_patience": 3,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10
+        },
+        "validation_metrics": {
+            "loss": 0.5360639691352844,
+            "accuracy": 0.7329192757606506,
+            "balanced_accuracy": 0.6497101441230403,
+            "auc_ovr": 0.7375682544440558
+        }
+    },
+    {
+        "timestamp": "2026-02-21 17:26:57",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "batch_size": 256,
+            "epochs": 80,
+            "with_static": true,
+            "latent_d": 64,
+            "num_heads": 2,
+            "ff_dim": 64,
+            "dropout": 0.1,
+            "num_layers": 1,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                64,
+                32
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.5,
+            "reduce_lr_patience": 3,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10
+        },
+        "validation_metrics": {
+            "loss": 0.5342285633087158,
+            "accuracy": 0.7363353967666626,
+            "balanced_accuracy": 0.6478889462494519,
+            "auc_ovr": 0.7392358740362037
+        }
+    },
+    {
+        "timestamp": "2026-02-21 17:30:14",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "batch_size": 256,
+            "epochs": 80,
+            "with_static": false,
+            "latent_d": 64,
+            "num_heads": 2,
+            "ff_dim": 64,
+            "dropout": 0.1,
+            "num_layers": 1,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                64,
+                32
+            ],
+            "learning_rate": 0.0001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.5,
+            "reduce_lr_patience": 3,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10
+        },
+        "validation_metrics": {
+            "loss": 0.5487581491470337,
+            "accuracy": 0.7220497131347656,
+            "balanced_accuracy": 0.6073933139787692,
+            "auc_ovr": 0.713758763676331
+        }
+    },
+    {
+        "timestamp": "2026-02-21 17:37:52",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "batch_size": 256,
+            "epochs": 80,
+            "with_static": true,
+            "latent_d": 64,
+            "num_heads": 2,
+            "ff_dim": 64,
+            "dropout": 0.1,
+            "num_layers": 1,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                64,
+                32
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.5,
+            "reduce_lr_patience": 3,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10
+        },
+        "validation_metrics": {
+            "loss": 0.5385670065879822,
+            "accuracy": 0.7288820147514343,
+            "balanced_accuracy": 0.6428967269322645,
+            "auc_ovr": 0.7365089343702643
+        }
+    }
+]

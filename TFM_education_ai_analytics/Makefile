@@ -79,6 +79,10 @@ transformer_features:
 train_transformer:
 	$(PYTHON_INTERPRETER) educational_ai_analytics/2_modeling/transformers/train_transformer.py
 
+## 7.5. Run Full Transformer Pipeline (Features + Train)
+.PHONY: full_transformer
+full_transformer: transformer_features train_transformer
+
 ## 7. Plot Learning Curves (AE)
 .PHONY: plot_ae_loss
 plot_ae_loss:

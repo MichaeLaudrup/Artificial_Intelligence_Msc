@@ -101,7 +101,7 @@ class TransformerEncoderBlock(layers.Layer):
 
 
 # =========================
-# Modelo completo: Temporal (Transformer) + Static (cluster feats) + Head MLP
+# Modelo completo: Temporal + Static (Early Fusion via Feature Addition)
 # =========================
 class GLUTransformerClassifier(tf.keras.Model):
     def __init__(
@@ -123,7 +123,8 @@ class GLUTransformerClassifier(tf.keras.Model):
 
         # ----- Temporal -----
         self.input_proj = layers.Dense(latent_d)
-        self.pos_encoding = PositionalEncoding(d_model=latent_d, max_len=max_len)
+        # PAPER: recomienda NO usar positional encoding en OULAD
+        # self.pos_encoding = PositionalEncoding(d_model=latent_d, max_len=max_len)
         self.in_drop = layers.Dropout(dropout)
 
         self.encoders = [
@@ -131,18 +132,27 @@ class GLUTransformerClassifier(tf.keras.Model):
             for i in range(num_layers)
         ]
 
-        # Normaliza antes de hacer el pooling promedio
         self.seq_out_norm = layers.LayerNormalization(epsilon=1e-6)
         self.pooled_norm = layers.LayerNormalization(epsilon=1e-6)
 
         # ----- Static -----
         if self.with_static_features:
+            # Proyectamos la estática al mismo espacio latente D del Transformer
             self.static_block = tf.keras.Sequential(
                 [layers.Dense(h, activation="relu") for h in static_hidden] +
-                [layers.LayerNormalization(epsilon=1e-6)],
+                [layers.Dropout(dropout),
+                 layers.Dense(latent_d, activation="linear"), 
+                 layers.LayerNormalization(epsilon=1e-6)],
                 name="static_block"
             )
-            self.fusion = layers.Concatenate(axis=-1)
+
+            # GATED EARLY FUSION: puerta sigmoide que aprende cuánto inyectar
+            # de cada dimensión estática en la secuencia temporal.
+            # Si la gate → 1.0, la estática dominia; si → 0.0, se ignora.
+            self.fusion_gate = layers.Dense(latent_d, activation="sigmoid", name="fusion_gate")
+
+            # Normalización para las features estáticas crudas (bypass directo al head)
+            self.static_raw_norm = layers.LayerNormalization(epsilon=1e-6, name="static_raw_norm")
 
         # ----- Head (MLP para Clasificación Final) -----
         head_layers = []
@@ -176,31 +186,51 @@ class GLUTransformerClassifier(tf.keras.Model):
         if seq_mask is None:
             raise ValueError("seq_mask es obligatorio (B,W).")
 
-        # ----- Static path -----
-        if self.with_static_features:
-            x_static = self.static_block(x_static, training=training)
+        # ----- Temporal projection (B, W, D) -----
+        x_seq = self.input_proj(x_seq)          
+        # PAPER: positional encoding deshabilitado
+        # x_seq = self.pos_encoding(x_seq)        
 
-        # ----- Temporal path -----
-        x_seq = self.input_proj(x_seq)          # (B,W,D)
-        x_seq = self.pos_encoding(x_seq)        # (B,W,D)
+        # ----- GATED EARLY FUSION -----
+        if self.with_static_features:
+            # 1. Embedding estático (B, D)
+            x_static_emb = self.static_block(x_static, training=training)
+            # 2. Puerta aprendida: controla cuánto de cada dimensión estática se inyecta
+            #    gate ≈ 1 → la estática domina esa dimensión
+            #    gate ≈ 0 → se ignora (el temporal manda)
+            gate = self.fusion_gate(x_static_emb)  # (B, D)
+            x_seq = x_seq + tf.expand_dims(gate * x_static_emb, axis=1)
+
         x_seq = self.in_drop(x_seq, training=training)
 
+        # Transformer Encoder layers
         for enc in self.encoders:
             x_seq = enc(x_seq, training=training, seq_mask=seq_mask)
 
         x_seq = self.seq_out_norm(x_seq)
 
-        # ----- Masked mean pooling -----
-        # Mapea los pesos a cero ahí donde no hay secuencia real
-        m = tf.cast(seq_mask, x_seq.dtype)[:, :, tf.newaxis]  # (B,W,1)
-        pooled = tf.reduce_sum(x_seq * m, axis=1) / (tf.reduce_sum(m, axis=1) + 1e-8)
-        pooled = self.pooled_norm(pooled)
+        # ----- Pooling Promedio y Maximo con Máscara -----
+        m = tf.cast(seq_mask, x_seq.dtype)[:, :, tf.newaxis]
+        
+        # 1. Average Pooling
+        avg_pooled = tf.reduce_sum(x_seq * m, axis=1) / (tf.reduce_sum(m, axis=1) + 1e-8)
+        
+        # 2. Max Pooling (penalizamos los pads con valor infinito negativo)
+        x_seq_masked = x_seq + (1.0 - m) * -1e9
+        max_pooled = tf.reduce_max(x_seq_masked, axis=1)
+        
+        # Concatenar ambos poolings
+        pooled = tf.concat([avg_pooled, max_pooled], axis=-1)
+        z = self.pooled_norm(pooled)
 
-        # ----- Fusion -----
+        # ----- LATE FUSION (Triple Path) -----
         if self.with_static_features:
-            z = self.fusion([pooled, x_static])
-        else:
-            z = pooled
+            # Path 1: z = pooled temporal (ya incluye info estática vía early fusion)
+            # Path 2: x_static_emb = embedding estático procesado
+            # Path 3: x_static RAW normalizado = bypass directo sin bottleneck
+            #          para que el head vea las 19 features demográficas sin pérdida
+            x_static_raw_normed = self.static_raw_norm(x_static)
+            z = tf.concat([z, x_static_emb, x_static_raw_normed], axis=1)
 
         # Clasificación final
         return self.head(z, training=training)

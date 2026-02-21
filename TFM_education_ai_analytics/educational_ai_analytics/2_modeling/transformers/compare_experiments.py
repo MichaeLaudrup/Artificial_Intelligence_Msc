@@ -1,8 +1,9 @@
 import json
 from pathlib import Path
 
-def compare_experiments():
-    history_path = Path("reports/transformer_training/experiments_history.json")
+def compare_experiments(history_path: Path = Path("reports/transformer_training/experiments_history.json")):
+    if isinstance(history_path, str):
+        history_path = Path(history_path)
     if not history_path.exists():
         print("No hay historial de experimentos para comparar.")
         return
@@ -18,9 +19,10 @@ def compare_experiments():
         print("Se necesitan al menos 2 experimentos en el historial para hacer comparaciones.")
         return
 
-    print(f"\n📊 Análisis de Historial de Experimentos ({len(history)} corridas totales)\n" + "="*80)
+    print(f"\n📊 Análisis de Último Experimento ({len(history)} corridas totales en el historial)\n" + "="*80)
 
-    for i in range(1, len(history)):
+    # Mostrar solo la comparativa más reciente (el último contra el penúltimo)
+    for i in range(len(history)-1, len(history)-2, -1):
         exp1 = history[i-1]
         exp2 = history[i]
 
@@ -55,9 +57,14 @@ def compare_experiments():
         metrics2 = exp2.get("validation_metrics", {})
         
         print("\n  📈 EVOLUCIÓN DE MÉTRICAS (Validación):")
-        for k in metrics1.keys():
+        all_metrics = set(metrics1.keys()).union(set(metrics2.keys()))
+        for k in sorted(list(all_metrics)):
             m1 = metrics1.get(k)
             m2 = metrics2.get(k)
+            
+            if m1 is None and m2 is not None:
+                print(f"      - {k.ljust(18)}: [No Exisite] ->  {m2:.4f}  (🌟 NUEVA)")
+                continue
             if m1 is None or m2 is None: continue
             
             diff = m2 - m1
@@ -82,4 +89,22 @@ def compare_experiments():
         print("-" * 80)
 
 if __name__ == "__main__":
-    compare_experiments()
+    import sys
+    
+    reports_dir = Path("reports/transformer_training")
+    
+    if len(sys.argv) > 1:
+        # If user provides a specific file path
+        compare_experiments(Path(sys.argv[1]))
+    else:
+        # Search for all metric files in week_* folders
+        history_files = sorted(list(reports_dir.glob("week_*/experiments_history.json")))
+        
+        if not history_files:
+            print(f"No se encontraron historiales en {reports_dir}/week_*/")
+        else:
+            for hist in history_files:
+                week_match = hist.parent.name
+                print(f"\n" + "*"*80)
+                print(f"🌟 Analizando historial de la carpeta: {week_match.upper()}")
+                compare_experiments(history_path=hist)

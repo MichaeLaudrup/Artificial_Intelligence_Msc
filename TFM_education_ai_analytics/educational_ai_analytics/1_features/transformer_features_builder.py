@@ -45,11 +45,13 @@ class TransformerFeaturesBuilder:
         target_file_name: str = "target.csv",
         target_col: str = "final_result",
         meta_file: str = "transformer_meta.json",
+        filter_unregistered: bool = False,
     ):
         self.out_root_dir = Path(out_root_dir)
         self.segmented_root_dir = Path(segmented_root_dir)
         self.features_root_dir = Path(features_root_dir)
         self.windows = sorted(list(windows))
+        self.filter_unregistered = filter_unregistered
 
         self.features_cluster = features_cluster or [
             "p_cluster_0", "p_cluster_1", "p_cluster_2",
@@ -204,14 +206,17 @@ class TransformerFeaturesBuilder:
         for upto_week in self.windows:
             inter_uptoW = interactions_base[interactions_base["week"] < upto_week].copy()
 
-            # Evitar alumnos que abandonaron antes de la semana objeto
-            active_students = st[st["week_unregistration"] >= upto_week]
-            valid_ids = active_students["unique_id"].unique()
-
-            total_students = inter_uptoW["unique_id"].nunique()
-            removed = total_students - len(valid_ids)
-            logger.info(f"[{split}] W={upto_week}: eliminados {removed} por abandono temprano")
-            inter_uptoW = inter_uptoW[inter_uptoW["unique_id"].isin(valid_ids)]
+            # Evitar alumnos que abandonaron antes de la semana objeto si está habilitado el filtro
+            if self.filter_unregistered:
+                active_students = st[st["week_unregistration"] >= upto_week]
+                valid_ids = active_students["unique_id"].unique()
+                
+                total_students = inter_uptoW["unique_id"].nunique()
+                inter_uptoW = inter_uptoW[inter_uptoW["unique_id"].isin(valid_ids)]
+                removed = total_students - inter_uptoW["unique_id"].nunique()
+                logger.info(f"[{split}] W={upto_week}: eliminados {removed} por abandono temprano")
+            else:
+                logger.info(f"[{split}] W={upto_week}: no se aplica filtro de abandono temprano (filter_unregistered=False)")
 
             # agregación
             g = (
@@ -248,15 +253,16 @@ class TransformerFeaturesBuilder:
                 len(wide_w), upto_week, len(activities_global)
             ).astype(np.float32)
 
-            # máscara semanal (N, T)
-            mask = (X_seq.sum(axis=2) > 0).astype(np.int32)
+            # máscara semanal (N, T) — todas las semanas son válidas
+            # (no hay padding real: cada archivo tiene upto_week fijo)
+            mask = np.ones((len(wide_w), upto_week), dtype=np.int32)
             
             # --- NORMALIZACION Log1p + Z-Score (calculado solo en split=training) ---
             X_seq_log = np.log1p(X_seq)
             w_key = str(upto_week)
             if fit:
-                active = mask.reshape(-1).astype(bool)
-                X_seq_flat = X_seq_log.reshape(-1, len(activities_global))[active]
+                # Calculamos stats sobre TODAS las celdas (ya no hay padding)
+                X_seq_flat = X_seq_log.reshape(-1, len(activities_global))
                 mu = X_seq_flat.mean(axis=0)
                 std = X_seq_flat.std(axis=0) + 1e-8
                 self.scalers[w_key] = {"mu": mu.tolist(), "std": std.tolist()}
@@ -267,7 +273,8 @@ class TransformerFeaturesBuilder:
                 std = np.asarray(self.scalers[w_key]["std"], dtype=np.float32)
                 
             X_seq_norm = (X_seq_log - mu) / std
-            X_seq = (X_seq_norm * np.expand_dims(mask, axis=-1)).astype(np.float32)
+            # NO multiplicamos por mask: 0 clicks -> -(mu/std) es señal informativa
+            X_seq = X_seq_norm.astype(np.float32)
 
             # labels
             y = target_w[self.target_col].astype(np.int64).values
@@ -327,6 +334,14 @@ class TransformerFeaturesBuilder:
         else:
             logger.warning(f"[{split}] ⚠️ No existe {day0_fp}, usando sólo clusters.")
             combined_df = seg
+            
+        # Añadir features agregadas/dinámicas calculadas para el AE
+        ae_fp = self.features_root_dir / split / "ae_uptow_features" / f"ae_uptow_features_w{upto_week:02d}.csv"
+        if ae_fp.exists():
+            ae_df = pd.read_csv(ae_fp).set_index("unique_id")
+            combined_df = pd.concat([combined_df, ae_df], axis=1)
+        else:
+            logger.warning(f"[{split}] ⚠️ No existe {ae_fp}, no se usarán features ae_uptow.")
 
         X_static_df = combined_df.reindex(uid).fillna(0.0)
 

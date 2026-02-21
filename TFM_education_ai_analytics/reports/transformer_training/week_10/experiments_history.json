@@ -1,0 +1,80 @@
+[
+    {
+        "timestamp": "2026-02-21 20:10:36",
+        "hyperparameters": {
+            "upto_week": 10,
+            "num_classes": 3,
+            "paper_baseline": true,
+            "batch_size": 256,
+            "epochs": 80,
+            "with_static": true,
+            "latent_d": 64,
+            "num_heads": 2,
+            "ff_dim": 64,
+            "dropout": 0.1,
+            "num_layers": 1,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                64,
+                32
+            ],
+            "learning_rate": 0.01,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 5,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 15
+        },
+        "validation_metrics": {
+            "loss": 0.8199427723884583,
+            "accuracy": 0.665787398815155,
+            "balanced_accuracy": 0.4618845024256168,
+            "auc_ovr": 0.7305598156590416,
+            "precision": 0.5106228609923191,
+            "recall": 0.4618845024256168,
+            "f1_score": 0.4355007982115211
+        }
+    },
+    {
+        "timestamp": "2026-02-21 20:15:19",
+        "hyperparameters": {
+            "upto_week": 10,
+            "num_classes": 3,
+            "paper_baseline": true,
+            "batch_size": 256,
+            "epochs": 80,
+            "with_static": true,
+            "latent_d": 64,
+            "num_heads": 2,
+            "ff_dim": 64,
+            "dropout": 0.1,
+            "num_layers": 1,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                64,
+                32
+            ],
+            "learning_rate": 0.01,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 5,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 15
+        },
+        "validation_metrics": {
+            "loss": 0.8182176351547241,
+            "accuracy": 0.6636771559715271,
+            "balanced_accuracy": 0.459764951077664,
+            "auc_ovr": 0.7265564905468018,
+            "precision": 0.5263263554580081,
+            "recall": 0.459764951077664,
+            "f1_score": 0.4455324061886509
+        }
+    }
+]

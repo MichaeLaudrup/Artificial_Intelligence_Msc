@@ -1,0 +1,46 @@
+[
+    {
+        "timestamp": "2026-02-21 23:11:54",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 3,
+            "paper_baseline": true,
+            "batch_size": 128,
+            "epochs": 80,
+            "with_static": true,
+            "latent_d": 64,
+            "num_heads": 2,
+            "ff_dim": 64,
+            "dropout": 0.2,
+            "num_layers": 1,
+            "static_hidden": [
+                128,
+                64
+            ],
+            "head_hidden": [
+                128,
+                64
+            ],
+            "learning_rate": 0.0005,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 5,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 15,
+            "focal_gamma": 2,
+            "focal_alpha": [
+                0.28,
+                0.72
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.11143375188112259,
+            "accuracy": 0.6114543676376343,
+            "balanced_accuracy": 0.5567479675905136,
+            "auc_ovr": 0.7570245313253777,
+            "precision": 0.5629300538909551,
+            "recall": 0.5567479675905136,
+            "f1_score": 0.5571306345251285
+        }
+    }
+]

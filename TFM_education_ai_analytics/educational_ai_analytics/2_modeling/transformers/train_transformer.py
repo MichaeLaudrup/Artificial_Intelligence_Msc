@@ -11,7 +11,7 @@ from loguru import logger
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.utils.class_weight import compute_class_weight
-from sklearn.metrics import roc_auc_score, classification_report, balanced_accuracy_score, confusion_matrix
+from sklearn.metrics import roc_auc_score, classification_report, balanced_accuracy_score, confusion_matrix, precision_score, recall_score, f1_score
 
 from transformer_GLU_classifier import GLUTransformerClassifier
 from hyperparams import TRANSFORMER_PARAMS
@@ -85,7 +85,7 @@ def train(
     Entrena el modelo Transformer y evalúa el rendimiento.
     """
     base_npz = Path("/workspace/TFM_education_ai_analytics/data/6_transformer_features")
-    save_dir = Path("/workspace/TFM_education_ai_analytics/reports/transformer_training")
+    save_dir = Path(f"/workspace/TFM_education_ai_analytics/reports/transformer_training/week_{upto_week}")
     
     logger.info(f"Cargando datos pre-normalizados desde: {base_npz}")
     
@@ -99,21 +99,30 @@ def train(
     if eval_test:
         logger.info(f"Test set pre-normalizado  -> Seq: {X_test_seq.shape}, Static: {X_test_stat.shape if X_test_stat is not None else 'N/A'}, Y: {y_test.shape}")
     
-    # Class weights summary
-    unique_classes = np.unique(y_train)
-    weights_values = compute_class_weight('balanced', classes=unique_classes, y=y_train)
-    cw = dict(zip(unique_classes, weights_values))
-    cw_smoothed = {k: float(np.sqrt(v)) for k, v in cw.items()}
-    
     logger.info("\n📊 BALANCEO DE CLASES (Training)")
     train_classes, train_counts = np.unique(y_train, return_counts=True)
     for c, n in zip(train_classes, train_counts):
         logger.info(f"  Clase {c}: {n} ({n/len(y_train)*100:.2f}%)")
     
-    logger.info("Pesos de clase originales:")
-    for k, v in cw.items(): logger.info(f"  Clase {k}: {v:.4f}")
-    logger.info("Pesos de clase SUAVIZADOS:")
-    for k, v in cw_smoothed.items(): logger.info(f"  Clase {k}: {v:.4f}")
+    # --- Focal Loss ---
+    focal_gamma = TRANSFORMER_PARAMS.focal_gamma
+    if num_classes == 2:
+        focal_alpha = TRANSFORMER_PARAMS.focal_alpha
+    else:
+        weights_values = compute_class_weight('balanced', classes=np.unique(y_train), y=y_train)
+        focal_alpha = (weights_values / weights_values.sum()).tolist()
+    
+    def sparse_focal_loss(y_true, y_pred):
+        y_true = tf.cast(tf.squeeze(y_true), tf.int32)
+        y_pred = tf.clip_by_value(y_pred, 1e-7, 1.0 - 1e-7)
+        y_one_hot = tf.one_hot(y_true, depth=num_classes)
+        p_t = tf.reduce_sum(y_one_hot * y_pred, axis=-1)
+        focal_weight = tf.pow(1.0 - p_t, focal_gamma)
+        alpha_t = tf.reduce_sum(y_one_hot * tf.constant(focal_alpha, dtype=tf.float32), axis=-1)
+        ce = -tf.math.log(p_t)
+        return tf.reduce_mean(alpha_t * focal_weight * ce)
+    
+    logger.info(f"🎯 Focal Loss: gamma={focal_gamma}, alpha={focal_alpha}")
         
     final_training_set = [X_train_seq.astype(np.float32), train_mask.astype(np.int32)]
     final_validation_set = [X_val_seq.astype(np.float32), val_mask.astype(np.int32)]
@@ -144,14 +153,75 @@ def train(
     if num_classes == 4:
         metrics.append(tf.keras.metrics.SparseTopKCategoricalAccuracy(k=2, name="top_2_acc"))
         
-    model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=metrics)
+    model.compile(optimizer=optimizer, loss=sparse_focal_loss, metrics=metrics)
+    
+    # --- Custom Callback: Reduce LR + Restore Best Weights ---
+    class ReduceLRWithRestore(tf.keras.callbacks.Callback):
+        def __init__(self, monitor="val_loss", patience=5, factor=0.2, min_lr=1e-6,
+                    min_delta=1e-4, cooldown=1, verbose=1):
+            super().__init__()
+            self.monitor = monitor
+            self.patience = patience
+            self.factor = factor
+            self.min_lr = min_lr
+            self.min_delta = min_delta
+            self.cooldown = cooldown
+            self.verbose = verbose
+
+            self.best_val = float("inf")
+            self.best_weights = None
+            self.wait = 0
+            self.cooldown_counter = 0
+            self.reductions = 0
+
+        def on_epoch_end(self, epoch, logs=None):
+            logs = logs or {}
+            current = logs.get(self.monitor)
+            if current is None:
+                return
+
+            if self.cooldown_counter > 0:
+                self.cooldown_counter -= 1
+
+            # ¿mejora real?
+            if current < (self.best_val - self.min_delta):
+                self.best_val = current
+                self.best_weights = self.model.get_weights()
+                self.wait = 0
+                return
+
+            if self.cooldown_counter > 0:
+                return
+
+            self.wait += 1
+            if self.wait >= self.patience:
+                old_lr = float(self.model.optimizer.learning_rate)
+                if old_lr <= self.min_lr + 1e-12:
+                    self.wait = 0
+                    return
+
+                new_lr = max(old_lr * self.factor, self.min_lr)
+
+                if self.best_weights is not None:
+                    self.model.set_weights(self.best_weights)
+
+                self.model.optimizer.learning_rate.assign(new_lr)
+                self.reductions += 1
+                self.cooldown_counter = self.cooldown
+                self.wait = 0
+
+                if self.verbose:
+                    logger.info(
+                        f"⚡ Epoch {epoch+1}: rollback(best {self.monitor}={self.best_val:.4f}) "
+                        f"+ LR {old_lr:.2e} → {new_lr:.2e} (#{self.reductions})"
+                    )
     
     callbacks = [
-        tf.keras.callbacks.ReduceLROnPlateau(
-            monitor="val_loss", 
-            factor=TRANSFORMER_PARAMS.reduce_lr_factor, 
-            patience=TRANSFORMER_PARAMS.reduce_lr_patience, 
-            min_lr=TRANSFORMER_PARAMS.reduce_lr_min_lr, 
+        ReduceLRWithRestore(
+            monitor="val_loss",
+            patience=TRANSFORMER_PARAMS.reduce_lr_patience,
+            factor=TRANSFORMER_PARAMS.reduce_lr_factor,
+            min_lr=TRANSFORMER_PARAMS.reduce_lr_min_lr,
             verbose=1
         ),
         tf.keras.callbacks.EarlyStopping(
@@ -169,7 +239,7 @@ def train(
         validation_data=(final_validation_set, y_val),
         epochs=epochs,
         batch_size=batch_size,
-        class_weight=cw_smoothed,
+        # Focal loss maneja el desbalanceo internamente
         callbacks=callbacks,
         verbose=1
     )
@@ -264,10 +334,31 @@ def train(
     
 
     # Guardar métricas y configuración en historial via hyperparams
+    if num_classes == 2:
+        val_precision = float(precision_score(y_val, y_pred, pos_label=1, average='binary'))
+        val_recall = float(recall_score(y_val, y_pred, pos_label=1, average='binary'))
+        val_f1 = float(f1_score(y_val, y_pred, pos_label=1, average='binary'))
+    else:
+        val_precision = float(precision_score(y_val, y_pred, average='macro'))
+        val_recall = float(recall_score(y_val, y_pred, average='macro'))
+        val_f1 = float(f1_score(y_val, y_pred, average='macro'))
+
     test_loss = float(results_test[0]) if eval_test else None
     test_acc = float(results_test[1]) if eval_test else None
     test_bacc = balanced_accuracy_score(y_test, y_pred_test) if eval_test else None
     test_auc_val = float(auc_test) if eval_test and 'auc_test' in locals() else None
+    
+    if eval_test:
+        if num_classes == 2:
+            test_precision = float(precision_score(y_test, y_pred_test, pos_label=1, average='binary'))
+            test_recall = float(recall_score(y_test, y_pred_test, pos_label=1, average='binary'))
+            test_f1 = float(f1_score(y_test, y_pred_test, pos_label=1, average='binary'))
+        else:
+            test_precision = float(precision_score(y_test, y_pred_test, average='macro'))
+            test_recall = float(recall_score(y_test, y_pred_test, average='macro'))
+            test_f1 = float(f1_score(y_test, y_pred_test, average='macro'))
+    else:
+        test_precision = test_recall = test_f1 = None
 
     TRANSFORMER_PARAMS.save_experiment(
         save_dir=save_dir,
@@ -277,12 +368,19 @@ def train(
         val_acc=results[1],
         val_balanced_acc=balanced_accuracy_score(y_val, y_pred),
         val_auc=float(auc_val) if 'auc_val' in locals() else None,
+        val_precision=val_precision,
+        val_recall=val_recall,
+        val_f1=val_f1,
         test_loss=test_loss,
         test_acc=test_acc,
         test_balanced_acc=test_bacc,
-        test_auc=test_auc_val
+        test_auc=test_auc_val,
+        test_precision=test_precision,
+        test_recall=test_recall,
+        test_f1=test_f1
     )
-    logger.info(f"✅ Experimento guardado en historial: {save_dir / 'experiments_history.json'}")
+    history_file = f"experiments_history_{num_classes}clases.json"
+    logger.info(f"✅ Experimento guardado en historial: {save_dir / history_file}")
     
     # ------------------
     # Disparar script de comparativa
@@ -290,7 +388,7 @@ def train(
     try:
         from compare_experiments import compare_experiments
         logger.info("\n" + "="*80)
-        compare_experiments()
+        compare_experiments(history_path=save_dir / history_file)
     except Exception as e:
         logger.error(f"No se pudo generar la comparativa automática: {e}")
 

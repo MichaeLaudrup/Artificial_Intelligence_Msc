@@ -7,11 +7,12 @@ import typer
 import numpy as np
 import tensorflow as tf
 from pathlib import Path
+from dataclasses import dataclass, asdict
 from loguru import logger
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.utils.class_weight import compute_class_weight
-from sklearn.metrics import roc_auc_score, classification_report, balanced_accuracy_score, confusion_matrix, precision_score, recall_score, f1_score
+from sklearn.metrics import roc_auc_score, classification_report, balanced_accuracy_score, confusion_matrix, precision_score, recall_score, f1_score, accuracy_score
 from typing import Optional
 import copy
 
@@ -20,6 +21,47 @@ from hyperparams import TRANSFORMER_PARAMS
 from educational_ai_analytics.config import W_WINDOWS
 
 app = typer.Typer()
+
+
+@dataclass
+class TrainingConfig:
+    upto_week: int = 5
+    num_classes: int = 2
+    paper_baseline: bool = True
+    batch_size: int = 64
+    with_static: bool = True
+    eval_test: bool = False
+    history_filename: Optional[str] = None
+    latent_d: Optional[int] = None
+    num_heads: Optional[int] = None
+    ff_dim: Optional[int] = None
+    dropout: Optional[float] = None
+    num_layers: Optional[int] = None
+    learning_rate: Optional[float] = None
+    focal_gamma: Optional[float] = None
+    static_hidden_dim: Optional[int] = None
+    head_hidden_dim: Optional[int] = None
+    reduce_lr_patience: Optional[int] = None
+    early_stopping_patience: Optional[int] = None
+    seed: Optional[int] = None
+    tune_threshold: bool = False
+    threshold_acc_min: float = 0.80
+    threshold_prec_min: float = 0.67
+    threshold_min: float = 0.20
+    threshold_max: float = 0.80
+    threshold_points: int = 301
+    threshold_fallback: float = 0.50
+    fast_search: bool = False
+    run_compare: bool = True
+
+
+def _load_config_from_json(config_path: Path, base_cfg: TrainingConfig) -> TrainingConfig:
+    if not config_path.exists():
+        raise FileNotFoundError(f"No existe config_json: {config_path}")
+    payload = json.loads(config_path.read_text(encoding="utf-8"))
+    merged = asdict(base_cfg)
+    merged.update(payload)
+    return TrainingConfig(**merged)
 
 def filter_classes(X_seq, X_mask_pad, X_mask_activity, X_static, y, ids, num_classes=2, paper_baseline=True):
     if num_classes == 2:
@@ -89,6 +131,50 @@ def load_and_prepare_split(base_npz: Path, split: str, w_key: int, num_classes: 
     return X_seq, mask_pad, mask_activity, X_static, y
 
 
+def select_binary_threshold_with_constraints(
+    y_true: np.ndarray,
+    p_pos: np.ndarray,
+    *,
+    acc_min: float = 0.80,
+    prec_min: float = 0.67,
+    t_min: float = 0.20,
+    t_max: float = 0.80,
+    n_points: int = 301,
+):
+    thresholds = np.linspace(t_min, t_max, n_points)
+    candidates = []
+
+    for t in thresholds:
+        y_pred = (p_pos >= t).astype(int)
+        acc = accuracy_score(y_true, y_pred)
+        prec = precision_score(y_true, y_pred, zero_division=0)
+        rec = recall_score(y_true, y_pred, zero_division=0)
+        f1 = f1_score(y_true, y_pred, zero_division=0)
+        bacc = balanced_accuracy_score(y_true, y_pred)
+
+        if acc >= acc_min and prec >= prec_min:
+            candidates.append(
+                {
+                    "threshold": float(t),
+                    "accuracy": float(acc),
+                    "precision": float(prec),
+                    "recall": float(rec),
+                    "f1": float(f1),
+                    "balanced_accuracy": float(bacc),
+                }
+            )
+
+    if not candidates:
+        return None, []
+
+    best = sorted(
+        candidates,
+        key=lambda r: (r["recall"], r["balanced_accuracy"], r["f1"]),
+        reverse=True,
+    )[0]
+    return best, candidates
+
+
 @app.command()
 def train(
     upto_week: int = typer.Option(5, help="Semana hasta la que utilizar datos (W)"),
@@ -110,11 +196,85 @@ def train(
     reduce_lr_patience: Optional[int] = typer.Option(None, help="Override reduce_lr_patience"),
     early_stopping_patience: Optional[int] = typer.Option(None, help="Override early_stopping_patience"),
     seed: Optional[int] = typer.Option(None, help="Random seed para reproducibilidad (numpy/tensorflow)"),
+    tune_threshold: bool = typer.Option(False, help="Afinar umbral binario en validación con restricciones de accuracy/precision"),
+    threshold_acc_min: float = typer.Option(0.80, help="Accuracy mínima para umbral binario"),
+    threshold_prec_min: float = typer.Option(0.67, help="Precision mínima para umbral binario"),
+    threshold_min: float = typer.Option(0.20, help="Umbral mínimo a explorar"),
+    threshold_max: float = typer.Option(0.80, help="Umbral máximo a explorar"),
+    threshold_points: int = typer.Option(301, help="Número de puntos en la rejilla de umbrales"),
+    threshold_fallback: float = typer.Option(0.50, help="Umbral por defecto si no hay candidatos factibles"),
+    run_compare: bool = typer.Option(True, help="Ejecutar compare_experiments al finalizar"),
+    config_json: Optional[Path] = typer.Option(None, help="Ruta a JSON con TrainingConfig para inyección externa"),
+    metrics_out: Optional[Path] = typer.Option(None, help="Ruta de salida JSON con métricas de esta corrida"),
     fast_search: bool = typer.Option(False, help="Disable plots and model saving for fast search")
 ):
     """
     Entrena el modelo Transformer y evalúa el rendimiento.
     """
+    runtime_cfg = TrainingConfig(
+        upto_week=upto_week,
+        num_classes=num_classes,
+        paper_baseline=paper_baseline,
+        batch_size=batch_size,
+        with_static=with_static,
+        eval_test=eval_test,
+        history_filename=history_filename,
+        latent_d=latent_d,
+        num_heads=num_heads,
+        ff_dim=ff_dim,
+        dropout=dropout,
+        num_layers=num_layers,
+        learning_rate=learning_rate,
+        focal_gamma=focal_gamma,
+        static_hidden_dim=static_hidden_dim,
+        head_hidden_dim=head_hidden_dim,
+        reduce_lr_patience=reduce_lr_patience,
+        early_stopping_patience=early_stopping_patience,
+        seed=seed,
+        tune_threshold=tune_threshold,
+        threshold_acc_min=threshold_acc_min,
+        threshold_prec_min=threshold_prec_min,
+        threshold_min=threshold_min,
+        threshold_max=threshold_max,
+        threshold_points=threshold_points,
+        threshold_fallback=threshold_fallback,
+        fast_search=fast_search,
+        run_compare=run_compare,
+    )
+
+    if config_json is not None:
+        runtime_cfg = _load_config_from_json(config_json, runtime_cfg)
+        logger.info(f"📥 Config inyectada desde JSON: {config_json}")
+
+    upto_week = runtime_cfg.upto_week
+    num_classes = runtime_cfg.num_classes
+    paper_baseline = runtime_cfg.paper_baseline
+    batch_size = runtime_cfg.batch_size
+    with_static = runtime_cfg.with_static
+    eval_test = runtime_cfg.eval_test
+    history_filename = runtime_cfg.history_filename
+    latent_d = runtime_cfg.latent_d
+    num_heads = runtime_cfg.num_heads
+    ff_dim = runtime_cfg.ff_dim
+    dropout = runtime_cfg.dropout
+    num_layers = runtime_cfg.num_layers
+    learning_rate = runtime_cfg.learning_rate
+    focal_gamma = runtime_cfg.focal_gamma
+    static_hidden_dim = runtime_cfg.static_hidden_dim
+    head_hidden_dim = runtime_cfg.head_hidden_dim
+    reduce_lr_patience = runtime_cfg.reduce_lr_patience
+    early_stopping_patience = runtime_cfg.early_stopping_patience
+    seed = runtime_cfg.seed
+    tune_threshold = runtime_cfg.tune_threshold
+    threshold_acc_min = runtime_cfg.threshold_acc_min
+    threshold_prec_min = runtime_cfg.threshold_prec_min
+    threshold_min = runtime_cfg.threshold_min
+    threshold_max = runtime_cfg.threshold_max
+    threshold_points = runtime_cfg.threshold_points
+    threshold_fallback = runtime_cfg.threshold_fallback
+    fast_search = runtime_cfg.fast_search
+    run_compare = runtime_cfg.run_compare
+
     # Usar copia local de hyperparams en lugar de transmutar la base
     hp = copy.deepcopy(TRANSFORMER_PARAMS)
     if seed is not None:
@@ -326,7 +486,34 @@ def train(
     logger.info(f"Loss final Val: {results[0]:.4f} | Accuracy: {results[1]:.4f}")
     
     y_probs = model.predict(final_validation_set, verbose=0)
-    y_pred = np.argmax(y_probs, axis=1)
+    selected_threshold = None
+    if num_classes == 2 and tune_threshold:
+        p_pos = y_probs[:, 1]
+        best_thr, candidates = select_binary_threshold_with_constraints(
+            y_true=y_val,
+            p_pos=p_pos,
+            acc_min=threshold_acc_min,
+            prec_min=threshold_prec_min,
+            t_min=threshold_min,
+            t_max=threshold_max,
+            n_points=threshold_points,
+        )
+        if best_thr is None:
+            selected_threshold = float(threshold_fallback)
+            logger.warning(
+                f"⚠️ Threshold tuning: sin candidatos con acc>={threshold_acc_min:.3f} y prec>={threshold_prec_min:.3f}. "
+                f"Usando fallback={selected_threshold:.3f}"
+            )
+        else:
+            selected_threshold = float(best_thr["threshold"])
+            logger.info(
+                f"🎚️ Threshold tuning: {len(candidates)} candidatos factibles | "
+                f"best={selected_threshold:.3f} | acc={best_thr['accuracy']:.4f} | "
+                f"prec={best_thr['precision']:.4f} | rec={best_thr['recall']:.4f}"
+            )
+        y_pred = (p_pos >= selected_threshold).astype(int)
+    else:
+        y_pred = np.argmax(y_probs, axis=1)
     
     logger.info("\n[Balanced Accuracy VAL]: " + str(balanced_accuracy_score(y_val, y_pred)))
     logger.info("\n[Confusion Matrix VAL]\n" + str(confusion_matrix(y_val, y_pred)))
@@ -355,7 +542,11 @@ def train(
         logger.info(f"Loss final TEST: {results_test[0]:.4f} | Accuracy TEST: {results_test[1]:.4f}")
         
         y_probs_test = model.predict(final_test_set, verbose=0)
-        y_pred_test = np.argmax(y_probs_test, axis=1)
+        if num_classes == 2 and selected_threshold is not None:
+            y_pred_test = (y_probs_test[:, 1] >= selected_threshold).astype(int)
+            logger.info(f"🎯 Aplicando en TEST el threshold aprendido en VAL: {selected_threshold:.3f}")
+        else:
+            y_pred_test = np.argmax(y_probs_test, axis=1)
         
         logger.info("\n[Balanced Accuracy TEST]: " + str(balanced_accuracy_score(y_test, y_pred_test)))
         logger.info("\n[Confusion Matrix TEST]\n" + str(confusion_matrix(y_test, y_pred_test)))
@@ -451,6 +642,7 @@ def train(
         "val_recall": float(val_recall if 'val_recall' in locals() and val_recall is not None else 0),
         "val_precision": float(val_precision if 'val_precision' in locals() and val_precision is not None else 0),
         "val_auc": float(auc_val) if 'auc_val' in locals() else 0,
+        "val_threshold": float(selected_threshold) if selected_threshold is not None else None,
     }
     logger.info("VAL_METRICS: " + json.dumps(val_metrics))
 
@@ -480,12 +672,32 @@ def train(
         # ------------------
         # Disparar script de comparativa
         # ------------------
-        try:
-            from compare_experiments import compare_experiments
-            logger.info("\n" + "="*80)
-            compare_experiments(history_path=save_dir / history_file_used)
-        except Exception as e:
-            logger.error(f"No se pudo generar la comparativa automática: {e}")
+        if run_compare:
+            try:
+                from compare_experiments import compare_experiments
+                logger.info("\n" + "="*80)
+                compare_experiments(history_path=save_dir / history_file_used)
+            except Exception as e:
+                logger.error(f"No se pudo generar la comparativa automática: {e}")
+
+    if metrics_out is not None:
+        payload = {
+            "config": asdict(runtime_cfg),
+            "val_metrics": val_metrics,
+            "test_metrics": {
+                "test_loss": test_loss,
+                "test_acc": test_acc,
+                "test_balanced_acc": float(test_bacc) if test_bacc is not None else None,
+                "test_auc": test_auc_val,
+                "test_precision": test_precision,
+                "test_recall": test_recall,
+                "test_f1": test_f1,
+            },
+            "selected_threshold": float(selected_threshold) if selected_threshold is not None else None,
+        }
+        metrics_out.parent.mkdir(parents=True, exist_ok=True)
+        metrics_out.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        logger.info(f"💾 Metrics JSON guardado en: {metrics_out}")
 
 if __name__ == "__main__":
     app()

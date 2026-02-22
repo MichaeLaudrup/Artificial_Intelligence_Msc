@@ -5,6 +5,7 @@ import subprocess
 import time
 import hashlib
 import sys
+import argparse
 import threading
 from datetime import datetime
 from pathlib import Path
@@ -14,6 +15,10 @@ OUT = PROJECT / "reports" / "hparam_search"
 OUT.mkdir(parents=True, exist_ok=True)
 RESULTS = OUT / "results.jsonl"
 HISTORY_JSON = OUT / "experiments_history_random_search.json"
+TRIAL_CONFIGS_DIR = OUT / "trial_configs"
+TRIAL_METRICS_DIR = OUT / "trial_metrics"
+TRIAL_CONFIGS_DIR.mkdir(parents=True, exist_ok=True)
+TRIAL_METRICS_DIR.mkdir(parents=True, exist_ok=True)
 
 SEARCH_SPACE = {
     "batch_size": [64, 128, 256],
@@ -183,28 +188,39 @@ def export_history():
 # ── ejecución de un trial (streaming) ──────────────────────────────────
 def run_trial(cfg: dict, upto_week=5):
     cid = cfg_id(cfg)
+    config_json = TRIAL_CONFIGS_DIR / f"trial_{cid}.json"
+    metrics_json = TRIAL_METRICS_DIR / f"trial_{cid}_metrics.json"
+
+    run_cfg = {
+        "upto_week": int(upto_week),
+        "num_classes": 2,
+        "paper_baseline": True,
+        "eval_test": False,
+        "with_static": True,
+        "batch_size": cfg["batch_size"],
+        "latent_d": cfg["latent_d"],
+        "num_heads": cfg["num_heads"],
+        "ff_dim": cfg["ff_dim"],
+        "dropout": cfg["dropout"],
+        "num_layers": cfg["num_layers"],
+        "learning_rate": cfg["learning_rate"],
+        "focal_gamma": cfg["focal_gamma"],
+        "static_hidden_dim": cfg["static_hidden_dim"],
+        "head_hidden_dim": cfg["head_hidden_dim"],
+        "reduce_lr_patience": cfg["reduce_lr_patience"],
+        "early_stopping_patience": cfg["early_stopping_patience"],
+        "fast_search": True,
+        "run_compare": False,
+    }
+    config_json.write_text(json.dumps(run_cfg, indent=2), encoding="utf-8")
+    if metrics_json.exists():
+        metrics_json.unlink()
 
     cmd = [
-        "python", "-u",  # unbuffered para streaming
+        sys.executable, "-u",  # unbuffered para streaming
         "educational_ai_analytics/2_modeling/transformers/train_transformer.py",
-        "--upto-week", str(upto_week),
-        "--paper-baseline",
-        "--num-classes", "2",
-        "--no-eval-test",
-        "--with-static",
-        "--batch-size", str(cfg["batch_size"]),
-        "--latent-d", str(cfg["latent_d"]),
-        "--num-heads", str(cfg["num_heads"]),
-        "--ff-dim", str(cfg["ff_dim"]),
-        "--dropout", str(cfg["dropout"]),
-        "--num-layers", str(cfg["num_layers"]),
-        "--learning-rate", str(cfg["learning_rate"]),
-        "--focal-gamma", str(cfg["focal_gamma"]),
-        "--static-hidden-dim", str(cfg["static_hidden_dim"]),
-        "--head-hidden-dim", str(cfg["head_hidden_dim"]),
-        "--reduce-lr-patience", str(cfg["reduce_lr_patience"]),
-        "--early-stopping-patience", str(cfg["early_stopping_patience"]),
-        "--fast-search",
+        "--config-json", str(config_json),
+        "--metrics-out", str(metrics_json),
     ]
 
     start = time.time()
@@ -238,6 +254,13 @@ def run_trial(cfg: dict, upto_week=5):
     proc.wait()
     dur = time.time() - start
 
+    if metrics_json.exists():
+        try:
+            metrics_payload = json.loads(metrics_json.read_text(encoding="utf-8"))
+            metrics = metrics_payload.get("val_metrics", metrics)
+        except Exception:
+            pass
+
     record = {
         "cfg_id": cid,
         "cfg": cfg,
@@ -246,6 +269,8 @@ def run_trial(cfg: dict, upto_week=5):
         "metrics": metrics,
         "stdout_tail": all_lines[-20:],
         "stderr_tail": [],
+        "config_json": str(config_json),
+        "metrics_json": str(metrics_json),
     }
 
     with RESULTS.open("a", encoding="utf-8") as f:
@@ -255,7 +280,7 @@ def run_trial(cfg: dict, upto_week=5):
 
 
 # ── main ───────────────────────────────────────────────────────────────
-def main():
+def main(max_trials: int = MAX_TRIALS):
     random.seed(42)
 
     # 1) Purge de resultados fallidos previos
@@ -268,7 +293,7 @@ def main():
     seen = seen_ids()
     print(f"📋 IDs ya registrados (se saltan): {len(seen)}")
     print(f"🎯 Métrica objetivo: {TARGET_METRIC}")
-    print(f"🔢 Máximo de trials: {MAX_TRIALS}")
+    print(f"🔢 Máximo de trials: {max_trials}")
     print("=" * 70, flush=True)
 
     best = None
@@ -278,7 +303,7 @@ def main():
     n_skip = 0
     trial_times = []
 
-    for t in range(1, MAX_TRIALS + 1):
+    for t in range(1, max_trials + 1):
         cfg = sample_cfg()
         cid = cfg_id(cfg)
         if cid in seen:
@@ -358,8 +383,11 @@ def main():
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Random search para Transformer")
+    parser.add_argument("--max-trials", type=int, default=MAX_TRIALS, help="Número máximo de trials")
+    args = parser.parse_args()
     try:
-        main()
+        main(max_trials=args.max_trials)
     except KeyboardInterrupt:
         export_history()
         print("\n\n⛔ Random search detenido por el usuario.")

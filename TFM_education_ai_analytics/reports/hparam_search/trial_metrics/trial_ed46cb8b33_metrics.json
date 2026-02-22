@@ -1,0 +1,52 @@
+{
+  "config": {
+    "upto_week": 5,
+    "num_classes": 2,
+    "paper_baseline": true,
+    "batch_size": 128,
+    "with_static": true,
+    "eval_test": false,
+    "history_filename": null,
+    "latent_d": 256,
+    "num_heads": 8,
+    "ff_dim": 1024,
+    "dropout": 0.1,
+    "num_layers": 3,
+    "learning_rate": 0.0005,
+    "focal_gamma": 3.0,
+    "static_hidden_dim": 256,
+    "head_hidden_dim": 64,
+    "reduce_lr_patience": 7,
+    "early_stopping_patience": 20,
+    "seed": null,
+    "tune_threshold": false,
+    "threshold_acc_min": 0.8,
+    "threshold_prec_min": 0.67,
+    "threshold_min": 0.2,
+    "threshold_max": 0.8,
+    "threshold_points": 301,
+    "threshold_fallback": 0.5,
+    "fast_search": true,
+    "run_compare": false
+  },
+  "val_metrics": {
+    "val_loss": 0.027311626821756363,
+    "val_accuracy": 0.7709102034568787,
+    "val_balanced_acc": 0.7528304470889003,
+    "val_f1": 0.6517064048620851,
+    "val_recall": 0.7068965517241379,
+    "val_precision": 0.6045099739809193,
+    "val_auc": 0.8311244895438163,
+    "val_threshold": null
+  },
+  "test_metrics": {
+    "test_loss": null,
+    "test_acc": null,
+    "test_balanced_acc": null,
+    "test_auc": null,
+    "test_precision": null,
+    "test_recall": null,
+    "test_f1": null
+  },
+  "selected_threshold": null
+}

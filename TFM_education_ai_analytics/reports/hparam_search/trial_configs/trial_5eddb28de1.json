@@ -1,0 +1,21 @@
+{
+  "upto_week": 5,
+  "num_classes": 2,
+  "paper_baseline": true,
+  "eval_test": false,
+  "with_static": true,
+  "batch_size": 64,
+  "latent_d": 64,
+  "num_heads": 8,
+  "ff_dim": 256,
+  "dropout": 0.3,
+  "num_layers": 3,
+  "learning_rate": 0.001,
+  "focal_gamma": 3.0,
+  "static_hidden_dim": 64,
+  "head_hidden_dim": 128,
+  "reduce_lr_patience": 7,
+  "early_stopping_patience": 15,
+  "fast_search": true,
+  "run_compare": false
+}

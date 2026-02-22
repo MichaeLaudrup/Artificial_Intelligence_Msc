@@ -109,6 +109,7 @@ def train(
     head_hidden_dim: Optional[int] = typer.Option(None, help="Override head_hidden starting dimension"),
     reduce_lr_patience: Optional[int] = typer.Option(None, help="Override reduce_lr_patience"),
     early_stopping_patience: Optional[int] = typer.Option(None, help="Override early_stopping_patience"),
+    seed: Optional[int] = typer.Option(None, help="Random seed para reproducibilidad (numpy/tensorflow)"),
     fast_search: bool = typer.Option(False, help="Disable plots and model saving for fast search")
 ):
     """
@@ -116,6 +117,11 @@ def train(
     """
     # Usar copia local de hyperparams en lugar de transmutar la base
     hp = copy.deepcopy(TRANSFORMER_PARAMS)
+    if seed is not None:
+        np.random.seed(seed)
+        tf.keras.utils.set_random_seed(seed)
+        logger.info(f"🌱 Seed fijada a {seed}")
+
     if latent_d is not None: hp.latent_d = latent_d
     if num_heads is not None: hp.num_heads = num_heads
     if ff_dim is not None: hp.ff_dim = ff_dim

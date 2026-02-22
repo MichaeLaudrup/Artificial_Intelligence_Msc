@@ -1,0 +1,135 @@
+{
+  "config": {
+    "upto_week": 5,
+    "num_classes": 2,
+    "paper_baseline": true,
+    "with_static": true,
+    "batch_size": 64,
+    "latent_d": 256,
+    "num_heads": 8,
+    "ff_dim": 128,
+    "dropout": 0.3,
+    "num_layers": 2,
+    "learning_rate": 0.001,
+    "focal_gamma": 2.5,
+    "static_hidden_dim": 64,
+    "head_hidden_dim": 256,
+    "reduce_lr_patience": 7,
+    "early_stopping_patience": 10,
+    "fast_search": true
+  },
+  "runs": [
+    {
+      "seed": 7,
+      "metrics": {
+        "val_loss": 0.03829429671168327,
+        "val_accuracy": 0.8075031042098999,
+        "val_balanced_acc": 0.7564589155502722,
+        "val_f1": 0.6638023630504833,
+        "val_recall": 0.6267748478701826,
+        "val_precision": 0.7054794520547946,
+        "val_auc": 0.8295438880424799
+      }
+    },
+    {
+      "seed": 13,
+      "metrics": {
+        "val_loss": 0.03826591745018959,
+        "val_accuracy": 0.7939729690551758,
+        "val_balanced_acc": 0.7573486892398253,
+        "val_f1": 0.6616161616161617,
+        "val_recall": 0.6643002028397565,
+        "val_precision": 0.6589537223340041,
+        "val_auc": 0.8268754621183775
+      }
+    },
+    {
+      "seed": 21,
+      "metrics": {
+        "val_loss": 0.03877943009138107,
+        "val_accuracy": 0.8108856081962585,
+        "val_balanced_acc": 0.7491469272372795,
+        "val_f1": 0.6550757150869322,
+        "val_recall": 0.592292089249493,
+        "val_precision": 0.7327478042659975,
+        "val_auc": 0.8242083789111103
+      }
+    },
+    {
+      "seed": 42,
+      "metrics": {
+        "val_loss": 0.03846835345029831,
+        "val_accuracy": 0.8071955442428589,
+        "val_balanced_acc": 0.7562382624169977,
+        "val_f1": 0.6634460547504025,
+        "val_recall": 0.6267748478701826,
+        "val_precision": 0.7046750285062714,
+        "val_auc": 0.8281333640069536
+      }
+    },
+    {
+      "seed": 84,
+      "metrics": {
+        "val_loss": 0.03862272575497627,
+        "val_accuracy": 0.7939729690551758,
+        "val_balanced_acc": 0.7435992688459259,
+        "val_f1": 0.6443736730360934,
+        "val_recall": 0.6156186612576064,
+        "val_precision": 0.6759465478841871,
+        "val_auc": 0.8261425625124201
+      }
+    }
+  ],
+  "summary": {
+    "val_loss": {
+      "mean": 0.038486144691705707,
+      "std": 0.0002181128871262309,
+      "min": 0.03826591745018959,
+      "max": 0.03877943009138107,
+      "n": 5
+    },
+    "val_accuracy": {
+      "mean": 0.8027060389518738,
+      "std": 0.008102559248664203,
+      "min": 0.7939729690551758,
+      "max": 0.8108856081962585,
+      "n": 5
+    },
+    "val_balanced_acc": {
+      "mean": 0.7525584126580601,
+      "std": 0.005991795586738132,
+      "min": 0.7435992688459259,
+      "max": 0.7573486892398253,
+      "n": 5
+    },
+    "val_auc": {
+      "mean": 0.8269807311182683,
+      "std": 0.0020185317020618076,
+      "min": 0.8242083789111103,
+      "max": 0.8295438880424799,
+      "n": 5
+    },
+    "val_f1": {
+      "mean": 0.6576627935080146,
+      "std": 0.008216800500150534,
+      "min": 0.6443736730360934,
+      "max": 0.6638023630504833,
+      "n": 5
+    },
+    "val_precision": {
+      "mean": 0.6955605110090509,
+      "std": 0.028675421213197893,
+      "min": 0.6589537223340041,
+      "max": 0.7327478042659975,
+      "n": 5
+    },
+    "val_recall": {
+      "mean": 0.6251521298174442,
+      "std": 0.026021660871409048,
+      "min": 0.592292089249493,
+      "max": 0.6643002028397565,
+      "n": 5
+    }
+  },
+  "notes": "Metrics extracted from successful run logs (VAL_METRICS) after parser incompatibility with prefixed logger output."
+}

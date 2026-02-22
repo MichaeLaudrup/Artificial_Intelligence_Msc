@@ -13,28 +13,28 @@ class TransformerHyperparams:
     epochs: int = 80
 
     # Arquitectura Temporal (Transformer)
-    latent_d: int = 128
-    num_heads: int = 4
+    latent_d: int = 256
+    num_heads: int = 8
     ff_dim: int = 128
-    dropout: float = 0.2
-    num_layers: int = 5
+    dropout: float = 0.3
+    num_layers: int = 2
     
     # Arquitectura Estática y Head
-    static_hidden: List[int] = field(default_factory=lambda: [128, 64, 32, 16])
-    head_hidden: List[int] = field(default_factory=lambda: [128, 64])
+    static_hidden: List[int] = field(default_factory=lambda: [64, 32])
+    head_hidden: List[int] = field(default_factory=lambda: [256, 128])
     
     # Optimizador
-    learning_rate: float = 5e-4
+    learning_rate: float = 0.001
     clipnorm: float = 1.0
     
     # Callbacks
     reduce_lr_factor: float = 0.2
-    reduce_lr_patience: int = 5
+    reduce_lr_patience: int = 7
     reduce_lr_min_lr: float = 1e-6
-    early_stopping_patience: int = 15
+    early_stopping_patience: int = 10
 
     # Focal Loss
-    focal_gamma: float = 2
+    focal_gamma: float = 2.5
     focal_alpha: List[float] = field(default_factory=lambda: [0.3, 0.7])
 
     def save_experiment(
@@ -55,9 +55,13 @@ class TransformerHyperparams:
         test_auc: Optional[float] = None,
         test_precision: Optional[float] = None,
         test_recall: Optional[float] = None,
-        test_f1: Optional[float] = None
+        test_f1: Optional[float] = None,
+        history_filename: Optional[str] = None
     ):
-        history_path = save_dir / f"experiments_history_{self.num_classes}clases.json"
+        if history_filename:
+            history_path = save_dir / history_filename
+        else:
+            history_path = save_dir / f"experiments_history_{self.num_classes}clases.json"
         
         results_payload = {
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),

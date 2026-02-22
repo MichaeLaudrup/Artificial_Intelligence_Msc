@@ -169,22 +169,37 @@ class GLUTransformerClassifier(tf.keras.Model):
         self.head = tf.keras.Sequential(head_layers, name="head")
 
     def call(self, inputs, training=False):
-        # inputs: (x_seq, seq_mask, x_static) o (x_seq, seq_mask)
+        # inputs nuevos:
+        #   with_static=True  -> (x_seq, seq_mask, activity_mask, x_static)
+        #   with_static=False -> (x_seq, seq_mask, activity_mask)
+        # compatibilidad retro:
+        #   with_static=True  -> (x_seq, seq_mask, x_static)
+        #   with_static=False -> (x_seq, seq_mask)
         if not isinstance(inputs, (tuple, list)):
-            raise ValueError("inputs debe ser tupla/lista: (x_seq, seq_mask[, x_static])")
+            raise ValueError("inputs debe ser tupla/lista")
 
         if self.with_static_features:
-            if len(inputs) != 3:
-                raise ValueError("Con static features: inputs=(x_seq, seq_mask, x_static)")
-            x_seq, seq_mask, x_static = inputs
+            if len(inputs) == 4:
+                x_seq, seq_mask, activity_mask, x_static = inputs
+            elif len(inputs) == 3:
+                x_seq, seq_mask, x_static = inputs
+                activity_mask = seq_mask
+            else:
+                raise ValueError("Con static features: inputs=(x_seq, seq_mask, activity_mask, x_static) o legacy (x_seq, seq_mask, x_static)")
         else:
-            if len(inputs) != 2:
-                raise ValueError("Sin static features: inputs=(x_seq, seq_mask)")
-            x_seq, seq_mask = inputs
+            if len(inputs) == 3:
+                x_seq, seq_mask, activity_mask = inputs
+            elif len(inputs) == 2:
+                x_seq, seq_mask = inputs
+                activity_mask = seq_mask
+            else:
+                raise ValueError("Sin static features: inputs=(x_seq, seq_mask, activity_mask) o legacy (x_seq, seq_mask)")
             x_static = None
 
         if seq_mask is None:
             raise ValueError("seq_mask es obligatorio (B,W).")
+        if activity_mask is None:
+            raise ValueError("activity_mask es obligatorio (B,W).")
 
         # ----- Temporal projection (B, W, D) -----
         x_seq = self.input_proj(x_seq)          
@@ -210,7 +225,7 @@ class GLUTransformerClassifier(tf.keras.Model):
         x_seq = self.seq_out_norm(x_seq)
 
         # ----- Pooling Promedio y Maximo con Máscara -----
-        m = tf.cast(seq_mask, x_seq.dtype)[:, :, tf.newaxis]
+        m = tf.cast(activity_mask, x_seq.dtype)[:, :, tf.newaxis]
         
         # 1. Average Pooling
         avg_pooled = tf.reduce_sum(x_seq * m, axis=1) / (tf.reduce_sum(m, axis=1) + 1e-8)
@@ -218,6 +233,8 @@ class GLUTransformerClassifier(tf.keras.Model):
         # 2. Max Pooling (penalizamos los pads con valor infinito negativo)
         x_seq_masked = x_seq + (1.0 - m) * -1e9
         max_pooled = tf.reduce_max(x_seq_masked, axis=1)
+        has_activity = tf.reduce_sum(m, axis=1) > 0
+        max_pooled = tf.where(has_activity, max_pooled, tf.zeros_like(max_pooled))
         
         # Concatenar ambos poolings
         pooled = tf.concat([avg_pooled, max_pooled], axis=-1)

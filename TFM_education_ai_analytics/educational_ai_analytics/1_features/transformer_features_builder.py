@@ -168,6 +168,10 @@ class TransformerFeaturesBuilder:
         students_df = self._ensure_unique_id(students_df)
         interactions_df = self._ensure_unique_id(interactions_df)
 
+        st_meta = self._ensure_unique_id(students_df).drop_duplicates("unique_id").set_index("unique_id")
+        st_meta["course_key"] = st_meta["code_module"].astype(str) + "_" + st_meta["code_presentation"].astype(str)
+
+
         # target (index = unique_id)
         target_full = self._load_target(split)
 
@@ -245,6 +249,8 @@ class TransformerFeaturesBuilder:
 
             # orden estable basado en target (trazabilidad y eval)
             common_ids = target_full.index.intersection(wide.index)
+            # Mapeamos los IDs actuales a su curso correspondiente
+            course_series = st_meta["course_key"].reindex(common_ids)
             wide_w = wide.loc[common_ids]
             target_w = target_full.loc[common_ids]
 
@@ -253,28 +259,77 @@ class TransformerFeaturesBuilder:
                 len(wide_w), upto_week, len(activities_global)
             ).astype(np.float32)
 
-            # máscara semanal (N, T) — todas las semanas son válidas
-            # (no hay padding real: cada archivo tiene upto_week fijo)
-            mask = np.ones((len(wide_w), upto_week), dtype=np.int32)
-            
-            # --- NORMALIZACION Log1p + Z-Score (calculado solo en split=training) ---
+            # Máscaras separadas:
+            # - mask_pad: padding real de secuencia (aquí todo válido, sin truncado por alumno)
+            # - mask_activity: señal conductual (semanas con actividad)
+            mask_pad = np.ones((X_seq.shape[0], X_seq.shape[1]), dtype=np.int32)
+            mask_activity = (X_seq.sum(axis=2) > 0).astype(np.int32)
+
+            # --- NORMALIZACION Log1p + Z-Score (Contextualizada por Curso, solo entradas activas) ---
             X_seq_log = np.log1p(X_seq)
             w_key = str(upto_week)
+            F = len(activities_global)
+            active = (X_seq.sum(axis=2) > 0)  # (N, W) bool — misma info que mask_activity
+
             if fit:
-                # Calculamos stats sobre TODAS las celdas (ya no hay padding)
-                X_seq_flat = X_seq_log.reshape(-1, len(activities_global))
-                mu = X_seq_flat.mean(axis=0)
-                std = X_seq_flat.std(axis=0) + 1e-8
-                self.scalers[w_key] = {"mu": mu.tolist(), "std": std.tolist()}
+                # Calculamos estadísticas por cada curso y una global de respaldo
+                # SOLO sobre semanas con actividad real (evita distorsión por ceros)
+                course_stats = {}
+
+                # 1. Fallback global (por si en test aparece un curso que no vimos en train)
+                X_flat = X_seq_log.reshape(-1, F)
+                active_flat = active.reshape(-1)
+                X_active = X_flat[active_flat]
+                if len(X_active) > 0:
+                    course_stats["__global__"] = {
+                        "mu": X_active.mean(axis=0).tolist(),
+                        "std": (X_active.std(axis=0) + 1e-8).tolist()
+                    }
+                else:
+                    course_stats["__global__"] = {
+                        "mu": np.zeros(F).tolist(),
+                        "std": np.ones(F).tolist()
+                    }
+
+                # 2. Estadísticas por cada curso presente (solo entradas activas)
+                for ckey in course_series.unique():
+                    pos = np.where(course_series.values == ckey)[0]
+                    Xc = X_seq_log[pos]           # (Nc, W, F)
+                    active_c = active[pos]         # (Nc, W)
+                    Xc_flat = Xc.reshape(-1, F)
+                    Xc_active = Xc_flat[active_c.reshape(-1)]
+
+                    if len(Xc_active) < 10:
+                        # Muy pocos datos activos → usar global
+                        continue
+
+                    course_stats[str(ckey)] = {
+                        "mu": Xc_active.mean(axis=0).tolist(),
+                        "std": (Xc_active.std(axis=0) + 1e-8).tolist()
+                    }
+                self.scalers[w_key] = course_stats
             else:
                 if w_key not in self.scalers:
-                    raise KeyError(f"Scaler no encontrado para W={upto_week}. Ejecuta training primero o revisa meta.")
-                mu = np.asarray(self.scalers[w_key]["mu"], dtype=np.float32)
-                std = np.asarray(self.scalers[w_key]["std"], dtype=np.float32)
-                
-            X_seq_norm = (X_seq_log - mu) / std
-            # NO multiplicamos por mask: 0 clicks -> -(mu/std) es señal informativa
+                    raise KeyError(f"Scaler no encontrado para W={upto_week}. Ejecuta training primero.")
+
+            # --- Aplicación de la Normalización ---
+            X_seq_norm = np.zeros_like(X_seq_log)
+            w_scalers = self.scalers[w_key]
+
+            # Iteramos por los cursos para aplicar sus propias medias/desviaciones
+            for ckey in course_series.unique():
+                pos = np.where(course_series.values == ckey)[0]
+
+                # Obtenemos las estadísticas (si no existe el curso, usamos el global)
+                stats = w_scalers.get(str(ckey), w_scalers["__global__"])
+                mu = np.array(stats["mu"], dtype=np.float32)
+                std = np.array(stats["std"], dtype=np.float32)
+
+                # Normalizamos solo el trozo de la matriz que pertenece a este curso
+                X_seq_norm[pos] = (X_seq_log[pos] - mu) / std
+
             X_seq = X_seq_norm.astype(np.float32)
+
 
             # labels
             y = target_w[self.target_col].astype(np.int64).values
@@ -287,7 +342,10 @@ class TransformerFeaturesBuilder:
             np.savez_compressed(
                 fp,
                 X_seq=X_seq,
-                mask=mask,
+                # Compatibilidad retro: `mask` se mantiene como padding mask.
+                mask=mask_pad,
+                mask_pad=mask_pad,
+                mask_activity=mask_activity,
                 y=y,
                 ids=common_ids.astype(str).values,
                 X_static=X_static if X_static is not None else np.zeros((len(common_ids), 0), dtype=np.float32),
@@ -298,7 +356,7 @@ class TransformerFeaturesBuilder:
             saved[upto_week] = fp
 
             logger.info(
-                f"[{split}] ✅ W={upto_week} | X_seq={X_seq.shape} mask={mask.shape} "
+                f"[{split}] ✅ W={upto_week} | X_seq={X_seq.shape} mask_pad={mask_pad.shape} mask_activity={mask_activity.shape} "
                 f"y={y.shape} X_static={(None if X_static is None else X_static.shape)} -> {fp.name}"
             )
 

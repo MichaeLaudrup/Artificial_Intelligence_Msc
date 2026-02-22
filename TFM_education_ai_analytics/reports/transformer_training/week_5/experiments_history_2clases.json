@@ -953,5 +953,1091 @@
             "recall": 0.6470588235294118,
             "f1_score": 0.661139896373057
         }
+    },
+    {
+        "timestamp": "2026-02-22 13:08:39",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "batch_size": 64,
+            "epochs": 80,
+            "with_static": true,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.3,
+                0.7
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.038422998040914536,
+            "accuracy": 0.795510470867157,
+            "balanced_accuracy": 0.758738401164404,
+            "auc_ovr": 0.8259407074148405,
+            "precision": 0.6619576185671039,
+            "recall": 0.665314401622718,
+            "f1_score": 0.663631765300961
+        }
+    },
+    {
+        "timestamp": "2026-02-22 13:25:55",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "batch_size": 64,
+            "epochs": 80,
+            "with_static": true,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.3,
+                0.7
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.03819490224123001,
+            "accuracy": 0.7970479726791382,
+            "balanced_accuracy": 0.7566907579905079,
+            "auc_ovr": 0.8253353659082404,
+            "precision": 0.6690871369294605,
+            "recall": 0.654158215010142,
+            "f1_score": 0.6615384615384615
+        }
+    },
+    {
+        "timestamp": "2026-02-22 13:33:19",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "batch_size": 64,
+            "epochs": 80,
+            "with_static": true,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.3,
+                0.7
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.038321174681186676,
+            "accuracy": 0.795510470867157,
+            "balanced_accuracy": 0.7530094760002792,
+            "auc_ovr": 0.8251977374326179,
+            "precision": 0.668769716088328,
+            "recall": 0.6450304259634888,
+            "f1_score": 0.6566855962829117
+        }
+    },
+    {
+        "timestamp": "2026-02-22 13:44:19",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "batch_size": 64,
+            "epochs": 80,
+            "with_static": true,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.3,
+                0.7
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.038649339228868484,
+            "accuracy": 0.8078106045722961,
+            "balanced_accuracy": 0.7601169237820216,
+            "auc_ovr": 0.8272187500559466,
+            "precision": 0.7007786429365962,
+            "recall": 0.6389452332657201,
+            "f1_score": 0.6684350132625995
+        }
+    },
+    {
+        "timestamp": "2026-02-22 14:01:16",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "batch_size": 64,
+            "epochs": 80,
+            "with_static": true,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.3,
+                0.7
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.03858448192477226,
+            "accuracy": 0.8041205406188965,
+            "balanced_accuracy": 0.7617657800558213,
+            "auc_ovr": 0.8290609575540354,
+            "precision": 0.6854410201912858,
+            "recall": 0.654158215010142,
+            "f1_score": 0.6694343539180073
+        }
+    },
+    {
+        "timestamp": "2026-02-22 15:08:51",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "batch_size": 128,
+            "epochs": 80,
+            "with_static": true,
+            "latent_d": 64,
+            "num_heads": 4,
+            "ff_dim": 1024,
+            "dropout": 0.3,
+            "num_layers": 1,
+            "static_hidden": [
+                128,
+                64
+            ],
+            "head_hidden": [
+                256,
+                128
+            ],
+            "learning_rate": 0.0001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 5,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 1.5,
+            "focal_alpha": [
+                0.3,
+                0.7
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.07645396888256073,
+            "accuracy": 0.7988929748535156,
+            "balanced_accuracy": 0.7525721978842363,
+            "auc_ovr": 0.825120755000725,
+            "precision": 0.6804347826086956,
+            "recall": 0.6348884381338742,
+            "f1_score": 0.6568730325288562
+        }
+    },
+    {
+        "timestamp": "2026-02-22 15:16:00",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "batch_size": 64,
+            "epochs": 80,
+            "with_static": true,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.3,
+                0.7
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.03871317207813263,
+            "accuracy": 0.7761377692222595,
+            "balanced_accuracy": 0.7565815503545668,
+            "auc_ovr": 0.8279653006163965,
+            "precision": 0.613556338028169,
+            "recall": 0.7068965517241379,
+            "f1_score": 0.6569274269557022
+        }
+    },
+    {
+        "timestamp": "2026-02-22 15:29:48",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "batch_size": 64,
+            "epochs": 80,
+            "with_static": true,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.3,
+                0.7
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.038373809307813644,
+            "accuracy": 0.7890529036521912,
+            "balanced_accuracy": 0.754391131623846,
+            "auc_ovr": 0.829132569118587,
+            "precision": 0.6479289940828402,
+            "recall": 0.6663286004056795,
+            "f1_score": 0.657
+        }
+    },
+    {
+        "timestamp": "2026-02-22 16:34:46",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "batch_size": 64,
+            "epochs": 80,
+            "with_static": true,
+            "use_clustering_features": false,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.3,
+                0.7
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.03896600008010864,
+            "accuracy": 0.792742908000946,
+            "balanced_accuracy": 0.7558931841903149,
+            "auc_ovr": 0.8259785272723692,
+            "precision": 0.6569416498993964,
+            "recall": 0.6622718052738337,
+            "f1_score": 0.6595959595959596
+        }
+    },
+    {
+        "timestamp": "2026-02-22 16:37:45",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "batch_size": 64,
+            "epochs": 80,
+            "with_static": true,
+            "use_clustering_features": true,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.3,
+                0.7
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.03935878723859787,
+            "accuracy": 0.8056580424308777,
+            "balanced_accuracy": 0.7622961532057813,
+            "auc_ovr": 0.8249056965209312,
+            "precision": 0.6899141630901288,
+            "recall": 0.652129817444219,
+            "f1_score": 0.670490093847758
+        }
+    },
+    {
+        "timestamp": "2026-02-22 16:47:22",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "batch_size": 64,
+            "epochs": 80,
+            "with_static": true,
+            "use_clustering_features": true,
+            "accumulated_uptow": true,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.3,
+                0.7
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.03835892677307129,
+            "accuracy": 0.7930504083633423,
+            "balanced_accuracy": 0.7578325148728269,
+            "auc_ovr": 0.8273534693117592,
+            "precision": 0.6557213930348259,
+            "recall": 0.6683569979716024,
+            "f1_score": 0.6619789050728278
+        }
+    },
+    {
+        "timestamp": "2026-02-22 16:51:12",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "batch_size": 64,
+            "epochs": 80,
+            "with_static": true,
+            "use_clustering_features": true,
+            "accumulated_uptow": false,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.3,
+                0.7
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.041057176887989044,
+            "accuracy": 0.760762631893158,
+            "balanced_accuracy": 0.7363826134282425,
+            "auc_ovr": 0.800061406916603,
+            "precision": 0.5926916221033868,
+            "recall": 0.6744421906693712,
+            "f1_score": 0.6309297912713473
+        }
+    },
+    {
+        "timestamp": "2026-02-22 17:52:27",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "batch_size": 64,
+            "epochs": 80,
+            "with_static": true,
+            "use_clustering_features": true,
+            "accumulated_uptow": false,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.3,
+                0.7
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.04187460243701935,
+            "accuracy": 0.751230001449585,
+            "balanced_accuracy": 0.7312610438459707,
+            "auc_ovr": 0.7952240457311451,
+            "precision": 0.5759656652360515,
+            "recall": 0.6805273833671399,
+            "f1_score": 0.6238958623895863
+        }
+    },
+    {
+        "timestamp": "2026-02-22 18:04:18",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "batch_size": 64,
+            "epochs": 80,
+            "with_static": true,
+            "use_clustering_features": true,
+            "accumulated_uptow": false,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.3,
+                0.7
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.04199609532952309,
+            "accuracy": 0.76752769947052,
+            "balanced_accuracy": 0.7366538422289816,
+            "auc_ovr": 0.7935067108987431,
+            "precision": 0.6076779026217228,
+            "recall": 0.6582150101419878,
+            "f1_score": 0.631937682570594
+        }
+    },
+    {
+        "timestamp": "2026-02-22 18:08:30",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "batch_size": 64,
+            "epochs": 80,
+            "with_static": true,
+            "use_clustering_features": true,
+            "accumulated_uptow": false,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.3,
+                0.7
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.04170571267604828,
+            "accuracy": 0.7573800683021545,
+            "balanced_accuracy": 0.7345283214786356,
+            "auc_ovr": 0.7965824275962325,
+            "precision": 0.5866314863676341,
+            "recall": 0.6764705882352942,
+            "f1_score": 0.6283560998586906
+        }
+    },
+    {
+        "timestamp": "2026-02-22 18:13:41",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "batch_size": 64,
+            "epochs": 80,
+            "with_static": true,
+            "use_clustering_features": true,
+            "accumulated_uptow": false,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.3,
+                0.7
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.04082091525197029,
+            "accuracy": 0.7881304025650024,
+            "balanced_accuracy": 0.7385475205390919,
+            "auc_ovr": 0.8007690186888281,
+            "precision": 0.6630076838638859,
+            "recall": 0.6125760649087221,
+            "f1_score": 0.6367949393779652
+        }
+    },
+    {
+        "timestamp": "2026-02-22 18:19:56",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "batch_size": 64,
+            "epochs": 80,
+            "with_static": true,
+            "use_clustering_features": false,
+            "accumulated_uptow": false,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.3,
+                0.7
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.04279271140694618,
+            "accuracy": 0.7546125650405884,
+            "balanced_accuracy": 0.7256677330822154,
+            "auc_ovr": 0.7896880242190312,
+            "precision": 0.5856102003642987,
+            "recall": 0.652129817444219,
+            "f1_score": 0.6170825335892515
+        }
+    },
+    {
+        "timestamp": "2026-02-22 18:55:24",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "batch_size": 64,
+            "epochs": 80,
+            "with_static": true,
+            "use_clustering_features": true,
+            "accumulated_uptow": false,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.3,
+                0.7
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.04086568206548691,
+            "accuracy": 0.7684502005577087,
+            "balanced_accuracy": 0.7381751404034238,
+            "auc_ovr": 0.8001688242634304,
+            "precision": 0.6087768440709617,
+            "recall": 0.6612576064908722,
+            "f1_score": 0.6339329120077783
+        }
+    },
+    {
+        "timestamp": "2026-02-22 18:59:54",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "batch_size": 64,
+            "epochs": 80,
+            "with_static": true,
+            "use_clustering_features": false,
+            "accumulated_uptow": false,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.3,
+                0.7
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.043722499161958694,
+            "accuracy": 0.7373923659324646,
+            "balanced_accuracy": 0.7201858678157935,
+            "auc_ovr": 0.7780829226111725,
+            "precision": 0.5549084858569051,
+            "recall": 0.6764705882352942,
+            "f1_score": 0.6096892138939671
+        }
+    },
+    {
+        "timestamp": "2026-02-22 19:08:53",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "batch_size": 64,
+            "epochs": 80,
+            "with_static": true,
+            "use_clustering_features": true,
+            "accumulated_uptow": false,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.3,
+                0.7
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.04094870761036873,
+            "accuracy": 0.7490774989128113,
+            "balanced_accuracy": 0.7380234134010302,
+            "auc_ovr": 0.8017921689173585,
+            "precision": 0.5691056910569106,
+            "recall": 0.7099391480730223,
+            "f1_score": 0.631768953068592
+        }
+    },
+    {
+        "timestamp": "2026-02-22 19:56:05",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "batch_size": 64,
+            "epochs": 80,
+            "with_static": true,
+            "use_clustering_features": true,
+            "accumulated_uptow": false,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.3,
+                0.7
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.041005585342645645,
+            "accuracy": 0.7878229022026062,
+            "balanced_accuracy": 0.7374675286311987,
+            "auc_ovr": 0.7997476587494114,
+            "precision": 0.6633554083885209,
+            "recall": 0.6095334685598377,
+            "f1_score": 0.635306553911205
+        }
+    },
+    {
+        "timestamp": "2026-02-22 20:23:37",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "batch_size": 64,
+            "epochs": 80,
+            "with_static": true,
+            "use_clustering_features": true,
+            "accumulated_uptow": false,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.3,
+                0.7
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.04128143936395645,
+            "accuracy": 0.7724477052688599,
+            "balanced_accuracy": 0.7341689209390425,
+            "auc_ovr": 0.7957351732731319,
+            "precision": 0.6217821782178218,
+            "recall": 0.6369168356997972,
+            "f1_score": 0.6292585170340681
+        }
+    },
+    {
+        "timestamp": "2026-02-22 20:50:51",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "batch_size": 64,
+            "epochs": 80,
+            "with_static": true,
+            "use_clustering_features": true,
+            "accumulated_uptow": false,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.3,
+                0.7
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.0408121794462204,
+            "accuracy": 0.7699877023696899,
+            "balanced_accuracy": 0.7398512985862087,
+            "auc_ovr": 0.8064661662211831,
+            "precision": 0.611214953271028,
+            "recall": 0.6632860040567952,
+            "f1_score": 0.6361867704280155
+        }
+    },
+    {
+        "timestamp": "2026-02-22 21:14:04",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "batch_size": 64,
+            "epochs": 80,
+            "with_static": true,
+            "use_clustering_features": true,
+            "accumulated_uptow": false,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.3,
+                0.7
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.04223812371492386,
+            "accuracy": 0.7782902717590332,
+            "balanced_accuracy": 0.7312001740161018,
+            "auc_ovr": 0.7903088069692374,
+            "precision": 0.640807651434644,
+            "recall": 0.6115618661257607,
+            "f1_score": 0.6258432797093928
+        }
     }
 ]

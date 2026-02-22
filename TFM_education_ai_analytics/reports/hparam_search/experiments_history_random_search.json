@@ -14,10 +14,12 @@
             "num_layers": 2,
             "learning_rate": 0.001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08389827609062195,
@@ -44,10 +46,12 @@
             "num_layers": 4,
             "learning_rate": 0.001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.03047453984618187,
@@ -74,10 +78,12 @@
             "num_layers": 3,
             "learning_rate": 0.001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08521145582199097,
@@ -104,10 +110,12 @@
             "num_layers": 4,
             "learning_rate": 0.001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04256370663642883,
@@ -134,10 +142,12 @@
             "num_layers": 3,
             "learning_rate": 0.001,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.060255128890275955,
@@ -164,10 +174,12 @@
             "num_layers": 3,
             "learning_rate": 0.0001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08365482836961746,
@@ -194,10 +206,12 @@
             "num_layers": 2,
             "learning_rate": 0.0001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04838143661618233,
@@ -224,10 +238,12 @@
             "num_layers": 2,
             "learning_rate": 0.0001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.032321035861968994,
@@ -254,10 +270,12 @@
             "num_layers": 4,
             "learning_rate": 0.0005,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.05958610773086548,
@@ -284,10 +302,12 @@
             "num_layers": 1,
             "learning_rate": 0.0005,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.030226165428757668,
@@ -314,10 +334,12 @@
             "num_layers": 3,
             "learning_rate": 0.001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04617053270339966,
@@ -344,10 +366,12 @@
             "num_layers": 2,
             "learning_rate": 0.001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04220782220363617,
@@ -374,10 +398,12 @@
             "num_layers": 3,
             "learning_rate": 0.001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08441731333732605,
@@ -404,10 +430,12 @@
             "num_layers": 2,
             "learning_rate": 0.0005,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.03051544725894928,
@@ -434,10 +462,12 @@
             "num_layers": 4,
             "learning_rate": 0.0001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.03536981716752052,
@@ -464,10 +494,12 @@
             "num_layers": 1,
             "learning_rate": 0.001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08478137105703354,
@@ -494,10 +526,12 @@
             "num_layers": 2,
             "learning_rate": 0.0001,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.06478332728147507,
@@ -524,10 +558,12 @@
             "num_layers": 1,
             "learning_rate": 0.0001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.030477311462163925,
@@ -554,10 +590,12 @@
             "num_layers": 4,
             "learning_rate": 0.0001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.043656907975673676,
@@ -584,10 +622,12 @@
             "num_layers": 2,
             "learning_rate": 0.001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.03038102574646473,
@@ -614,10 +654,12 @@
             "num_layers": 4,
             "learning_rate": 0.0005,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.05978628993034363,
@@ -644,10 +686,12 @@
             "num_layers": 4,
             "learning_rate": 0.0001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.034341927617788315,
@@ -674,10 +718,12 @@
             "num_layers": 1,
             "learning_rate": 0.001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.03043564409017563,
@@ -704,10 +750,12 @@
             "num_layers": 4,
             "learning_rate": 0.001,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.05983565375208855,
@@ -734,10 +782,12 @@
             "num_layers": 2,
             "learning_rate": 0.0001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04730605706572533,
@@ -764,10 +814,12 @@
             "num_layers": 4,
             "learning_rate": 0.0001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.0851099044084549,
@@ -794,10 +846,12 @@
             "num_layers": 3,
             "learning_rate": 0.0005,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.06014276668429375,
@@ -824,10 +878,12 @@
             "num_layers": 2,
             "learning_rate": 0.0005,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.0830639898777008,
@@ -854,10 +910,12 @@
             "num_layers": 2,
             "learning_rate": 0.0001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.045391958206892014,
@@ -884,10 +942,12 @@
             "num_layers": 1,
             "learning_rate": 0.0005,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.0594661608338356,
@@ -914,10 +974,12 @@
             "num_layers": 1,
             "learning_rate": 0.001,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.060268379747867584,
@@ -944,10 +1006,12 @@
             "num_layers": 3,
             "learning_rate": 0.001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.042460955679416656,
@@ -974,10 +1038,12 @@
             "num_layers": 2,
             "learning_rate": 0.001,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.05984000116586685,
@@ -1004,10 +1070,12 @@
             "num_layers": 2,
             "learning_rate": 0.0001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08557255566120148,
@@ -1034,10 +1102,12 @@
             "num_layers": 2,
             "learning_rate": 0.001,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.06014038249850273,
@@ -1064,10 +1134,12 @@
             "num_layers": 1,
             "learning_rate": 0.001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04298706725239754,
@@ -1094,10 +1166,12 @@
             "num_layers": 4,
             "learning_rate": 0.0001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.0886453315615654,
@@ -1124,10 +1198,12 @@
             "num_layers": 3,
             "learning_rate": 0.0005,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08388444781303406,
@@ -1154,10 +1230,12 @@
             "num_layers": 3,
             "learning_rate": 0.0005,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.042506929486989975,
@@ -1184,10 +1262,12 @@
             "num_layers": 4,
             "learning_rate": 0.0001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.09024780243635178,
@@ -1214,10 +1294,12 @@
             "num_layers": 4,
             "learning_rate": 0.0001,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.060858335345983505,
@@ -1244,10 +1326,12 @@
             "num_layers": 2,
             "learning_rate": 0.001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08385634422302246,
@@ -1274,10 +1358,12 @@
             "num_layers": 4,
             "learning_rate": 0.0005,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.059672433882951736,
@@ -1304,10 +1390,12 @@
             "num_layers": 1,
             "learning_rate": 0.0001,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.06012009456753731,
@@ -1334,10 +1422,12 @@
             "num_layers": 2,
             "learning_rate": 0.0001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.03410762548446655,
@@ -1364,10 +1454,12 @@
             "num_layers": 4,
             "learning_rate": 0.001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.042926251888275146,
@@ -1394,10 +1486,12 @@
             "num_layers": 2,
             "learning_rate": 0.0001,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.0660560354590416,
@@ -1424,10 +1518,12 @@
             "num_layers": 4,
             "learning_rate": 0.0001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08580223470926285,
@@ -1454,10 +1550,12 @@
             "num_layers": 4,
             "learning_rate": 0.001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.042429368942976,
@@ -1484,10 +1582,12 @@
             "num_layers": 4,
             "learning_rate": 0.001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08424513787031174,
@@ -1514,10 +1614,12 @@
             "num_layers": 4,
             "learning_rate": 0.001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08388730883598328,
@@ -1544,10 +1646,12 @@
             "num_layers": 4,
             "learning_rate": 0.0005,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08478153496980667,
@@ -1574,10 +1678,12 @@
             "num_layers": 1,
             "learning_rate": 0.001,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.05943964049220085,
@@ -1604,10 +1710,12 @@
             "num_layers": 4,
             "learning_rate": 0.0001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04639701917767525,
@@ -1634,10 +1742,12 @@
             "num_layers": 3,
             "learning_rate": 0.0001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.030787603929638863,
@@ -1664,10 +1774,12 @@
             "num_layers": 1,
             "learning_rate": 0.0005,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.030327605083584785,
@@ -1694,10 +1806,12 @@
             "num_layers": 4,
             "learning_rate": 0.0005,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.03025178611278534,
@@ -1724,10 +1838,12 @@
             "num_layers": 4,
             "learning_rate": 0.0001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04935486242175102,
@@ -1754,10 +1870,12 @@
             "num_layers": 1,
             "learning_rate": 0.0005,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.0439431332051754,
@@ -1784,10 +1902,12 @@
             "num_layers": 2,
             "learning_rate": 0.001,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.060194991528987885,
@@ -1814,10 +1934,12 @@
             "num_layers": 1,
             "learning_rate": 0.001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04247521981596947,
@@ -1844,10 +1966,12 @@
             "num_layers": 3,
             "learning_rate": 0.0005,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.042823150753974915,
@@ -1874,10 +1998,12 @@
             "num_layers": 3,
             "learning_rate": 0.001,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.05959717929363251,
@@ -1904,10 +2030,12 @@
             "num_layers": 2,
             "learning_rate": 0.0005,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.06040562316775322,
@@ -1934,10 +2062,12 @@
             "num_layers": 2,
             "learning_rate": 0.0001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.03441474959254265,
@@ -1964,10 +2094,12 @@
             "num_layers": 1,
             "learning_rate": 0.0005,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.030432676896452904,
@@ -1994,10 +2126,12 @@
             "num_layers": 2,
             "learning_rate": 0.0001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04587138071656227,
@@ -2024,10 +2158,12 @@
             "num_layers": 4,
             "learning_rate": 0.0005,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04246540740132332,
@@ -2054,10 +2190,12 @@
             "num_layers": 2,
             "learning_rate": 0.0005,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08394604921340942,
@@ -2084,10 +2222,12 @@
             "num_layers": 4,
             "learning_rate": 0.0005,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08374599367380142,
@@ -2114,10 +2254,12 @@
             "num_layers": 4,
             "learning_rate": 0.001,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.060308124870061874,
@@ -2144,10 +2286,12 @@
             "num_layers": 4,
             "learning_rate": 0.001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.030194448307156563,
@@ -2174,10 +2318,12 @@
             "num_layers": 1,
             "learning_rate": 0.0001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.09166695177555084,
@@ -2204,10 +2350,12 @@
             "num_layers": 3,
             "learning_rate": 0.0001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08433343470096588,
@@ -2234,10 +2382,12 @@
             "num_layers": 1,
             "learning_rate": 0.0005,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04269546642899513,
@@ -2264,10 +2414,12 @@
             "num_layers": 3,
             "learning_rate": 0.0001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.03435226157307625,
@@ -2294,10 +2446,12 @@
             "num_layers": 1,
             "learning_rate": 0.0001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.03282775357365608,
@@ -2324,10 +2478,12 @@
             "num_layers": 2,
             "learning_rate": 0.0005,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.05995246395468712,
@@ -2354,10 +2510,12 @@
             "num_layers": 3,
             "learning_rate": 0.0001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08737234026193619,
@@ -2384,10 +2542,12 @@
             "num_layers": 3,
             "learning_rate": 0.0001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04869518056511879,
@@ -2414,10 +2574,12 @@
             "num_layers": 2,
             "learning_rate": 0.001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.042543891817331314,
@@ -2444,10 +2606,12 @@
             "num_layers": 2,
             "learning_rate": 0.0005,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.030084960162639618,
@@ -2474,10 +2638,12 @@
             "num_layers": 4,
             "learning_rate": 0.001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.03058679588139057,
@@ -2504,10 +2670,12 @@
             "num_layers": 1,
             "learning_rate": 0.001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04458256810903549,
@@ -2534,10 +2702,12 @@
             "num_layers": 1,
             "learning_rate": 0.0005,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.042791299521923065,
@@ -2564,10 +2734,12 @@
             "num_layers": 4,
             "learning_rate": 0.0001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.09337196499109268,
@@ -2594,10 +2766,12 @@
             "num_layers": 1,
             "learning_rate": 0.0001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.09497575461864471,
@@ -2624,10 +2798,12 @@
             "num_layers": 3,
             "learning_rate": 0.0005,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.030079789459705353,
@@ -2654,10 +2830,12 @@
             "num_layers": 2,
             "learning_rate": 0.0005,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.05961135774850845,
@@ -2684,10 +2862,12 @@
             "num_layers": 3,
             "learning_rate": 0.0001,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.0670209750533104,
@@ -2714,10 +2894,12 @@
             "num_layers": 3,
             "learning_rate": 0.001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.03010597638785839,
@@ -2744,10 +2926,12 @@
             "num_layers": 4,
             "learning_rate": 0.0005,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08375042676925659,
@@ -2774,10 +2958,12 @@
             "num_layers": 2,
             "learning_rate": 0.0001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.043240856379270554,
@@ -2804,10 +2990,12 @@
             "num_layers": 4,
             "learning_rate": 0.001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04247575253248215,
@@ -2834,10 +3022,12 @@
             "num_layers": 2,
             "learning_rate": 0.0001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04428551346063614,
@@ -2864,10 +3054,12 @@
             "num_layers": 4,
             "learning_rate": 0.001,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.05984968692064285,
@@ -2894,10 +3086,12 @@
             "num_layers": 1,
             "learning_rate": 0.0005,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08499272167682648,
@@ -2924,10 +3118,12 @@
             "num_layers": 2,
             "learning_rate": 0.0005,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08399592339992523,
@@ -2954,10 +3150,12 @@
             "num_layers": 4,
             "learning_rate": 0.001,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.06019838899374008,
@@ -2984,10 +3182,12 @@
             "num_layers": 4,
             "learning_rate": 0.0005,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.030108744278550148,
@@ -3014,10 +3214,12 @@
             "num_layers": 3,
             "learning_rate": 0.001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04246550425887108,
@@ -3044,10 +3246,12 @@
             "num_layers": 1,
             "learning_rate": 0.0005,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04293834790587425,
@@ -3074,10 +3278,12 @@
             "num_layers": 3,
             "learning_rate": 0.001,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.05950476974248886,
@@ -3104,10 +3310,12 @@
             "num_layers": 2,
             "learning_rate": 0.0001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.09200907498598099,
@@ -3134,10 +3342,12 @@
             "num_layers": 1,
             "learning_rate": 0.0005,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.06020645424723625,
@@ -3164,10 +3374,12 @@
             "num_layers": 1,
             "learning_rate": 0.0005,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.030039194971323013,
@@ -3194,10 +3406,12 @@
             "num_layers": 4,
             "learning_rate": 0.0001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08550750464200974,
@@ -3224,10 +3438,12 @@
             "num_layers": 1,
             "learning_rate": 0.0005,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.0597664937376976,
@@ -3254,10 +3470,12 @@
             "num_layers": 4,
             "learning_rate": 0.001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08428343385457993,
@@ -3284,10 +3502,12 @@
             "num_layers": 3,
             "learning_rate": 0.0005,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.0326276458799839,
@@ -3314,10 +3534,12 @@
             "num_layers": 2,
             "learning_rate": 0.0001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.033444344997406006,
@@ -3344,10 +3566,12 @@
             "num_layers": 1,
             "learning_rate": 0.0001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04291630908846855,
@@ -3374,10 +3598,12 @@
             "num_layers": 3,
             "learning_rate": 0.001,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.05957555025815964,
@@ -3404,10 +3630,12 @@
             "num_layers": 3,
             "learning_rate": 0.0001,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.05981410667300224,
@@ -3434,10 +3662,12 @@
             "num_layers": 2,
             "learning_rate": 0.0005,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04213988780975342,
@@ -3464,10 +3694,12 @@
             "num_layers": 2,
             "learning_rate": 0.0001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08395888656377792,
@@ -3494,10 +3726,12 @@
             "num_layers": 3,
             "learning_rate": 0.0005,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.042845550924539566,
@@ -3524,10 +3758,12 @@
             "num_layers": 3,
             "learning_rate": 0.0005,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.030505932867527008,
@@ -3554,10 +3790,12 @@
             "num_layers": 4,
             "learning_rate": 0.001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04280540347099304,
@@ -3584,10 +3822,12 @@
             "num_layers": 1,
             "learning_rate": 0.001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.042658332735300064,
@@ -3614,10 +3854,12 @@
             "num_layers": 2,
             "learning_rate": 0.001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.03050176240503788,
@@ -3644,10 +3886,12 @@
             "num_layers": 1,
             "learning_rate": 0.0005,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08450426906347275,
@@ -3674,10 +3918,12 @@
             "num_layers": 1,
             "learning_rate": 0.0005,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08509205281734467,
@@ -3704,10 +3950,12 @@
             "num_layers": 4,
             "learning_rate": 0.0001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.032783959060907364,
@@ -3734,10 +3982,12 @@
             "num_layers": 1,
             "learning_rate": 0.0001,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.06064150482416153,
@@ -3764,10 +4014,12 @@
             "num_layers": 2,
             "learning_rate": 0.001,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.05970928072929382,
@@ -3794,10 +4046,12 @@
             "num_layers": 3,
             "learning_rate": 0.001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.030370300635695457,
@@ -3824,10 +4078,12 @@
             "num_layers": 1,
             "learning_rate": 0.0005,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.033235352486371994,
@@ -3854,10 +4110,12 @@
             "num_layers": 4,
             "learning_rate": 0.0001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.09194155037403107,
@@ -3884,10 +4142,12 @@
             "num_layers": 4,
             "learning_rate": 0.001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.042487334460020065,
@@ -3914,10 +4174,12 @@
             "num_layers": 2,
             "learning_rate": 0.0005,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.042328860610723495,
@@ -3944,10 +4206,12 @@
             "num_layers": 3,
             "learning_rate": 0.001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.029925674200057983,
@@ -3974,10 +4238,12 @@
             "num_layers": 3,
             "learning_rate": 0.0001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.032298438251018524,
@@ -4004,10 +4270,12 @@
             "num_layers": 1,
             "learning_rate": 0.0001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.03243221715092659,
@@ -4034,10 +4302,12 @@
             "num_layers": 2,
             "learning_rate": 0.001,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.06017967313528061,
@@ -4064,10 +4334,12 @@
             "num_layers": 2,
             "learning_rate": 0.001,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.06002063304185867,
@@ -4094,10 +4366,12 @@
             "num_layers": 3,
             "learning_rate": 0.0001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.03454393893480301,
@@ -4124,10 +4398,12 @@
             "num_layers": 3,
             "learning_rate": 0.0005,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.030540267005562782,
@@ -4154,10 +4430,12 @@
             "num_layers": 1,
             "learning_rate": 0.0001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.09069369733333588,
@@ -4184,10 +4462,12 @@
             "num_layers": 2,
             "learning_rate": 0.0005,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04212361201643944,
@@ -4214,10 +4494,12 @@
             "num_layers": 2,
             "learning_rate": 0.001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04255476966500282,
@@ -4244,10 +4526,12 @@
             "num_layers": 2,
             "learning_rate": 0.0001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.03266986832022667,
@@ -4274,10 +4558,12 @@
             "num_layers": 1,
             "learning_rate": 0.0005,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.059746868908405304,
@@ -4304,10 +4590,12 @@
             "num_layers": 1,
             "learning_rate": 0.0005,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08419031649827957,
@@ -4334,10 +4622,12 @@
             "num_layers": 2,
             "learning_rate": 0.0001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.03047381155192852,
@@ -4364,10 +4654,12 @@
             "num_layers": 4,
             "learning_rate": 0.001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.030295338481664658,
@@ -4394,10 +4686,12 @@
             "num_layers": 3,
             "learning_rate": 0.001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08400169014930725,
@@ -4424,10 +4718,12 @@
             "num_layers": 2,
             "learning_rate": 0.001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.030780332162976265,
@@ -4454,10 +4750,12 @@
             "num_layers": 4,
             "learning_rate": 0.0005,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08461539447307587,
@@ -4484,10 +4782,12 @@
             "num_layers": 3,
             "learning_rate": 0.0005,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.030114157125353813,
@@ -4514,10 +4814,12 @@
             "num_layers": 3,
             "learning_rate": 0.001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.030120672658085823,
@@ -4544,10 +4846,12 @@
             "num_layers": 3,
             "learning_rate": 0.0005,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.03027694672346115,
@@ -4574,10 +4878,12 @@
             "num_layers": 4,
             "learning_rate": 0.0005,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08432888984680176,
@@ -4604,10 +4910,12 @@
             "num_layers": 2,
             "learning_rate": 0.0001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.03223900496959686,
@@ -4634,10 +4942,12 @@
             "num_layers": 4,
             "learning_rate": 0.0005,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04301805421710014,
@@ -4664,10 +4974,12 @@
             "num_layers": 1,
             "learning_rate": 0.001,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.059667255729436874,
@@ -4694,10 +5006,12 @@
             "num_layers": 3,
             "learning_rate": 0.0001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.033211033791303635,
@@ -4724,10 +5038,12 @@
             "num_layers": 3,
             "learning_rate": 0.0001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08549626171588898,
@@ -4754,10 +5070,12 @@
             "num_layers": 2,
             "learning_rate": 0.001,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.05953780189156532,
@@ -4784,10 +5102,12 @@
             "num_layers": 2,
             "learning_rate": 0.0001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.09314730763435364,
@@ -4814,10 +5134,12 @@
             "num_layers": 2,
             "learning_rate": 0.0005,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08398653566837311,
@@ -4844,10 +5166,12 @@
             "num_layers": 4,
             "learning_rate": 0.0001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08734465390443802,
@@ -4874,10 +5198,12 @@
             "num_layers": 3,
             "learning_rate": 0.001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04215598478913307,
@@ -4904,10 +5230,12 @@
             "num_layers": 2,
             "learning_rate": 0.001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04248220846056938,
@@ -4934,10 +5262,12 @@
             "num_layers": 4,
             "learning_rate": 0.0001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08420572429895401,
@@ -4964,10 +5294,12 @@
             "num_layers": 4,
             "learning_rate": 0.001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08425144851207733,
@@ -4994,10 +5326,12 @@
             "num_layers": 3,
             "learning_rate": 0.0001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04728304222226143,
@@ -5024,10 +5358,12 @@
             "num_layers": 3,
             "learning_rate": 0.0005,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.05978776514530182,
@@ -5054,10 +5390,12 @@
             "num_layers": 3,
             "learning_rate": 0.0001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04562065005302429,
@@ -5084,10 +5422,12 @@
             "num_layers": 1,
             "learning_rate": 0.0005,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.030378667637705803,
@@ -5114,10 +5454,12 @@
             "num_layers": 3,
             "learning_rate": 0.0001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.09509997069835663,
@@ -5144,10 +5486,12 @@
             "num_layers": 1,
             "learning_rate": 0.0001,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.060612451285123825,
@@ -5174,10 +5518,12 @@
             "num_layers": 2,
             "learning_rate": 0.001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.030165044590830803,
@@ -5204,10 +5550,12 @@
             "num_layers": 1,
             "learning_rate": 0.001,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.05930178612470627,
@@ -5234,10 +5582,12 @@
             "num_layers": 3,
             "learning_rate": 0.001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.030277760699391365,
@@ -5264,10 +5614,12 @@
             "num_layers": 4,
             "learning_rate": 0.001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04272721707820892,
@@ -5294,10 +5646,12 @@
             "num_layers": 3,
             "learning_rate": 0.0001,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.06543999910354614,
@@ -5324,10 +5678,12 @@
             "num_layers": 2,
             "learning_rate": 0.001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08484716713428497,
@@ -5354,10 +5710,12 @@
             "num_layers": 4,
             "learning_rate": 0.0001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08761368691921234,
@@ -5384,10 +5742,12 @@
             "num_layers": 2,
             "learning_rate": 0.0005,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04247482866048813,
@@ -5414,10 +5774,12 @@
             "num_layers": 3,
             "learning_rate": 0.0001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04353043809533119,
@@ -5444,10 +5806,12 @@
             "num_layers": 4,
             "learning_rate": 0.0005,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04282061383128166,
@@ -5474,10 +5838,12 @@
             "num_layers": 1,
             "learning_rate": 0.0005,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08503498882055283,
@@ -5504,10 +5870,12 @@
             "num_layers": 1,
             "learning_rate": 0.0001,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.06108347699046135,
@@ -5534,10 +5902,12 @@
             "num_layers": 4,
             "learning_rate": 0.0005,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.03010450303554535,
@@ -5564,10 +5934,12 @@
             "num_layers": 2,
             "learning_rate": 0.0005,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.047436341643333435,
@@ -5594,10 +5966,12 @@
             "num_layers": 4,
             "learning_rate": 0.001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08383511751890182,
@@ -5624,10 +5998,12 @@
             "num_layers": 3,
             "learning_rate": 0.0005,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.030143223702907562,
@@ -5654,10 +6030,12 @@
             "num_layers": 1,
             "learning_rate": 0.0005,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.06059344857931137,
@@ -5684,10 +6062,12 @@
             "num_layers": 2,
             "learning_rate": 0.001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.03004780411720276,
@@ -5714,10 +6094,12 @@
             "num_layers": 4,
             "learning_rate": 0.0005,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.0602458156645298,
@@ -5744,10 +6126,12 @@
             "num_layers": 3,
             "learning_rate": 0.0001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04322899878025055,
@@ -5774,10 +6158,12 @@
             "num_layers": 3,
             "learning_rate": 0.0001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.09198404103517532,
@@ -5804,10 +6190,12 @@
             "num_layers": 4,
             "learning_rate": 0.0001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04287710785865784,
@@ -5834,10 +6222,12 @@
             "num_layers": 3,
             "learning_rate": 0.001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08443638682365417,
@@ -5864,10 +6254,12 @@
             "num_layers": 2,
             "learning_rate": 0.0001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.030355975031852722,
@@ -5894,10 +6286,12 @@
             "num_layers": 4,
             "learning_rate": 0.0001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.042771175503730774,
@@ -5924,10 +6318,12 @@
             "num_layers": 4,
             "learning_rate": 0.0005,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08367416262626648,
@@ -5954,10 +6350,12 @@
             "num_layers": 4,
             "learning_rate": 0.0005,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.030091948807239532,
@@ -5984,10 +6382,12 @@
             "num_layers": 4,
             "learning_rate": 0.0001,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.0635526031255722,
@@ -6014,10 +6414,12 @@
             "num_layers": 2,
             "learning_rate": 0.001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.030108340084552765,
@@ -6044,10 +6446,12 @@
             "num_layers": 2,
             "learning_rate": 0.001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08307266235351562,
@@ -6074,10 +6478,12 @@
             "num_layers": 4,
             "learning_rate": 0.001,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.059330083429813385,
@@ -6104,10 +6510,12 @@
             "num_layers": 2,
             "learning_rate": 0.0005,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.06379515677690506,
@@ -6134,10 +6542,12 @@
             "num_layers": 4,
             "learning_rate": 0.001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.042471326887607574,
@@ -6164,10 +6574,12 @@
             "num_layers": 3,
             "learning_rate": 0.0005,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.05925747752189636,
@@ -6194,10 +6606,12 @@
             "num_layers": 4,
             "learning_rate": 0.0005,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.059738487005233765,
@@ -6224,10 +6638,12 @@
             "num_layers": 1,
             "learning_rate": 0.0001,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.06088925898075104,
@@ -6254,10 +6670,12 @@
             "num_layers": 2,
             "learning_rate": 0.0005,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.042466435581445694,
@@ -6284,10 +6702,12 @@
             "num_layers": 4,
             "learning_rate": 0.001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.042562127113342285,
@@ -6314,10 +6734,12 @@
             "num_layers": 4,
             "learning_rate": 0.001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.0299789197742939,
@@ -6344,10 +6766,12 @@
             "num_layers": 3,
             "learning_rate": 0.0001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.030669689178466797,
@@ -6374,10 +6798,12 @@
             "num_layers": 3,
             "learning_rate": 0.0005,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.03258368372917175,
@@ -6404,10 +6830,12 @@
             "num_layers": 4,
             "learning_rate": 0.001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08491215109825134,
@@ -6434,10 +6862,12 @@
             "num_layers": 1,
             "learning_rate": 0.0001,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.06010355055332184,
@@ -6464,10 +6894,12 @@
             "num_layers": 1,
             "learning_rate": 0.001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.03022007830440998,
@@ -6494,10 +6926,12 @@
             "num_layers": 2,
             "learning_rate": 0.001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08424652367830276,
@@ -6524,10 +6958,12 @@
             "num_layers": 3,
             "learning_rate": 0.0005,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.0302458293735981,
@@ -6554,10 +6990,12 @@
             "num_layers": 4,
             "learning_rate": 0.0005,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.030259031802415848,
@@ -6584,10 +7022,12 @@
             "num_layers": 4,
             "learning_rate": 0.0001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04290101304650307,
@@ -6614,10 +7054,12 @@
             "num_layers": 1,
             "learning_rate": 0.001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04256683960556984,
@@ -6644,10 +7086,12 @@
             "num_layers": 4,
             "learning_rate": 0.001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.04197043925523758,
@@ -6674,10 +7118,12 @@
             "num_layers": 2,
             "learning_rate": 0.0001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.09202977269887924,
@@ -6704,10 +7150,12 @@
             "num_layers": 4,
             "learning_rate": 0.0005,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08426892012357712,
@@ -6734,10 +7182,12 @@
             "num_layers": 2,
             "learning_rate": 0.0001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.03392236307263374,
@@ -6764,10 +7214,12 @@
             "num_layers": 2,
             "learning_rate": 0.0001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.033194612711668015,
@@ -6794,10 +7246,12 @@
             "num_layers": 1,
             "learning_rate": 0.001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08410938084125519,
@@ -6824,10 +7278,12 @@
             "num_layers": 4,
             "learning_rate": 0.001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.042619556188583374,
@@ -6854,10 +7310,12 @@
             "num_layers": 2,
             "learning_rate": 0.001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.042436808347702026,
@@ -6884,10 +7342,12 @@
             "num_layers": 3,
             "learning_rate": 0.0005,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08433588594198227,
@@ -6914,10 +7374,12 @@
             "num_layers": 1,
             "learning_rate": 0.001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.0427708774805069,
@@ -6944,10 +7406,12 @@
             "num_layers": 2,
             "learning_rate": 0.0005,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.042551856487989426,
@@ -6974,10 +7438,12 @@
             "num_layers": 4,
             "learning_rate": 0.0001,
             "focal_gamma": 2.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.060271967202425,
@@ -7004,10 +7470,12 @@
             "num_layers": 1,
             "learning_rate": 0.0001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 5,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.032205067574977875,
@@ -7034,10 +7502,12 @@
             "num_layers": 3,
             "learning_rate": 0.001,
             "focal_gamma": 2.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.042422421276569366,
@@ -7064,10 +7534,12 @@
             "num_layers": 4,
             "learning_rate": 0.0001,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.09151194244623184,
@@ -7094,10 +7566,12 @@
             "num_layers": 1,
             "learning_rate": 0.0001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 128,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.03235872462391853,
@@ -7124,10 +7598,12 @@
             "num_layers": 3,
             "learning_rate": 0.0005,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.030030513182282448,
@@ -7154,10 +7630,12 @@
             "num_layers": 3,
             "learning_rate": 0.0005,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 64,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08400870859622955,
@@ -7184,10 +7662,12 @@
             "num_layers": 3,
             "learning_rate": 0.0005,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 128,
             "head_hidden_dim": 256,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08454041928052902,
@@ -7214,10 +7694,12 @@
             "num_layers": 1,
             "learning_rate": 0.0005,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 7,
-            "early_stopping_patience": 10
+            "early_stopping_patience": 10,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.08477263152599335,
@@ -7244,10 +7726,12 @@
             "num_layers": 4,
             "learning_rate": 0.001,
             "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 20
+            "early_stopping_patience": 20,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.030312325805425644,
@@ -7274,10 +7758,12 @@
             "num_layers": 4,
             "learning_rate": 0.0005,
             "focal_gamma": 1.5,
+            "focal_alpha_pos": null,
             "static_hidden_dim": 256,
             "head_hidden_dim": 64,
             "reduce_lr_patience": 3,
-            "early_stopping_patience": 15
+            "early_stopping_patience": 15,
+            "threshold_objective": null
         },
         "validation_metrics": {
             "loss": 0.0849524438381195,
@@ -7287,6 +7773,454 @@
             "precision": 0.5270897832817337,
             "recall": 0.7123430962343096,
             "f1_score": 0.6058718861209964
+        }
+    },
+    {
+        "timestamp": "2026-02-22 12:39:58",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "with_static": true,
+            "batch_size": 64,
+            "latent_d": 64,
+            "num_heads": 8,
+            "ff_dim": 256,
+            "dropout": 0.3,
+            "num_layers": 3,
+            "learning_rate": 0.001,
+            "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
+            "static_hidden_dim": 64,
+            "head_hidden_dim": 128,
+            "reduce_lr_patience": 7,
+            "early_stopping_patience": 15,
+            "threshold_objective": null
+        },
+        "validation_metrics": {
+            "loss": 0.027349112555384636,
+            "accuracy": 0.8096556067466736,
+            "balanced_accuracy": 0.7525610085772751,
+            "auc_ovr": 0.827151166641901,
+            "precision": 0.7208182912154031,
+            "recall": 0.6075050709939148,
+            "f1_score": 0.6593285635663181
+        }
+    },
+    {
+        "timestamp": "2026-02-22 12:44:00",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "with_static": true,
+            "batch_size": 128,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 1024,
+            "dropout": 0.1,
+            "num_layers": 3,
+            "learning_rate": 0.0005,
+            "focal_gamma": 3.0,
+            "focal_alpha_pos": null,
+            "static_hidden_dim": 256,
+            "head_hidden_dim": 64,
+            "reduce_lr_patience": 7,
+            "early_stopping_patience": 20,
+            "threshold_objective": null
+        },
+        "validation_metrics": {
+            "loss": 0.027311626821756363,
+            "accuracy": 0.7709102034568787,
+            "balanced_accuracy": 0.7528304470889003,
+            "auc_ovr": 0.8311244895438163,
+            "precision": 0.6045099739809193,
+            "recall": 0.7068965517241379,
+            "f1_score": 0.6517064048620851
+        }
+    },
+    {
+        "timestamp": "2026-02-22 14:09:12",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "with_static": true,
+            "batch_size": 256,
+            "latent_d": 64,
+            "num_heads": 2,
+            "ff_dim": 512,
+            "dropout": 0.2,
+            "num_layers": 2,
+            "learning_rate": 0.001,
+            "focal_gamma": 1.5,
+            "focal_alpha_pos": 0.7,
+            "static_hidden_dim": 64,
+            "head_hidden_dim": 256,
+            "reduce_lr_patience": 5,
+            "early_stopping_patience": 10,
+            "threshold_objective": "recall"
+        },
+        "validation_metrics": {
+            "loss": 0.07549427449703217,
+            "accuracy": 0.7856703400611877,
+            "balanced_accuracy": 0.7536826247070639,
+            "auc_ovr": 0.82790666864792,
+            "precision": 0.639344262295082,
+            "recall": 0.6724137931034483,
+            "f1_score": 0.6554621848739496
+        }
+    },
+    {
+        "timestamp": "2026-02-22 14:13:12",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "with_static": true,
+            "batch_size": 64,
+            "latent_d": 64,
+            "num_heads": 2,
+            "ff_dim": 128,
+            "dropout": 0.2,
+            "num_layers": 4,
+            "learning_rate": 0.001,
+            "focal_gamma": 3.0,
+            "focal_alpha_pos": 0.7,
+            "static_hidden_dim": 128,
+            "head_hidden_dim": 64,
+            "reduce_lr_patience": 3,
+            "early_stopping_patience": 20,
+            "threshold_objective": "f1"
+        },
+        "validation_metrics": {
+            "loss": 0.027895290404558182,
+            "accuracy": 0.804735541343689,
+            "balanced_accuracy": 0.7501763434777082,
+            "auc_ovr": 0.8230317113910725,
+            "precision": 0.7052631578947368,
+            "recall": 0.6115618661257607,
+            "f1_score": 0.6550787615426399
+        }
+    },
+    {
+        "timestamp": "2026-02-22 14:16:09",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "with_static": true,
+            "batch_size": 64,
+            "latent_d": 256,
+            "num_heads": 4,
+            "ff_dim": 256,
+            "dropout": 0.3,
+            "num_layers": 1,
+            "learning_rate": 0.001,
+            "focal_gamma": 3.0,
+            "focal_alpha_pos": 0.5,
+            "static_hidden_dim": 128,
+            "head_hidden_dim": 128,
+            "reduce_lr_patience": 7,
+            "early_stopping_patience": 15,
+            "threshold_objective": "recall"
+        },
+        "validation_metrics": {
+            "loss": 0.03074759989976883,
+            "accuracy": 0.8050430417060852,
+            "balanced_accuracy": 0.749537657836364,
+            "auc_ovr": 0.8207947451433932,
+            "precision": 0.7075471698113207,
+            "recall": 0.6085192697768763,
+            "f1_score": 0.6543075245365322
+        }
+    },
+    {
+        "timestamp": "2026-02-22 14:20:11",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "with_static": true,
+            "batch_size": 64,
+            "latent_d": 512,
+            "num_heads": 8,
+            "ff_dim": 1024,
+            "dropout": 0.1,
+            "num_layers": 3,
+            "learning_rate": 0.0001,
+            "focal_gamma": 2.5,
+            "focal_alpha_pos": 0.7,
+            "static_hidden_dim": 64,
+            "head_hidden_dim": 256,
+            "reduce_lr_patience": 3,
+            "early_stopping_patience": 10,
+            "threshold_objective": "balanced_accuracy"
+        },
+        "validation_metrics": {
+            "loss": 0.038970258086919785,
+            "accuracy": 0.7841328382492065,
+            "balanced_accuracy": 0.7548709291063413,
+            "auc_ovr": 0.824529288234757,
+            "precision": 0.6342155009451795,
+            "recall": 0.6805273833671399,
+            "f1_score": 0.6565557729941291
+        }
+    },
+    {
+        "timestamp": "2026-02-22 14:23:23",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "with_static": true,
+            "batch_size": 64,
+            "latent_d": 128,
+            "num_heads": 4,
+            "ff_dim": 256,
+            "dropout": 0.1,
+            "num_layers": 4,
+            "learning_rate": 0.0005,
+            "focal_gamma": 3.0,
+            "focal_alpha_pos": 0.6,
+            "static_hidden_dim": 64,
+            "head_hidden_dim": 128,
+            "reduce_lr_patience": 5,
+            "early_stopping_patience": 10,
+            "threshold_objective": "balanced_accuracy"
+        },
+        "validation_metrics": {
+            "loss": 0.030144359916448593,
+            "accuracy": 0.7964329719543457,
+            "balanced_accuracy": 0.7528120966254841,
+            "auc_ovr": 0.8216361810268741,
+            "precision": 0.6719745222929936,
+            "recall": 0.6419878296146044,
+            "f1_score": 0.6566390041493776
+        }
+    },
+    {
+        "timestamp": "2026-02-22 14:26:04",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "with_static": true,
+            "batch_size": 256,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.2,
+            "num_layers": 2,
+            "learning_rate": 0.001,
+            "focal_gamma": 3.0,
+            "focal_alpha_pos": 0.65,
+            "static_hidden_dim": 128,
+            "head_hidden_dim": 256,
+            "reduce_lr_patience": 7,
+            "early_stopping_patience": 20,
+            "threshold_objective": "recall"
+        },
+        "validation_metrics": {
+            "loss": 0.029185356572270393,
+            "accuracy": 0.8019680380821228,
+            "balanced_accuracy": 0.7519142666349189,
+            "auc_ovr": 0.8268503980707844,
+            "precision": 0.6921348314606741,
+            "recall": 0.6247464503042597,
+            "f1_score": 0.6567164179104478
+        }
+    },
+    {
+        "timestamp": "2026-02-22 14:29:35",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "with_static": true,
+            "batch_size": 64,
+            "latent_d": 256,
+            "num_heads": 2,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 4,
+            "learning_rate": 0.0005,
+            "focal_gamma": 1.5,
+            "focal_alpha_pos": 0.55,
+            "static_hidden_dim": 256,
+            "head_hidden_dim": 256,
+            "reduce_lr_patience": 5,
+            "early_stopping_patience": 10,
+            "threshold_objective": "balanced_accuracy"
+        },
+        "validation_metrics": {
+            "loss": 0.08230992406606674,
+            "accuracy": 0.8105781078338623,
+            "balanced_accuracy": 0.7360361924847244,
+            "auc_ovr": 0.8253792279915284,
+            "precision": 0.7612994350282486,
+            "recall": 0.5466531440162272,
+            "f1_score": 0.6363636363636364
+        }
+    },
+    {
+        "timestamp": "2026-02-22 14:33:44",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "with_static": true,
+            "batch_size": 256,
+            "latent_d": 512,
+            "num_heads": 4,
+            "ff_dim": 1024,
+            "dropout": 0.2,
+            "num_layers": 3,
+            "learning_rate": 0.001,
+            "focal_gamma": 2.0,
+            "focal_alpha_pos": 0.7,
+            "static_hidden_dim": 256,
+            "head_hidden_dim": 128,
+            "reduce_lr_patience": 7,
+            "early_stopping_patience": 20,
+            "threshold_objective": "f1"
+        },
+        "validation_metrics": {
+            "loss": 0.05438825488090515,
+            "accuracy": 0.7896679043769836,
+            "balanced_accuracy": 0.7542595453739824,
+            "auc_ovr": 0.8283224632945975,
+            "precision": 0.6498015873015873,
+            "recall": 0.6643002028397565,
+            "f1_score": 0.6569709127382146
+        }
+    },
+    {
+        "timestamp": "2026-02-22 14:36:33",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "with_static": true,
+            "batch_size": 64,
+            "latent_d": 512,
+            "num_heads": 4,
+            "ff_dim": 256,
+            "dropout": 0.4,
+            "num_layers": 1,
+            "learning_rate": 0.001,
+            "focal_gamma": 1.5,
+            "focal_alpha_pos": 0.55,
+            "static_hidden_dim": 256,
+            "head_hidden_dim": 64,
+            "reduce_lr_patience": 7,
+            "early_stopping_patience": 15,
+            "threshold_objective": "balanced_accuracy"
+        },
+        "validation_metrics": {
+            "loss": 0.08153525739908218,
+            "accuracy": 0.8164206743240356,
+            "balanced_accuracy": 0.7436659571154145,
+            "auc_ovr": 0.8272138267608837,
+            "precision": 0.7727910238429172,
+            "recall": 0.5588235294117647,
+            "f1_score": 0.6486168334314303
+        }
+    },
+    {
+        "timestamp": "2026-02-22 14:39:16",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "with_static": true,
+            "batch_size": 128,
+            "latent_d": 64,
+            "num_heads": 4,
+            "ff_dim": 1024,
+            "dropout": 0.3,
+            "num_layers": 1,
+            "learning_rate": 0.0001,
+            "focal_gamma": 1.5,
+            "focal_alpha_pos": 0.7,
+            "static_hidden_dim": 128,
+            "head_hidden_dim": 256,
+            "reduce_lr_patience": 5,
+            "early_stopping_patience": 10,
+            "threshold_objective": "f1"
+        },
+        "validation_metrics": {
+            "loss": 0.07715372741222382,
+            "accuracy": 0.8010455369949341,
+            "balanced_accuracy": 0.7515387534933016,
+            "auc_ovr": 0.8237203013414636,
+            "precision": 0.6893854748603352,
+            "recall": 0.6257606490872211,
+            "f1_score": 0.6560340244550771
+        }
+    },
+    {
+        "timestamp": "2026-02-22 14:42:36",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "with_static": true,
+            "batch_size": 64,
+            "latent_d": 512,
+            "num_heads": 4,
+            "ff_dim": 512,
+            "dropout": 0.2,
+            "num_layers": 1,
+            "learning_rate": 0.0001,
+            "focal_gamma": 2.5,
+            "focal_alpha_pos": 0.7,
+            "static_hidden_dim": 256,
+            "head_hidden_dim": 64,
+            "reduce_lr_patience": 3,
+            "early_stopping_patience": 15,
+            "threshold_objective": "recall"
+        },
+        "validation_metrics": {
+            "loss": 0.03866647183895111,
+            "accuracy": 0.811500608921051,
+            "balanced_accuracy": 0.7498746797620348,
+            "auc_ovr": 0.8226360574969251,
+            "precision": 0.7340025094102886,
+            "recall": 0.5933062880324543,
+            "f1_score": 0.6561974200785193
+        }
+    },
+    {
+        "timestamp": "2026-02-22 14:44:37",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "with_static": true,
+            "batch_size": 128,
+            "latent_d": 64,
+            "num_heads": 8,
+            "ff_dim": 1024,
+            "dropout": 0.1,
+            "num_layers": 1,
+            "learning_rate": 0.0005,
+            "focal_gamma": 2.5,
+            "focal_alpha_pos": 0.55,
+            "static_hidden_dim": 64,
+            "head_hidden_dim": 64,
+            "reduce_lr_patience": 7,
+            "early_stopping_patience": 10,
+            "threshold_objective": "recall"
+        },
+        "validation_metrics": {
+            "loss": 0.04170375317335129,
+            "accuracy": 0.8154981732368469,
+            "balanced_accuracy": 0.7355563950022289,
+            "auc_ovr": 0.8271287880279787,
+            "precision": 0.7906626506024096,
+            "recall": 0.5324543610547667,
+            "f1_score": 0.6363636363636364
         }
     }
 ]

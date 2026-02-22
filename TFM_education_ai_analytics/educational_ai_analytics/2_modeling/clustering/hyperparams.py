@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import List
 
-from educational_ai_analytics.config import W_WINDOWS
+from educational_ai_analytics.config import W_WINDOWS, N_CLUSTERS
 
 
 @dataclass(frozen=True)
@@ -13,7 +13,7 @@ class ClusteringParams:
 	windows: List[int] = field(default_factory=lambda: [int(w) for w in W_WINDOWS])
 
 	# GMM defaults (alineado con notebook)
-	n_clusters: int = 5
+	n_clusters: int = N_CLUSTERS
 	gmm_k_range: List[int] = field(default_factory=lambda: [3, 4, 5, 6])
 	covariance_type: str = "diag"
 	reg_covar: float = 1e-6

@@ -34,6 +34,9 @@ OULAD_DATASET_URL = "https://analyse.kmi.open.ac.uk/open-dataset/download"
 # Feature Engineering Config
 W_WINDOWS = [5, 10, 15, 20, 25]
 
+# Clustering Config (single source of truth)
+N_CLUSTERS = 5
+
 # If tqdm is installed, configure loguru with tqdm.write
 # https://github.com/Delgan/loguru/issues/135
 try:

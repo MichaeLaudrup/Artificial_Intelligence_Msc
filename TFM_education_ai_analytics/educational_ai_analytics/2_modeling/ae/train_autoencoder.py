@@ -77,10 +77,12 @@ def main(
     seed: int = 42,
     update_interval: int = 10,    # 🔥 menos oscilación al recalcular P
     sample_frac: float = AE_PARAMS.sample_frac,     # 🔥 compute P on subset (0.3–0.7 recommended)
-    target_blend: float = 0.35,   # 0->usar Q (suave), 1->DEC puro (más agresivo)
+    target_blend: float = AE_PARAMS.target_blend,   # 0->usar Q (suave), 1->DEC puro (más agresivo)
     shuffle_buf: int = 10000,
     use_mixed_precision: bool = True,
     save_best: bool = True,
+    use_clustering_objective: bool = AE_PARAMS.use_clustering_objective,
+    clustering_loss_scale: float = AE_PARAMS.clustering_loss_scale,
 ):
     """
     Entrenamiento DCN/DEC:
@@ -104,7 +106,8 @@ def main(
 
     logger.info(
         f"🧠 DCN Training | Ventanas: {windows} | K={AE_PARAMS.n_clusters} | "
-        f"batch={batch_size} | update_interval={update_interval} | target_blend={target_blend:.2f}"
+        f"batch={batch_size} | update_interval={update_interval} | target_blend={target_blend:.2f} | "
+        f"use_clustering_objective={use_clustering_objective} | λ={AE_PARAMS.clustering_loss_weight} | scale={clustering_loss_scale}"
     )
 
     # -----------------------
@@ -164,18 +167,25 @@ def main(
     # -----------------------
     # 3) Phase 2: KMeans init
     # -----------------------
-    logger.info("📍 Fase 2: Inicializando centroides con KMeans...")
-    z = model.get_embeddings(X_train, batch_size=max(1024, batch_size))
-    kmeans = KMeans(n_clusters=AE_PARAMS.n_clusters, n_init=20, random_state=seed)
-    y_pred = kmeans.fit_predict(z.numpy())
+    if use_clustering_objective:
+        logger.info("📍 Fase 2: Inicializando centroides con KMeans...")
+        z = model.get_embeddings(X_train, batch_size=max(1024, batch_size))
+        kmeans = KMeans(n_clusters=AE_PARAMS.n_clusters, n_init=20, random_state=seed)
+        y_pred = kmeans.fit_predict(z.numpy())
 
-    model.get_layer("clustering_output").set_weights([kmeans.cluster_centers_])
-    logger.success("✅ Centroides cargados en la capa de clustering_output.")
+        model.get_layer("clustering_output").set_weights([kmeans.cluster_centers_])
+        logger.success("✅ Centroides cargados en la capa de clustering_output.")
+    else:
+        y_pred = np.zeros((len(X_train),), dtype=np.int32)
+        logger.warning("⏭️ Clustering objetivo DESACTIVADO: se omiten KMeans init y pérdida KL.")
 
     # -----------------------
     # 4) Phase 3: Joint training (optimized)
     # -----------------------
-    logger.info("🧬 Fase 3: Optimización Conjunta (DCN) [OPTIMIZADA]...")
+    if use_clustering_objective:
+        logger.info("🧬 Fase 3: Optimización Conjunta (DCN) [OPTIMIZADA]...")
+    else:
+        logger.info("🧬 Fase 3: Fine-tuning SOLO reconstrucción (ablation limpia)...")
 
     optimizer = tf.keras.optimizers.Adam(AE_PARAMS.learning_rate / 5.0)
     loss_recon = tf.keras.losses.Huber()
@@ -196,15 +206,16 @@ def main(
             p_batch = tf.clip_by_value(p_batch, 1e-12, 1.0)
 
             l_rec = loss_recon(x_batch, x_rec)
-            l_cl = loss_kl(p_batch, q_batch)
+            l_cl_raw = loss_kl(p_batch, q_batch)
+            l_cl = l_cl_raw * tf.cast(clustering_loss_scale, l_rec.dtype)
 
-            w_cl = tf.cast(AE_PARAMS.clustering_loss_weight, l_rec.dtype)
+            w_cl = tf.cast(AE_PARAMS.clustering_loss_weight if use_clustering_objective else 0.0, l_rec.dtype)
             l_aux = tf.add_n(model.losses) if model.losses else tf.zeros_like(l_rec)
             total = l_rec + w_cl * l_cl + l_aux
 
         grads = tape.gradient(total, model.trainable_variables)
         optimizer.apply_gradients(zip(grads, model.trainable_variables))
-        return total, l_rec, l_cl, l_aux
+        return total, l_rec, l_cl_raw, l_cl, l_aux
 
     train_p_ds = None
     # Early Stopping tracking
@@ -213,7 +224,7 @@ def main(
 
     for epoch in range(joint_epochs):
         # Recompute P (target distribution) every update_interval epochs
-        if epoch % update_interval == 0:
+        if use_clustering_objective and epoch % update_interval == 0:
             logger.info(f"   🔄 Actualizando distribución objetivo (Epoch {epoch})...")
 
             m = int(len(X_train) * float(sample_frac))
@@ -249,20 +260,31 @@ def main(
                 .prefetch(tf.data.AUTOTUNE)
             )
 
+        if not use_clustering_objective and epoch == 0:
+            p_zeros = np.zeros((len(X_train), AE_PARAMS.n_clusters), dtype=np.float32)
+            train_p_ds = (
+                tf.data.Dataset.from_tensor_slices((X_train, p_zeros))
+                .shuffle(shuffle_buf)
+                .batch(batch_size, drop_remainder=False)
+                .prefetch(tf.data.AUTOTUNE)
+            )
+
         if train_p_ds is None:
             raise RuntimeError("train_p_ds no inicializado.")
 
         epoch_t = tf.keras.metrics.Mean()
         epoch_r = tf.keras.metrics.Mean()
+        epoch_c_raw = tf.keras.metrics.Mean()
         epoch_c = tf.keras.metrics.Mean()
         epoch_a = tf.keras.metrics.Mean()
 
         from tqdm import tqdm
         pbar = tqdm(train_p_ds, desc=f"   Epoch {epoch+1:02d}/{joint_epochs}", leave=False)
         for x_batch, p_batch in pbar:
-            total, l_rec, l_cl, l_aux = train_step(x_batch, p_batch)
+            total, l_rec, l_cl_raw, l_cl, l_aux = train_step(x_batch, p_batch)
             epoch_t.update_state(total)
             epoch_r.update_state(l_rec)
+            epoch_c_raw.update_state(l_cl_raw)
             epoch_c.update_state(l_cl)
             epoch_a.update_state(l_aux)
             
@@ -270,13 +292,18 @@ def main(
 
         t_val = float(epoch_t.result().numpy())
         r_val = float(epoch_r.result().numpy())
+        c_raw_val = float(epoch_c_raw.result().numpy())
         c_val = float(epoch_c.result().numpy())
         a_val = float(epoch_a.result().numpy())
-        obj_val = r_val + float(AE_PARAMS.clustering_loss_weight) * c_val
+        lambda_cl = float(AE_PARAMS.clustering_loss_weight if use_clustering_objective else 0.0)
+        cl_contrib = lambda_cl * c_val
+        obj_val = r_val + cl_contrib
+        cl_share_pct = (100.0 * cl_contrib / max(obj_val, 1e-12)) if obj_val > 0 else 0.0
 
         logger.info(
             f"   📉 Finalizado Epoch {epoch+1:02d}/{joint_epochs} | "
-            f"T: {t_val:.4f} | Obj(R+λC): {obj_val:.4f} | R: {r_val:.4f} | C: {c_val:.4f} | Aux: {a_val:.4f}"
+            f"T: {t_val:.4f} | Obj(R+λC): {obj_val:.4f} | R: {r_val:.4f} | "
+            f"Craw: {c_raw_val:.4f} | Cscaled: {c_val:.4f} | λ·C: {cl_contrib:.4f} ({cl_share_pct:.2f}%) | Aux: {a_val:.4f}"
         )
 
         # Save best checkpoint & Early Stopping logic

@@ -7,8 +7,11 @@ from typing import List, Optional
 @dataclass
 class TransformerHyperparams:
     # General
+    upto_week: int = 5
     num_classes: int = 2
     with_static: bool = True
+    use_clustering_features: bool =True
+    accumulated_uptow: bool = False
     batch_size: int = 64
     epochs: int = 80
 
@@ -72,6 +75,8 @@ class TransformerHyperparams:
                 "batch_size": self.batch_size,
                 "epochs": self.epochs,
                 "with_static": self.with_static,
+                "use_clustering_features": self.use_clustering_features,
+                   "accumulated_uptow": self.accumulated_uptow,
                 "latent_d": self.latent_d,
                 "num_heads": self.num_heads,
                 "ff_dim": self.ff_dim,

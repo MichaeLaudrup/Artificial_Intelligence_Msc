@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from typing import List
 
+from educational_ai_analytics.config import N_CLUSTERS
+
 @dataclass
 class AutoencoderParams:
     """Configuración para el modelo StudentProfileAutoencoder (Arquitectura Pro)."""
@@ -21,9 +23,12 @@ class AutoencoderParams:
     learning_rate: float = 0.001
 
     # ✅ NEW: Configuración para Deep Clustering (DCN)
-    n_clusters: int = 5
-    clustering_loss_weight: float = 0.3  # Importancia que le damos a intentar hacer clusters más definidos
+    n_clusters: int = N_CLUSTERS
+    use_clustering_objective: bool = True
+    clustering_loss_weight: float = 0.35  # Importancia que le damos a intentar hacer clusters más definidos
+    clustering_loss_scale: float = 1.0
     sample_frac: float = 1.0              # Fracción de datos para calcular el target P (0.1 a 1.0)
+    target_blend: float = 0.35
     
     # Callbacks
     early_stopping_patience: int = 15

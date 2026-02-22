@@ -156,6 +156,14 @@ from_ae_train_to_predict: train_ae encode train_clustering predict_clustering
 .PHONY: full_pipeline
 full_pipeline: from_data_to_clustering_predict all_plots
 
+## Grouped: from raw data to transformer training
+.PHONY: from_data_to_transformer
+from_data_to_transformer: data features train_ae encode train_clustering predict_clustering all_plots transformer_features train_transformer
+
+## Grouped: from AE training to full transformer pipeline
+.PHONY: from_ae_train_to_transformer
+from_ae_train_to_transformer: train_ae encode train_clustering predict_clustering all_plots transformer_features train_transformer
+
 ## Menú interactivo con opciones numeradas
 .PHONY: menu
 menu:
@@ -166,16 +174,20 @@ menu:
 	@echo "  3) from_data_to_clustering_predict"
 	@echo "  4) from_ae_train_to_predict"
 	@echo "  5) plot_clustering"
-	@echo "  6) help"
+	@echo "  6) from_data_to_transformer"
+	@echo "  7) from_ae_train_to_transformer"
+	@echo "  8) help"
 	@echo "====================================================="
-	@read -p "Elige una opción [1-6]: " opt; \
+	@read -p "Elige una opción [1-8]: " opt; \
 	case $$opt in \
 		1) $(MAKE) full_pipeline ;; \
 		2) $(MAKE) all_plots ;; \
 		3) $(MAKE) from_data_to_clustering_predict ;; \
 		4) $(MAKE) from_ae_train_to_predict ;; \
 		5) $(MAKE) plot_clustering ;; \
-		6) $(MAKE) help ;; \
+		6) $(MAKE) from_data_to_transformer ;; \
+		7) $(MAKE) from_ae_train_to_transformer ;; \
+		8) $(MAKE) help ;; \
 		*) echo "❌ Opción inválida. Ejecuta 'make menu' de nuevo." ;; \
 	esac
 

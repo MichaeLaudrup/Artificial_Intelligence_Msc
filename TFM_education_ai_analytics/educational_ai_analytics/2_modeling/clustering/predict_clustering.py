@@ -98,6 +98,12 @@ def _predict_one(split: str, window: int, latent_filename: str, out_filename: st
     scaler = joblib.load(artifacts["scaler"])
 
     k = int(getattr(gmm, "n_components", 0))
+    expected_k = int(CLUSTERING_PARAMS.n_clusters)
+    if k != expected_k:
+        logger.warning(
+            f"⚠️ [{split}] W{window:02d}: modelo cargado con K={k}, pero hyperparams indica K={expected_k}. "
+            "Si cambiaste K, vuelve a ejecutar make train_clustering antes de predict_clustering."
+        )
     mapping = _load_mapping(artifacts["mapping"], k=k)
 
     X = df_lat.values.astype(np.float32)

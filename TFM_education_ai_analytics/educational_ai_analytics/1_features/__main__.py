@@ -20,7 +20,6 @@ from day0_static_features import DayZeroFeaturesBuilder
 # ✅ NUEVO: builder dinámico acumulativo uptoW (tipo agg_week) con normalización curso-convocatoria
 # Guarda: data/3_features/<split>/ae_uptow_features/ae_uptow_features_wXX.csv
 from ae_uptow_features import AEUptoWFeaturesBuilder
-from check_features_integrity import check_ae_features_integrity
 
 # Importamos las constantes de config
 # Para que funcione el import de config fuera de la carpeta, aseguramos que la raíz esté en el path
@@ -140,16 +139,6 @@ def main():
                 sample_dyn = pd.read_csv(saved_uptow[maxW], index_col=0, nrows=0)
                 logger.info(f"   ✅ AE UptoW Dynamic Features (W={maxW}): {sample_dyn.shape[1]} features")
                 
-                # 5) ✅ Control de Integridad (sobre maxW)
-                check_ae_features_integrity(
-                    split=split,
-                    W=maxW,
-                    feats_path=saved_uptow[maxW],
-                    students=dfs["students"],
-                    interactions=dfs["interactions"],
-                    assessments=dfs["assessments"]
-                )
-
         except Exception as e:
             logger.error(f"❌ Error en split {split}: {e}", exc_info=True)
             continue

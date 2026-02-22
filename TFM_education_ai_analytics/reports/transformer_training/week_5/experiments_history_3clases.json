@@ -42,5 +42,49 @@
             "recall": 0.5567479675905136,
             "f1_score": 0.5571306345251285
         }
+    },
+    {
+        "timestamp": "2026-02-22 15:33:13",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 3,
+            "paper_baseline": true,
+            "batch_size": 64,
+            "epochs": 80,
+            "with_static": true,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.3,
+                0.7
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.09077014029026031,
+            "accuracy": 0.5891159772872925,
+            "balanced_accuracy": 0.5569456010265602,
+            "auc_ovr": 0.7509996661278895,
+            "precision": 0.5666811565848411,
+            "recall": 0.5569456010265602,
+            "f1_score": 0.551637785561316
+        }
     }
 ]

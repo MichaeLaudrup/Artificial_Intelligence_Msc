@@ -335,7 +335,11 @@ class TransformerFeaturesBuilder:
             y = target_w[self.target_col].astype(np.int64).values
 
             # static segmented (opcional pero recomendado)
-            X_static = self._load_segmented_static(split=split, upto_week=upto_week, uid=common_ids)
+            X_static, static_feature_names, static_feature_sources = self._load_segmented_static(
+                split=split,
+                upto_week=upto_week,
+                uid=common_ids,
+            )
 
             # guardado .npz
             fp = out_dir / f"transformer_uptoW{upto_week}.npz"
@@ -349,6 +353,8 @@ class TransformerFeaturesBuilder:
                 y=y,
                 ids=common_ids.astype(str).values,
                 X_static=X_static if X_static is not None else np.zeros((len(common_ids), 0), dtype=np.float32),
+                static_feature_names=np.array(static_feature_names, dtype=object),
+                static_feature_sources=np.array(static_feature_sources, dtype=object),
                 activities=np.array(activities_global, dtype=object),
                 features_cluster=np.array(self.features_cluster, dtype=object),
                 upto_week=np.int32(upto_week),
@@ -366,7 +372,7 @@ class TransformerFeaturesBuilder:
 
         return saved
 
-    def _load_segmented_static(self, *, split: str, upto_week: int, uid: pd.Index) -> Optional[np.ndarray]:
+    def _load_segmented_static(self, *, split: str, upto_week: int, uid: pd.Index) -> Tuple[Optional[np.ndarray], List[str], List[str]]:
         """
         Lee 5_students_segmented/<split>/students_segmented_uptoW{W}.csv
         y junta con variables demográficas de day0_static_features.csv
@@ -374,13 +380,13 @@ class TransformerFeaturesBuilder:
         fp = self.segmented_root_dir / split / f"students_segmented_uptoW{upto_week}.csv"
         if not fp.exists():
             logger.warning(f"[{split}] ⚠️ No existe segmented file: {fp} (saltando X_static)")
-            return None
+            return None, [], []
 
         cols_to_load = ["unique_id"] + self.features_cluster
         seg = pd.read_csv(fp, usecols=lambda c: c in cols_to_load)
         if "unique_id" not in seg.columns:
             logger.warning(f"[{split}] ⚠️ Segmented sin unique_id: {fp} (saltando X_static)")
-            return None
+            return None, [], []
 
         seg = seg.set_index("unique_id")
         
@@ -410,4 +416,14 @@ class TransformerFeaturesBuilder:
         final_cols = cluster_cols + demo_cols
         X_static_df = X_static_df[final_cols]
 
-        return X_static_df.values.astype(np.float32)
+        day0_cols = set(day0_df.columns.tolist()) if day0_fp.exists() else set()
+        static_feature_sources: List[str] = []
+        for col in final_cols:
+            if col in cluster_cols:
+                static_feature_sources.append("cluster")
+            elif col in day0_cols:
+                static_feature_sources.append("day0")
+            else:
+                static_feature_sources.append("accumulated_uptow")
+
+        return X_static_df.values.astype(np.float32), final_cols, static_feature_sources

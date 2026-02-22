@@ -33,6 +33,13 @@ def _load_split_tables(split_path: Path) -> dict[str, pd.DataFrame]:
 def main():
     logger.info("🎬 Iniciando generación de Transformer Features (6_transformer_features)")
 
+    segmented_candidates = list(SEGMENTED_DATA_DIR.glob("*/students_segmented_uptoW*.csv"))
+    if not segmented_candidates:
+        raise FileNotFoundError(
+            "No se encontraron segmentaciones en data/5_students_segmented. "
+            "Primero ejecuta: make encode && make train_clustering && make predict_clustering"
+        )
+
     # Limpieza dir salida
     if TRANSFORMER_OUT_DIR.exists():
         logger.info(f"🧹 Limpiando directorio: {TRANSFORMER_OUT_DIR}")

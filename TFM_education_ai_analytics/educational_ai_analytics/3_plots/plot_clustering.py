@@ -14,6 +14,7 @@ from loguru import logger
 import typer
 
 import json
+import importlib
 from educational_ai_analytics.config import (
     REPORTS_DIR,
     EMBEDDINGS_DATA_DIR,
@@ -27,6 +28,24 @@ from .style import set_style
 
 app = typer.Typer(help="Visualizaciones para Clustering.")
 set_style()
+
+
+def _get_ae_n_clusters(default: int = 5) -> int:
+    try:
+        mod = importlib.import_module("educational_ai_analytics.2_modeling.ae.hyperparams")
+        params = getattr(mod, "AE_PARAMS", None)
+        if params is not None:
+            n = int(getattr(params, "n_clusters", default))
+            return max(1, n)
+    except Exception:
+        pass
+    return max(1, int(default))
+
+
+def _get_cluster_palette() -> list[str]:
+    import seaborn as sns
+    n_clusters = _get_ae_n_clusters()
+    return sns.color_palette("tab10", n_colors=n_clusters).as_hex()
 
 
 def _apply_plot_theme(dark_mode: bool = True):
@@ -243,7 +262,8 @@ def _run_profiles(segmentation_name, window, out_dir, dark_mode: bool = True):
     
     # Usamos una paleta divergente (RdYlGn: Rojo-Amarillo-Verde) 
     # Como las variables ya están centradas en el preprocesamiento, 0 es la media global.
-    sns.heatmap(
+    cluster_palette = _get_cluster_palette()
+    ax_profiles = sns.heatmap(
         cluster_profiles, 
         annot=True, 
         fmt=".2f", 
@@ -252,6 +272,8 @@ def _run_profiles(segmentation_name, window, out_dir, dark_mode: bool = True):
         cbar_kws={'label': 'Desviación sobre la media (Z-score)'},
         linewidths=.5
     )
+    for i, tick in enumerate(ax_profiles.get_yticklabels()):
+        tick.set_color(cluster_palette[i % len(cluster_palette)])
     
     plt.title("Perfil Característico de cada Clúster (Training Set)", fontsize=15, pad=20)
     plt.xlabel("Variables (Estandarizadas)", fontsize=11)
@@ -297,7 +319,7 @@ def _run_profiles(segmentation_name, window, out_dir, dark_mode: bool = True):
     matrix = effect[top_vars].T
 
     plt.figure(figsize=(12, max(8, int(0.35 * len(top_vars)))))
-    sns.heatmap(
+    ax_z = sns.heatmap(
         matrix,
         annot=True,
         fmt=".2f",
@@ -307,6 +329,8 @@ def _run_profiles(segmentation_name, window, out_dir, dark_mode: bool = True):
         annot_kws={"size": 7},
         linewidths=0.3,
     )
+    for i, tick in enumerate(ax_z.get_xticklabels()):
+        tick.set_color(cluster_palette[i % len(cluster_palette)])
     plt.title(f"Matriz Z-Effect (Top {top_n} variables) | W{int(window):02d}", fontsize=14)
     plt.xlabel("Clústeres")
     plt.ylabel("Variables")
@@ -523,6 +547,7 @@ def _run_outcomes(splits, segmentation_name, window, out_dir, seed, dark_mode: b
         return tab, global_success
 
     def _plot_one(ax, tab, global_success, title_str: str):
+        cluster_palette = _get_cluster_palette()
         x = np.arange(len(tab))
         width = 0.20
         offsets = [-1.5 * width, -0.5 * width, 0.5 * width, 1.5 * width]
@@ -541,6 +566,8 @@ def _run_outcomes(splits, segmentation_name, window, out_dir, seed, dark_mode: b
         ax.set_ylim(0, 110)
         ax.set_xticks(x)
         ax.set_xticklabels(tab.index.values, rotation=25, ha="right", fontsize=9)
+        for i, tick in enumerate(ax.get_xticklabels()):
+            tick.set_color(cluster_palette[i % len(cluster_palette)])
         ax.grid(True, axis="y", alpha=0.25, linestyle=":")
         for i, n_i in enumerate(tab["n"].values):
             y_max = float(max(tab.iloc[i][c] for c in categories))

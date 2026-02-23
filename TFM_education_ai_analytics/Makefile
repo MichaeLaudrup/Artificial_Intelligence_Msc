@@ -6,6 +6,7 @@ PROJECT_NAME = educational_ai_analytics
 PYTHON_VERSION = 3.12
 PYTHON_INTERPRETER = python
 METHOD = pca
+HPARAM_MAX_TRIALS ?= 5000
 SHELL := /bin/bash
 
 #################################################################################
@@ -82,6 +83,31 @@ train_transformer:
 ## 7.5. Run Full Transformer Pipeline (Features + Train)
 .PHONY: full_transformer
 full_transformer: transformer_features train_transformer
+
+## 7.6. Super finetuning automático (Random Search Transformer)
+.PHONY: hparam_search
+hparam_search:
+	$(PYTHON_INTERPRETER) educational_ai_analytics/2_modeling/transformers/utils/tune_random_search.py --max-trials $(HPARAM_MAX_TRIALS)
+
+## 7.7. Super finetuning en background (nocturno)
+.PHONY: hparam_search_bg
+hparam_search_bg:
+	mkdir -p reports/hparam_search
+	nohup $(PYTHON_INTERPRETER) educational_ai_analytics/2_modeling/transformers/utils/tune_random_search.py --max-trials $(HPARAM_MAX_TRIALS) > reports/hparam_search/night.log 2>&1 & echo $$! > reports/hparam_search/night.pid
+	@echo "✅ Random search lanzado en background. PID guardado en reports/hparam_search/night.pid"
+
+## 7.8. Estado del super finetuning
+.PHONY: hparam_status
+hparam_status:
+	@if [ -f reports/hparam_search/night.pid ]; then \
+		PID=$$(cat reports/hparam_search/night.pid); \
+		echo "PID: $$PID"; \
+		ps -p $$PID -o pid=,etime=,cmd= || true; \
+	else \
+		echo "⚠️ No hay PID registrado (reports/hparam_search/night.pid)"; \
+	fi
+	@echo "--- Últimas líneas del log ---"
+	@tail -n 30 reports/hparam_search/night.log 2>/dev/null || echo "⚠️ Sin log todavía (reports/hparam_search/night.log)"
 
 ## 7. Plot Learning Curves (AE)
 .PHONY: plot_ae_loss

@@ -11,7 +11,7 @@ class TransformerHyperparams:
     num_classes: int = 2
     with_static: bool = True
     use_clustering_features: bool =True
-    accumulated_uptow: bool = False
+    accumulated_uptow: bool = True
     batch_size: int = 64
     epochs: int = 80
 

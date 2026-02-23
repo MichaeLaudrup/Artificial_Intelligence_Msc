@@ -146,9 +146,10 @@ class GLUTransformerClassifier(tf.keras.Model):
                 name="static_block"
             )
 
-            # GATED EARLY FUSION: puerta sigmoide que aprende cuánto inyectar
-            # de cada dimensión estática en la secuencia temporal.
-            # Si la gate → 1.0, la estática dominia; si → 0.0, se ignora.
+            # GATED EARLY FUSION (contextual):
+            # gate depende de [x_seq_t, x_static] en cada timestep.
+            # Mezcla explícita:
+            #   x_fused_t = (1 - gate_t) * x_seq_t + gate_t * x_static
             self.fusion_gate = layers.Dense(latent_d, activation="sigmoid", name="fusion_gate")
 
             # Normalización para las features estáticas crudas (bypass directo al head)
@@ -210,11 +211,14 @@ class GLUTransformerClassifier(tf.keras.Model):
         if self.with_static_features:
             # 1. Embedding estático (B, D)
             x_static_emb = self.static_block(x_static, training=training)
-            # 2. Puerta aprendida: controla cuánto de cada dimensión estática se inyecta
-            #    gate ≈ 1 → la estática domina esa dimensión
-            #    gate ≈ 0 → se ignora (el temporal manda)
-            gate = self.fusion_gate(x_static_emb)  # (B, D)
-            x_seq = x_seq + tf.expand_dims(gate * x_static_emb, axis=1)
+            # 2. Expandimos estática a todos los timesteps: (B, W, D)
+            x_static_t = tf.expand_dims(x_static_emb, axis=1)
+            x_static_t = tf.broadcast_to(x_static_t, tf.shape(x_seq))
+            # 3. Puerta contextual por timestep y dimensión usando [temporal, estática]
+            fusion_in = tf.concat([x_seq, x_static_t], axis=-1)  # (B, W, 2D)
+            gate = self.fusion_gate(fusion_in)                   # (B, W, D)
+            # 4. Mezcla explícita: gate→0 manda temporal, gate→1 manda estática
+            x_seq = (1.0 - gate) * x_seq + gate * x_static_t
 
         x_seq = self.in_drop(x_seq, training=training)
 

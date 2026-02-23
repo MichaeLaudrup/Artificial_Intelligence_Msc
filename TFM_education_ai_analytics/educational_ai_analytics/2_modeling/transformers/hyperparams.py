@@ -8,7 +8,6 @@ from typing import List, Optional
 class TransformerHyperparams:
     # General
     upto_week: int = 5
-    num_classes: int = 2
     with_static: bool = True
     use_clustering_features: bool =True
     accumulated_uptow: bool = True
@@ -17,14 +16,19 @@ class TransformerHyperparams:
 
     # Arquitectura Temporal (Transformer)
     latent_d: int = 256
-    num_heads: int = 8
     ff_dim: int = 128
     dropout: float = 0.3
+    
+    #Cosas que afecta a la capa temporal
+    # Cuantos puntos de vista 
+    num_heads: int = 8
     num_layers: int = 2
     
-    # Arquitectura Estática y Head
-    static_hidden: List[int] = field(default_factory=lambda: [64, 32])
-    head_hidden: List[int] = field(default_factory=lambda: [256, 128])
+    # Arquitectura Estática
+    static_hidden: List[int] = field(default_factory=lambda: [ 64, 32])
+
+    # Capas de la red neuronal que fusiona la info temporal y estatica
+    head_hidden: List[int] = field(default_factory=lambda: [256, 128,64,32 ])
     
     # Optimizador
     learning_rate: float = 0.001
@@ -38,7 +42,12 @@ class TransformerHyperparams:
 
     # Focal Loss
     focal_gamma: float = 2.5
-    focal_alpha: List[float] = field(default_factory=lambda: [0.3, 0.7])
+
+
+    num_classes: int = 2
+    # [Peso Clase 0 (No Riesgo), Peso Clase 1 (Riesgo)] 
+    # cuidadito añadir clases implica añadir elementos aqui
+    focal_alpha: List[float] = field(default_factory=lambda: [0.27, 0.73])
 
     def save_experiment(
         self,

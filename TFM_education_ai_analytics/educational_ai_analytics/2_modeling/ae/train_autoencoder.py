@@ -218,6 +218,7 @@ def main(
         return total, l_rec, l_cl_raw, l_cl, l_aux
 
     train_p_ds = None
+    p_train = None
     # Early Stopping tracking
     patience_counter = 0
     patience_limit = AE_PARAMS.early_stopping_patience
@@ -227,43 +228,35 @@ def main(
         if use_clustering_objective and epoch % update_interval == 0:
             logger.info(f"   🔄 Actualizando distribución objetivo (Epoch {epoch})...")
 
-            m = int(len(X_train) * float(sample_frac))
-            m = max(m, AE_PARAMS.n_clusters * 50)  # small safety floor
-            m = min(m, len(X_train))
-
-            idx = np.random.choice(len(X_train), m, replace=False)
-            X_p = X_train[idx]
-
-            # Fast inference for q on subset
-            _, q = model.predict(X_p, batch_size=batch_size, verbose=0)
+            # Compute P on full training set so phase-3 uses all training samples
+            _, q = model.predict(X_train, batch_size=batch_size, verbose=0)
             q = q.astype(np.float32)
             p_hard = target_distribution(q)
             # suaviza el salto tras cada refresh de P para estabilizar KL
             p = ((1.0 - target_blend) * q) + (target_blend * p_hard)
             p = np.clip(p, 1e-12, 1.0)
             p = p / p.sum(axis=1, keepdims=True)
-            p = p.astype(np.float32)
+            p_train = p.astype(np.float32)
 
             # label-change diagnostic
             y_curr = q.argmax(1)
-            y_prev_subset = y_pred[idx] if len(y_pred) == len(X_train) else y_pred[:m]
-            delta_label = float(np.mean(y_curr != y_prev_subset)) * 100.0
+            delta_label = float(np.mean(y_curr != y_pred)) * 100.0 if len(y_pred) == len(X_train) else 0.0
             if len(y_pred) == len(X_train):
-                y_pred[idx] = y_curr
+                y_pred = y_curr
 
-            logger.info(f"   📊 Cambio en etiquetas (subset): {delta_label:.4f}% | subset={m}")
+            logger.info(f"   📊 Cambio en etiquetas (train): {delta_label:.4f}% | N={len(X_train)}")
 
             train_p_ds = (
-                tf.data.Dataset.from_tensor_slices((X_p, p))
+                tf.data.Dataset.from_tensor_slices((X_train, p_train))
                 .shuffle(shuffle_buf)
                 .batch(batch_size, drop_remainder=False)
                 .prefetch(tf.data.AUTOTUNE)
             )
 
         if not use_clustering_objective and epoch == 0:
-            p_zeros = np.zeros((len(X_train), AE_PARAMS.n_clusters), dtype=np.float32)
+            p_train = np.zeros((len(X_train), AE_PARAMS.n_clusters), dtype=np.float32)
             train_p_ds = (
-                tf.data.Dataset.from_tensor_slices((X_train, p_zeros))
+                tf.data.Dataset.from_tensor_slices((X_train, p_train))
                 .shuffle(shuffle_buf)
                 .batch(batch_size, drop_remainder=False)
                 .prefetch(tf.data.AUTOTUNE)
@@ -290,28 +283,54 @@ def main(
             
             pbar.set_postfix({"T": f"{total.numpy():.4f}", "R": f"{l_rec.numpy():.4f}", "C": f"{l_cl.numpy():.4f}"})
 
-        t_val = float(epoch_t.result().numpy())
-        r_val = float(epoch_r.result().numpy())
-        c_raw_val = float(epoch_c_raw.result().numpy())
-        c_val = float(epoch_c.result().numpy())
-        a_val = float(epoch_a.result().numpy())
+        train_t_val = float(epoch_t.result().numpy())
+        train_r_val = float(epoch_r.result().numpy())
+        train_c_raw_val = float(epoch_c_raw.result().numpy())
+        train_c_val = float(epoch_c.result().numpy())
+        train_a_val = float(epoch_a.result().numpy())
         lambda_cl = float(AE_PARAMS.clustering_loss_weight if use_clustering_objective else 0.0)
-        cl_contrib = lambda_cl * c_val
-        obj_val = r_val + cl_contrib
-        cl_share_pct = (100.0 * cl_contrib / max(obj_val, 1e-12)) if obj_val > 0 else 0.0
+        train_cl_contrib = lambda_cl * train_c_val
+        train_obj_val = train_r_val + train_cl_contrib
+        train_cl_share_pct = (100.0 * train_cl_contrib / max(train_obj_val, 1e-12)) if train_obj_val > 0 else 0.0
+
+        # Validation objective (phase 3 checkpointing)
+        if X_val is not None:
+            x_rec_val, q_val = model.predict(X_val, batch_size=batch_size, verbose=0)
+            val_r = float(np.mean(tf.keras.losses.huber(X_val, x_rec_val).numpy()))
+            if use_clustering_objective:
+                q_val = np.clip(q_val.astype(np.float32), 1e-12, 1.0)
+                p_val_hard = target_distribution(q_val)
+                p_val = ((1.0 - target_blend) * q_val) + (target_blend * p_val_hard)
+                p_val = np.clip(p_val, 1e-12, 1.0)
+                p_val = p_val / p_val.sum(axis=1, keepdims=True)
+                val_c_raw = float(np.mean(tf.keras.losses.kullback_leibler_divergence(p_val, q_val).numpy()))
+                val_c = val_c_raw * float(clustering_loss_scale)
+            else:
+                val_c_raw = 0.0
+                val_c = 0.0
+            val_cl_contrib = lambda_cl * val_c
+            model_obj = val_r + val_cl_contrib
+            monitor_name = "ValObj"
+        else:
+            val_r = val_c_raw = val_c = val_cl_contrib = 0.0
+            model_obj = train_obj_val
+            monitor_name = "TrainObj"
 
         logger.info(
             f"   📉 Finalizado Epoch {epoch+1:02d}/{joint_epochs} | "
-            f"T: {t_val:.4f} | Obj(R+λC): {obj_val:.4f} | R: {r_val:.4f} | "
-            f"Craw: {c_raw_val:.4f} | Cscaled: {c_val:.4f} | λ·C: {cl_contrib:.4f} ({cl_share_pct:.2f}%) | Aux: {a_val:.4f}"
+            f"Train T: {train_t_val:.4f} | Train Obj(R+λC): {train_obj_val:.4f} | Train R: {train_r_val:.4f} | "
+            f"Train Craw: {train_c_raw_val:.4f} | Train Cscaled: {train_c_val:.4f} | "
+            f"Train λ·C: {train_cl_contrib:.4f} ({train_cl_share_pct:.2f}%) | Aux: {train_a_val:.4f} | "
+            f"Val R: {val_r:.4f} | Val Craw: {val_c_raw:.4f} | Val Cscaled: {val_c:.4f} | Val λ·C: {val_cl_contrib:.4f} | "
+            f"{monitor_name}: {model_obj:.4f}"
         )
 
         # Save best checkpoint & Early Stopping logic
-        if save_best and obj_val < best_obj:
-            best_obj = obj_val
+        if save_best and model_obj < best_obj:
+            best_obj = model_obj
             patience_counter = 0  # Reset patience
             model.save(best_path)
-            logger.info(f"   💾 Guardado BEST (Phase 3) | Obj(R+λC): {best_obj:.4f} -> {best_path.name}")
+            logger.info(f"   💾 Guardado BEST (Phase 3) | {monitor_name}: {best_obj:.4f} -> {best_path.name}")
         else:
             patience_counter += 1
             if patience_counter >= patience_limit:

@@ -2,34 +2,6 @@ import tensorflow as tf
 from tensorflow.keras import layers
 
 # =========================
-# Positional Encoding (sin/cos intercalado)
-# =========================
-class PositionalEncoding(layers.Layer):
-    def __init__(self, d_model: int, max_len: int = 512, name=None):
-        super().__init__(name=name)
-        if d_model % 2 != 0:
-            raise ValueError("d_model debe ser par para positional encoding sinusoidal estándar")
-
-        pos = tf.range(max_len, dtype=tf.float32)[:, tf.newaxis]  # (L,1)
-        i = tf.range(d_model, dtype=tf.float32)[tf.newaxis, :]    # (1,D)
-
-        angle_rates = 1.0 / tf.pow(10000.0, (2.0 * tf.floor(i / 2.0)) / tf.cast(d_model, tf.float32))
-        angle_rads = pos * angle_rates  # (L,D)
-
-        # Intercalado sin/cos: [sin0, cos0, sin1, cos1, ...]
-        sin = tf.sin(angle_rads[:, 0::2])  # (L, D/2)
-        cos = tf.cos(angle_rads[:, 1::2])  # (L, D/2)
-        pe = tf.reshape(tf.stack([sin, cos], axis=-1), (max_len, d_model))  # (L,D)
-
-        self.pe = pe[tf.newaxis, ...]  # (1,L,D)
-
-    def call(self, x):
-        # x: (B,W,D)
-        w = tf.shape(x)[1]
-        return x + self.pe[:, :w, :]
-
-
-# =========================
 # GLU (Gated Linear Unit)
 # =========================
 class GLULayer(layers.Layer):
@@ -53,6 +25,8 @@ class TransformerEncoderBlock(layers.Layer):
         if d_model % num_heads != 0:
             raise ValueError("d_model debe ser divisible por num_heads")
 
+        # Esto es como decir varios observadores que observan a la vez
+        # y cada uno fragua sus opiniones (atención) con una parte diferente de la información (subespacios)
         self.mha = layers.MultiHeadAttention(
             num_heads=num_heads,
             key_dim=d_model // num_heads,
@@ -119,14 +93,17 @@ class GLUTransformerClassifier(tf.keras.Model):
         name=None,
     ):
         super().__init__(name=name)
+
+        # Variable para saber usamos variables estaticas o no
         self.with_static_features = with_static_features
 
-        # ----- Temporal -----
+        # Esto es para hacer embeddings de las variables temporals
+        # (representaciones latentes de la realidad)
         self.input_proj = layers.Dense(latent_d)
-        # PAPER: recomienda NO usar positional encoding en OULAD
-        # self.pos_encoding = PositionalEncoding(d_model=latent_d, max_len=max_len)
+        # añade robustez apagando neuronas diferentes en cada entrenamiento
         self.in_drop = layers.Dropout(dropout)
 
+        
         self.encoders = [
             TransformerEncoderBlock(latent_d, num_heads, ff_dim, dropout, name=f"enc_{i}")
             for i in range(num_layers)
@@ -152,8 +129,8 @@ class GLUTransformerClassifier(tf.keras.Model):
             #   x_fused_t = (1 - gate_t) * x_seq_t + gate_t * x_static
             self.fusion_gate = layers.Dense(latent_d, activation="sigmoid", name="fusion_gate")
 
-            # Normalización para las features estáticas crudas (bypass directo al head)
-            self.static_raw_norm = layers.LayerNormalization(epsilon=1e-6, name="static_raw_norm")
+            # Bypass de estáticas crudas: NO re-normalizar (ya llegan pre-normalizadas)
+            self.static_raw_norm = layers.Activation("linear", name="static_raw_identity")
 
         # ----- Head (MLP para Clasificación Final) -----
         head_layers = []
@@ -203,9 +180,7 @@ class GLUTransformerClassifier(tf.keras.Model):
             raise ValueError("activity_mask es obligatorio (B,W).")
 
         # ----- Temporal projection (B, W, D) -----
-        x_seq = self.input_proj(x_seq)          
-        # PAPER: positional encoding deshabilitado
-        # x_seq = self.pos_encoding(x_seq)        
+        x_seq = self.input_proj(x_seq)   
 
         # ----- GATED EARLY FUSION -----
         if self.with_static_features:
@@ -248,7 +223,7 @@ class GLUTransformerClassifier(tf.keras.Model):
         if self.with_static_features:
             # Path 1: z = pooled temporal (ya incluye info estática vía early fusion)
             # Path 2: x_static_emb = embedding estático procesado
-            # Path 3: x_static RAW normalizado = bypass directo sin bottleneck
+            # Path 3: x_static RAW (sin re-normalizar) = bypass directo sin bottleneck
             #          para que el head vea las 19 features demográficas sin pérdida
             x_static_raw_normed = self.static_raw_norm(x_static)
             z = tf.concat([z, x_static_emb, x_static_raw_normed], axis=1)

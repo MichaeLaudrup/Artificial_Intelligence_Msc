@@ -2797,5 +2797,245 @@
             "recall": 0.6855983772819473,
             "f1_score": 0.672636815920398
         }
+    },
+    {
+        "timestamp": "2026-02-24 11:28:17",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "batch_size": 64,
+            "epochs": 80,
+            "with_static": true,
+            "use_clustering_features": true,
+            "accumulated_uptow": true,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128,
+                64,
+                32
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.27,
+                0.73
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.03766591101884842,
+            "accuracy": 0.7948954701423645,
+            "balanced_accuracy": 0.7568648636068238,
+            "auc_ovr": 0.829487717721535,
+            "precision": 0.6622583926754833,
+            "recall": 0.6602434077079108,
+            "f1_score": 0.6612493651599797
+        }
+    },
+    {
+        "timestamp": "2026-02-24 11:44:54",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "batch_size": 64,
+            "epochs": 80,
+            "with_static": true,
+            "use_clustering_features": true,
+            "accumulated_uptow": true,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128,
+                64,
+                32
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.27,
+                0.73
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.03750070184469223,
+            "accuracy": 0.7853628396987915,
+            "balanced_accuracy": 0.7540348640902019,
+            "auc_ovr": 0.8286527716360915,
+            "precision": 0.6381957773512476,
+            "recall": 0.6744421906693712,
+            "f1_score": 0.6558185404339251
+        }
+    },
+    {
+        "timestamp": "2026-02-24 12:05:04",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "batch_size": 64,
+            "epochs": 80,
+            "with_static": true,
+            "use_clustering_features": true,
+            "accumulated_uptow": true,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128,
+                64,
+                32
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.27,
+                0.73
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.03753760829567909,
+            "accuracy": 0.8007380366325378,
+            "balanced_accuracy": 0.7670726445613703,
+            "auc_ovr": 0.8282521944468813,
+            "precision": 0.6679920477137177,
+            "recall": 0.6815415821501014,
+            "f1_score": 0.6746987951807228
+        }
+    },
+    {
+        "timestamp": "2026-02-24 13:34:03",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "batch_size": 64,
+            "epochs": 80,
+            "with_static": true,
+            "use_clustering_features": true,
+            "accumulated_uptow": true,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128,
+                64,
+                32
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.27,
+                0.73
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.037245117127895355,
+            "accuracy": 0.7912054061889648,
+            "balanced_accuracy": 0.7605188436880672,
+            "auc_ovr": 0.8285775794933125,
+            "precision": 0.6477382098171318,
+            "recall": 0.6825557809330629,
+            "f1_score": 0.6646913580246914
+        }
+    },
+    {
+        "timestamp": "2026-02-24 15:55:07",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "batch_size": 64,
+            "epochs": 80,
+            "with_static": true,
+            "use_clustering_features": true,
+            "accumulated_uptow": true,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128,
+                64,
+                32
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.27,
+                0.73
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.03839682415127754,
+            "accuracy": 0.803505539894104,
+            "balanced_accuracy": 0.7613244737892723,
+            "auc_ovr": 0.8283309671678879,
+            "precision": 0.6839872746553552,
+            "recall": 0.654158215010142,
+            "f1_score": 0.6687402799377916
+        }
     }
 ]

@@ -3037,5 +3037,101 @@
             "recall": 0.654158215010142,
             "f1_score": 0.6687402799377916
         }
+    },
+    {
+        "timestamp": "2026-02-24 17:03:01",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "batch_size": 64,
+            "epochs": 80,
+            "with_static": true,
+            "use_clustering_features": true,
+            "accumulated_uptow": true,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128,
+                64,
+                32
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.27,
+                0.73
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.03788061812520027,
+            "accuracy": 0.7838253378868103,
+            "balanced_accuracy": 0.7615249861700166,
+            "auc_ovr": 0.8292023903940248,
+            "precision": 0.6278229448961157,
+            "recall": 0.704868154158215,
+            "f1_score": 0.6641184902054468
+        }
+    },
+    {
+        "timestamp": "2026-02-24 18:20:01",
+        "hyperparameters": {
+            "upto_week": 5,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "batch_size": 64,
+            "epochs": 80,
+            "with_static": true,
+            "use_clustering_features": true,
+            "accumulated_uptow": true,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128,
+                64,
+                32
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.27,
+                0.73
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.03762822598218918,
+            "accuracy": 0.8041205406188965,
+            "balanced_accuracy": 0.7566097474081089,
+            "auc_ovr": 0.8287116273907074,
+            "precision": 0.6928176795580111,
+            "recall": 0.6359026369168357,
+            "f1_score": 0.6631411951348493
+        }
     }
 ]

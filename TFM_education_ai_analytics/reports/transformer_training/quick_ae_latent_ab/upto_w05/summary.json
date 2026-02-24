@@ -1,0 +1,29 @@
+{
+  "upto_week": 5,
+  "baseline": {
+    "val_loss": 0.03829232603311539,
+    "val_accuracy": 0.7804428339004517,
+    "val_balanced_acc": 0.7573791241547598,
+    "val_f1": 0.6586998087954111,
+    "val_recall": 0.6987829614604463,
+    "val_precision": 0.6229656419529838,
+    "val_auc": 0.823346354702821,
+    "val_threshold": null
+  },
+  "ae_latent": {
+    "val_loss": 0.037658173590898514,
+    "val_accuracy": 0.8044280409812927,
+    "val_balanced_acc": 0.7571168467995897,
+    "val_f1": 0.6638477801268499,
+    "val_recall": 0.6369168356997972,
+    "val_precision": 0.6931567328918322,
+    "val_auc": 0.8230044094820872,
+    "val_threshold": null
+  },
+  "delta": {
+    "val_balanced_acc": -0.0002622773551701485,
+    "val_f1": 0.005147971331438739,
+    "val_recall": -0.06186612576064909,
+    "val_auc": -0.00034194522073383027
+  }
+}

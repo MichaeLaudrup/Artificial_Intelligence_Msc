@@ -1,0 +1,116 @@
+{
+  "hyperparams": {
+    "latent_filename": "ae_latent.csv",
+    "split_train": "training",
+    "split_predict": [
+      "training",
+      "validation",
+      "test"
+    ],
+    "windows": [
+      5,
+      10,
+      15,
+      20,
+      25
+    ],
+    "n_clusters": 5,
+    "gmm_k_range": [
+      3,
+      4,
+      5,
+      6
+    ],
+    "covariance_type": "diag",
+    "reg_covar": 1e-06,
+    "max_iter": 300,
+    "n_init": 10,
+    "init_params": "kmeans",
+    "random_state": 42,
+    "use_fixed_k": true,
+    "use_bic": true,
+    "use_aic": false,
+    "marginal_gain_pct_threshold": 1.0,
+    "confidence_doubtful_threshold": 0.6,
+    "silhouette_sample_size": 10000,
+    "model_prefix": "gmm_ae",
+    "scaler_prefix": "scaler_latent_ae",
+    "mapping_prefix": "cluster_mapping",
+    "metrics_prefix": "train_clustering_metrics",
+    "diagnostics_filename": "gmm_k_diagnostics.csv"
+  },
+  "selected_k": 5,
+  "k_selection": {
+    "k": 5,
+    "reason": "fixed_k"
+  },
+  "k_diagnostics": [],
+  "metrics": {
+    "n_students": 22785,
+    "latent_dim": 28,
+    "k": 5,
+    "bic": 1615356.5052744348,
+    "aic": 1613074.8896865845,
+    "log_likelihood_mean": -35.38527297973633,
+    "confidence_mean": 0.9355615973472595,
+    "confidence_median": 0.9969757199287415,
+    "doubtful_threshold": 0.6,
+    "doubtful_pct": 0.041694096993636166,
+    "cluster_sizes": {
+      "0": 5939,
+      "1": 8946,
+      "2": 1481,
+      "3": 4946,
+      "4": 1473
+    },
+    "min_cluster_pct": 0.06464779460171165,
+    "silhouette": 0.049650538712739944,
+    "calinski_harabasz": 1799.8325160700344,
+    "davies_bouldin": 3.1581882922012845,
+    "window": 10,
+    "latent_path": "/workspace/TFM_education_ai_analytics/data/4_embeddings/training/upto_w10/ae_latent.csv",
+    "k_selection_reason": "fixed_k",
+    "cluster_outcome_stats_train": [
+      {
+        "cluster_id": 0,
+        "n": 5939,
+        "withdrawn_rate": 0.19733961946455633,
+        "success_rate": 0.5090082505472302,
+        "withdrawn_pct": 19.733961946455633,
+        "success_pct": 50.90082505472302
+      },
+      {
+        "cluster_id": 1,
+        "n": 8946,
+        "withdrawn_rate": 0.11010507489380729,
+        "success_rate": 0.7486027274759669,
+        "withdrawn_pct": 11.010507489380728,
+        "success_pct": 74.8602727475967
+      },
+      {
+        "cluster_id": 2,
+        "n": 1481,
+        "withdrawn_rate": 0.8021607022282242,
+        "success_rate": 0.02025658338960162,
+        "withdrawn_pct": 80.21607022282242,
+        "success_pct": 2.025658338960162
+      },
+      {
+        "cluster_id": 3,
+        "n": 4946,
+        "withdrawn_rate": 0.48422968054993937,
+        "success_rate": 0.19813991103922363,
+        "withdrawn_pct": 48.42296805499394,
+        "success_pct": 19.813991103922362
+      },
+      {
+        "cluster_id": 4,
+        "n": 1473,
+        "withdrawn_rate": 0.9266802443991853,
+        "success_rate": 0.0013577732518669382,
+        "withdrawn_pct": 92.66802443991853,
+        "success_pct": 0.1357773251866938
+      }
+    ]
+  }
+}

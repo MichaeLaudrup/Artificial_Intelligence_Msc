@@ -16,7 +16,7 @@ from sklearn.cluster import KMeans
 
 from educational_ai_analytics.config import (
     FEATURES_DATA_DIR,
-    AE_MODELS_DIR,
+    MODELS_DIR,
     W_WINDOWS,
 )
 
@@ -75,7 +75,7 @@ def main(
     joint_epochs: int = AE_PARAMS.joint_epochs,
     batch_size: int = AE_PARAMS.batch_size,
     seed: int = 42,
-    update_interval: int = 10,    # 🔥 menos oscilación al recalcular P
+    update_interval: int = 5,     # 🔥 speed + stability
     sample_frac: float = AE_PARAMS.sample_frac,     # 🔥 compute P on subset (0.3–0.7 recommended)
     target_blend: float = AE_PARAMS.target_blend,   # 0->usar Q (suave), 1->DEC puro (más agresivo)
     shuffle_buf: int = 10000,
@@ -99,9 +99,8 @@ def main(
         mixed_precision.set_global_policy("mixed_float16")
         logger.info("⚡ Mixed precision: ACTIVADO (mixed_float16)")
 
-    AE_MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    MODELS_DIR.mkdir(parents=True, exist_ok=True)
     windows = sorted([int(w) for w in W_WINDOWS])
-
     target_blend = float(np.clip(target_blend, 0.0, 1.0))
 
     logger.info(
@@ -127,10 +126,7 @@ def main(
     X_train = np.vstack(X_train_list).astype(np.float32)
     X_val = np.vstack(X_val_list).astype(np.float32) if X_val_list else None
 
-    logger.info(
-        f"📦 X_train: {X_train.shape} | X_val: {None if X_val is None else X_val.shape} "
-        f"| N_train={len(X_train)} | N_val={0 if X_val is None else len(X_val)}"
-    )
+    logger.info(f"📦 X_train: {X_train.shape} | X_val: {None if X_val is None else X_val.shape}")
 
     # -----------------------
     # 2) Phase 1: Pretrain (reconstruction)
@@ -172,7 +168,6 @@ def main(
         z = model.get_embeddings(X_train, batch_size=max(1024, batch_size))
         kmeans = KMeans(n_clusters=AE_PARAMS.n_clusters, n_init=20, random_state=seed)
         y_pred = kmeans.fit_predict(z.numpy())
-
         model.get_layer("clustering_output").set_weights([kmeans.cluster_centers_])
         logger.success("✅ Centroides cargados en la capa de clustering_output.")
     else:
@@ -193,8 +188,8 @@ def main(
 
     # Best checkpoint tracking (phase 3)
     best_obj = float("inf")
-    best_path = AE_MODELS_DIR / "ae_best_global.keras"
-    last_path = AE_MODELS_DIR / "ae_last_global.keras"
+    best_path = MODELS_DIR / "ae_best_global.keras"
+    last_path = MODELS_DIR / "ae_last_global.keras"
 
     @tf.function
     def train_step(x_batch, p_batch):
@@ -208,7 +203,6 @@ def main(
             l_rec = loss_recon(x_batch, x_rec)
             l_cl_raw = loss_kl(p_batch, q_batch)
             l_cl = l_cl_raw * tf.cast(clustering_loss_scale, l_rec.dtype)
-
             w_cl = tf.cast(AE_PARAMS.clustering_loss_weight if use_clustering_objective else 0.0, l_rec.dtype)
             l_aux = tf.add_n(model.losses) if model.losses else tf.zeros_like(l_rec)
             total = l_rec + w_cl * l_cl + l_aux
@@ -218,7 +212,6 @@ def main(
         return total, l_rec, l_cl_raw, l_cl, l_aux
 
     train_p_ds = None
-    p_train = None
     # Early Stopping tracking
     patience_counter = 0
     patience_limit = AE_PARAMS.early_stopping_patience
@@ -228,26 +221,32 @@ def main(
         if use_clustering_objective and epoch % update_interval == 0:
             logger.info(f"   🔄 Actualizando distribución objetivo (Epoch {epoch})...")
 
-            # Compute P on full training set so phase-3 uses all training samples
-            _, q = model.predict(X_train, batch_size=batch_size, verbose=0)
+            m = int(len(X_train) * float(sample_frac))
+            m = max(m, AE_PARAMS.n_clusters * 50)  # small safety floor
+            m = min(m, len(X_train))
+
+            idx = np.random.choice(len(X_train), m, replace=False)
+            X_p = X_train[idx]
+
+            # Fast inference for q on subset
+            _, q = model.predict(X_p, batch_size=batch_size, verbose=0)
             q = q.astype(np.float32)
             p_hard = target_distribution(q)
-            # suaviza el salto tras cada refresh de P para estabilizar KL
             p = ((1.0 - target_blend) * q) + (target_blend * p_hard)
             p = np.clip(p, 1e-12, 1.0)
             p = p / p.sum(axis=1, keepdims=True)
-            p_train = p.astype(np.float32)
 
             # label-change diagnostic
             y_curr = q.argmax(1)
-            delta_label = float(np.mean(y_curr != y_pred)) * 100.0 if len(y_pred) == len(X_train) else 0.0
+            y_prev_subset = y_pred[idx] if len(y_pred) == len(X_train) else y_pred[:m]
+            delta_label = float(np.mean(y_curr != y_prev_subset)) * 100.0
             if len(y_pred) == len(X_train):
-                y_pred = y_curr
+                y_pred[idx] = y_curr
 
-            logger.info(f"   📊 Cambio en etiquetas (train): {delta_label:.4f}% | N={len(X_train)}")
+            logger.info(f"   📊 Cambio en etiquetas (subset): {delta_label:.4f}% | subset={m}")
 
             train_p_ds = (
-                tf.data.Dataset.from_tensor_slices((X_train, p_train))
+                tf.data.Dataset.from_tensor_slices((X_p, p))
                 .shuffle(shuffle_buf)
                 .batch(batch_size, drop_remainder=False)
                 .prefetch(tf.data.AUTOTUNE)
@@ -293,7 +292,6 @@ def main(
         train_obj_val = train_r_val + train_cl_contrib
         train_cl_share_pct = (100.0 * train_cl_contrib / max(train_obj_val, 1e-12)) if train_obj_val > 0 else 0.0
 
-        # Validation objective (phase 3 checkpointing)
         if X_val is not None:
             x_rec_val, q_val = model.predict(X_val, batch_size=batch_size, verbose=0)
             val_r = float(np.mean(tf.keras.losses.huber(X_val, x_rec_val).numpy()))

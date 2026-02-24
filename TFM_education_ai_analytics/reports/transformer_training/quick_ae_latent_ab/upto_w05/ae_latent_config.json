@@ -1,0 +1,13 @@
+{
+  "upto_week": 5,
+  "num_classes": 2,
+  "paper_baseline": true,
+  "with_static": true,
+  "use_clustering_features": true,
+  "accumulated_uptow": true,
+  "eval_test": true,
+  "batch_size": 64,
+  "seed": 42,
+  "fast_search": true,
+  "run_compare": false
+}

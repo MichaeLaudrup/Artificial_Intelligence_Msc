@@ -98,14 +98,14 @@ def loss_curve():
 
 @app.command()
 def ae_reconstruction(split: str = "training"):
-    """Visualiza el flujo del AE para todas las semanas: Original -> Latente -> Recon."""
+    """Visualiza el flujo del AE para todas las semanas en 2D (Dark Mode): Original -> Latente -> Recon."""
     split_dir = FEATURES_DATA_DIR / split
     model_path = _ae_model_path()
     if not model_path.exists(): 
         logger.error(f"❌ No se encuentra el modelo en {model_path}")
         return
 
-    logger.info(f"🎨 Cargando modelo para reconstrucción: {model_path}")
+    logger.info(f"🎨 Cargando modelo para reconstrucción 2D: {model_path}")
     ae = tf.keras.models.load_model(
         model_path, 
         custom_objects={"StudentProfileAutoencoder": StudentProfileAutoencoder}, 
@@ -115,15 +115,35 @@ def ae_reconstruction(split: str = "training"):
     windows = sorted([int(w) for w in W_WINDOWS])
     n_rows = len(windows)
     
+    # ─── Dark Mode Config ───
+    DARK_BG = "#0F1117"
+    PANEL_BG = "#1A1D27"
+    TEXT_COLOR = "#E8EAED"
+    
+    plt.rcParams.update({
+        "axes.facecolor": PANEL_BG,
+        "figure.facecolor": DARK_BG,
+        "text.color": TEXT_COLOR,
+        "axes.labelcolor": TEXT_COLOR,
+        "xtick.color": TEXT_COLOR,
+        "ytick.color": TEXT_COLOR,
+        "grid.color": "#2A2D3A",
+    })
+
     fig, axes = plt.subplots(n_rows, 3, figsize=(15, 3.5 * n_rows), constrained_layout=True)
     if n_rows == 1:
         axes = np.expand_dims(axes, axis=0) # Garantizar 2D axes[row, col]
 
-    titles = ["1) Original (PCA Lens)", "2) Espacio Latente", "3) Reconstrucción (PCA Lens)"]
-    cols = ["#7f8c8d", "#e74c3c", "#3498db"]
+    fig.patch.set_facecolor(DARK_BG)
+    titles = ["1) Original (PCA 2D)", "2) Espacio Latente (PCA 2D)", "3) Reconstrucción (PCA 2D)"]
+    
+    # Colores base en caso de no tener clusters
+    cols = ["#A8EDEA", "#FC5C7D", "#43E97B"]
+
+    method_name = "PCA"
 
     for i, W in enumerate(windows):
-        logger.info(f"   ⏳ Procesando Semana {W}...")
+        logger.info(f"   ⏳ Procesando Semana {W} ({method_name} 2D)...")
         try:
             X_in, idx, _ = load_features_for_W(split_dir, W)
         except Exception as e:
@@ -134,39 +154,53 @@ def ae_reconstruction(split: str = "training"):
         Z_lat = ae.encode(X_in, training=False).numpy()
         X_rec = ae.decode(Z_lat, training=False).numpy()
 
-        # Proyecciones 2D para visualización
-        pca_in = PCA(n_components=2, random_state=42).fit(X_in)
-        p_in = pca_in.transform(X_in)
+        # Proyecciones 2D para visualización con PCA
+        pca_in = PCA(n_components=2, random_state=42)
+        p_in = pca_in.fit_transform(X_in)
         p_rec = pca_in.transform(X_rec)
-        
+            
         pca_lat = PCA(n_components=2, random_state=42)
         p_lat = pca_lat.fit_transform(Z_lat)
 
         # Cargar clusters para colorear
         clusters = _load_clusters(W, split)
         c_vals = clusters.reindex(idx).values if not clusters.empty else None
-        cmap = "viridis" if c_vals is not None else None
+        
+        # Paleta dark vibrante si tenemos labels de clusters
+        cmap = "plasma" if c_vals is not None else None
 
         data_row = [p_in, p_lat, p_rec]
 
         for j, (d, t, col_default) in enumerate(zip(data_row, titles, cols)):
             ax = axes[i, j]
             if c_vals is not None:
-                ax.scatter(d[:, 0], d[:, 1], s=3, alpha=0.3, c=c_vals, cmap=cmap, edgecolors='none')
+                ax.scatter(d[:, 0], d[:, 1], s=4, alpha=0.6, c=c_vals, cmap=cmap, edgecolors='none')
             else:
-                ax.scatter(d[:, 0], d[:, 1], s=3, alpha=0.25, color=col_default, edgecolors='none')
+                ax.scatter(d[:, 0], d[:, 1], s=4, alpha=0.5, color=col_default, edgecolors='none')
             
             if i == 0:
-                ax.set_title(t, fontsize=12, fontweight='bold', pad=15)
-            if j == 0:
-                ax.set_ylabel(f"W{W:02d}", fontsize=14, fontweight='bold', labelpad=15)
+                ax.set_title(t, fontsize=12, fontweight='bold', pad=15, color=TEXT_COLOR)
             
-            ax.grid(True, alpha=0.1, linestyle='--')
-            ax.set_xticks([]); ax.set_yticks([])
+            if j == 0:
+                ax.set_ylabel(f"W{W:02d}", fontsize=14, fontweight='bold', labelpad=15, color=TEXT_COLOR)
+            
+            ax.grid(True, alpha=0.4, linestyle='--', color="#2A2D3A")
+            ax.set_xticks([])
+            ax.set_yticks([])
+            for spine in ax.spines.values():
+                spine.set_color("#2A2D3A")
 
-    out = AE_REPORTS_DIR / f"ae_reconstruction_multi_row_{split}.png"
-    plt.savefig(out, dpi=180); plt.close()
-    logger.success(f"✨ Dashboard de reconstrucción guardado: {out}")
+    out = AE_REPORTS_DIR / f"ae_reconstruction_multi_row_2D_{split}.png"
+    plt.savefig(out, dpi=180, facecolor=fig.get_facecolor())
+    plt.close()
+    
+    # Reset rcParams to avoid breaking other plots
+    plt.rcParams.update(plt.rcParamsDefault)
+    
+    from .style import set_style
+    set_style() # Restaurar el estilo custom del proyecto
+    
+    logger.success(f"✨ Dashboard 2D ({method_name}) en Dark Mode guardado: {out}")
 
 @app.command()
 def latent_space(W: int = W_WINDOWS[0], split: str = "train", method: str = "pca"):

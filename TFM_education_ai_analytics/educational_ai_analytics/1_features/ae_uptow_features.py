@@ -591,6 +591,10 @@ class AEUptoWFeaturesBuilder:
                 dfW = self._apply_course_norm(dfW, course, statsW, cols=norm_cols)
 
             dfW.index.name = "unique_id"
+            
+            # ⏱️ Añadir variable temporal (fraction completed) post-normalización
+            # (No la pasamos por el norm porque su varianza en un W fijo es 0)
+            dfW["W_fraction_completed"] = float(W) / 40.0
 
             out_path = out_dir / f"ae_uptow_features_w{W:02d}.csv"
             dfW.to_csv(out_path)

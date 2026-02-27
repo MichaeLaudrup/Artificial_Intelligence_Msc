@@ -17,11 +17,13 @@ from sklearn.cluster import KMeans
 from educational_ai_analytics.config import (
     FEATURES_DATA_DIR,
     MODELS_DIR,
+    AE_REPORTS_DIR,
     W_WINDOWS,
 )
 
 from .hyperparams import AE_PARAMS
 from .autoencoder import StudentProfileAutoencoder
+from .training_reporter import TrainingMetricsCollector, plot_training_evolution, plot_embeddings_umap
 
 app = typer.Typer()
 
@@ -75,21 +77,26 @@ def main(
     joint_epochs: int = AE_PARAMS.joint_epochs,
     batch_size: int = AE_PARAMS.batch_size,
     seed: int = 42,
-    update_interval: int = 5,     # 🔥 speed + stability
-    sample_frac: float = AE_PARAMS.sample_frac,     # 🔥 compute P on subset (0.3–0.7 recommended)
-    target_blend: float = AE_PARAMS.target_blend,   # 0->usar Q (suave), 1->DEC puro (más agresivo)
+    update_interval: int = 5,
+    sample_frac: float = AE_PARAMS.sample_frac,
+    target_blend: float = AE_PARAMS.target_blend,
     shuffle_buf: int = 10000,
     use_mixed_precision: bool = True,
     save_best: bool = True,
     use_clustering_objective: bool = AE_PARAMS.use_clustering_objective,
     clustering_loss_scale: float = AE_PARAMS.clustering_loss_scale,
+    # 🆕 Early stopping diferido: la paciencia no empieza hasta que el warmup termina.
+    # Durante el warmup, ValObj sube por diseño (blend más alto = P más dura).
+    # Monitorizamos val_recon porque es estable y representa el verdadero riesgo
+    # de colapso del espacio latente.
+    early_stop_start_epoch: int = AE_PARAMS.target_blend_warmup_epochs,
 ):
     """
     Entrenamiento DCN/DEC:
     1) Pretrain: reconstrucción
     2) Init: KMeans en embeddings
     3) Joint: reconstrucción + KL(P||Q)
-       Optimizado: update_interval mayor + P sobre subset + tf.function + prefetch + mixed precision
+    Al finalizar guarda reports/ae/training_evolution.png con gráficas ilustrativas.
     """
     _configure_gpu()
     _set_seed(seed)
@@ -137,7 +144,6 @@ def main(
         n_clusters=AE_PARAMS.n_clusters,
     )
 
-    # Subclassed model -> list of losses is robust
     model.compile(
         optimizer=tf.keras.optimizers.Adam(AE_PARAMS.learning_rate),
         loss=[tf.keras.losses.Huber(), tf.keras.losses.MeanSquaredError()],
@@ -151,7 +157,7 @@ def main(
     else:
         val_data = None
 
-    model.fit(
+    pretrain_hist = model.fit(
         X_train,
         [X_train, y_dummy_train],
         validation_data=val_data,
@@ -175,78 +181,136 @@ def main(
         logger.warning("⏭️ Clustering objetivo DESACTIVADO: se omiten KMeans init y pérdida KL.")
 
     # -----------------------
-    # 4) Phase 3: Joint training (optimized)
+    # 4) Phase 3: Joint training
     # -----------------------
     if use_clustering_objective:
         logger.info("🧬 Fase 3: Optimización Conjunta (DCN) [OPTIMIZADA]...")
     else:
         logger.info("🧬 Fase 3: Fine-tuning SOLO reconstrucción (ablation limpia)...")
 
-    optimizer = tf.keras.optimizers.Adam(AE_PARAMS.learning_rate / 5.0)
+    _base_lr = AE_PARAMS.learning_rate / AE_PARAMS.lr_phase3_divisor
+    _base_opt = tf.keras.optimizers.Adam(_base_lr)
+    # ✅ FIX #1 — LossScaleOptimizer previene underflow de gradientes con mixed_float16.
+    # En custom loops sin esto, los gradientes de losses pequeños (Huber ~0.01, KL ~0.001)
+    # se redondean a cero en float16 silenciosamente, degradando el entrenamiento.
+    if use_mixed_precision:
+        from tensorflow.keras import mixed_precision as mp
+        optimizer = mp.LossScaleOptimizer(_base_opt)
+        logger.info(f"   ⚡ LR fase 3: {_base_lr:.2e} (LR/{AE_PARAMS.lr_phase3_divisor:.0f}) "
+                    f"| grad_clip={AE_PARAMS.grad_clip_norm} | LossScaleOptimizer: ACTIVO")
+    else:
+        optimizer = _base_opt
+        logger.info(f"   ⚡ LR fase 3: {_base_lr:.2e} (LR/{AE_PARAMS.lr_phase3_divisor:.0f}) "
+                    f"| grad_clip={AE_PARAMS.grad_clip_norm}")
     loss_recon = tf.keras.losses.Huber()
     loss_kl = tf.keras.losses.KLDivergence()
 
-    # Best checkpoint tracking (phase 3)
     best_obj = float("inf")
-    best_path = MODELS_DIR / "ae_best_global.keras"
-    last_path = MODELS_DIR / "ae_last_global.keras"
+    best_path = AE_MODELS_DIR / "ae_best_global.keras"
+    last_path = AE_MODELS_DIR / "ae_last_global.keras"
 
+    metrics = TrainingMetricsCollector()
+
+    # ─── Bloque de losses compartido (siempre float32) ────────────────────────
+    def _compute_loss(x_batch, p_batch, is_training: bool):
+        x_rec, q_batch = model(x_batch, training=is_training)
+        x32      = tf.cast(x_batch, tf.float32)
+        xrec32   = tf.cast(x_rec,   tf.float32)
+        q32      = tf.clip_by_value(tf.cast(q_batch, tf.float32), 1e-12, 1.0)
+        p32      = tf.clip_by_value(tf.cast(p_batch, tf.float32), 1e-12, 1.0)
+        l_rec    = loss_recon(x32, xrec32)
+        l_cl_raw = loss_kl(p32, q32)
+        l_cl     = l_cl_raw * tf.cast(clustering_loss_scale, tf.float32)
+        w_cl     = tf.constant(
+            AE_PARAMS.clustering_loss_weight if use_clustering_objective else 0.0,
+            dtype=tf.float32,
+        )
+        l_aux = (
+            tf.cast(tf.add_n(model.losses), tf.float32)
+            if model.losses
+            else tf.zeros((), dtype=tf.float32)
+        )
+        total = l_rec + w_cl * l_cl + l_aux
+        return total, l_rec, l_cl_raw, l_cl, l_aux
+
+    # ─── Mixed precision: scale_loss() → gradientes escalados → unscale ──────
     @tf.function
-    def train_step(x_batch, p_batch):
+    def _step_mp(x_batch, p_batch):
         with tf.GradientTape() as tape:
-            x_rec, q_batch = model(x_batch, training=True)
-
-            # guardrails for KL
-            q_batch = tf.clip_by_value(q_batch, 1e-12, 1.0)
-            p_batch = tf.clip_by_value(p_batch, 1e-12, 1.0)
-
-            l_rec = loss_recon(x_batch, x_rec)
-            l_cl_raw = loss_kl(p_batch, q_batch)
-            l_cl = l_cl_raw * tf.cast(clustering_loss_scale, l_rec.dtype)
-            w_cl = tf.cast(AE_PARAMS.clustering_loss_weight if use_clustering_objective else 0.0, l_rec.dtype)
-            l_aux = tf.add_n(model.losses) if model.losses else tf.zeros_like(l_rec)
-            total = l_rec + w_cl * l_cl + l_aux
-
-        grads = tape.gradient(total, model.trainable_variables)
+            total, l_rec, l_cl_raw, l_cl, l_aux = _compute_loss(
+                x_batch, p_batch, is_training=True
+            )
+            # scale_loss multiplica total por el factor de escala actual (tensor TF)
+            scaled = optimizer.scale_loss(total)
+        raw_grads = tape.gradient(scaled, model.trainable_variables)
+        # Unscale: el factor = scaled / total (ambos son tensores → trazable por autograph)
+        # Usar safe_div para evitar div/0 si total es exactamente 0
+        scale_factor = tf.math.divide_no_nan(scaled, total)
+        inv = tf.math.reciprocal(tf.maximum(scale_factor, 1e-7))
+        grads = [g * inv if g is not None else g for g in raw_grads]
+        grads, _ = tf.clip_by_global_norm(grads, AE_PARAMS.grad_clip_norm)
         optimizer.apply_gradients(zip(grads, model.trainable_variables))
         return total, l_rec, l_cl_raw, l_cl, l_aux
 
+    # ─── Float32 puro: sin escala ─────────────────────────────────────────────
+    @tf.function
+    def _step_fp32(x_batch, p_batch):
+        with tf.GradientTape() as tape:
+            total, l_rec, l_cl_raw, l_cl, l_aux = _compute_loss(
+                x_batch, p_batch, is_training=True
+            )
+        grads = tape.gradient(total, model.trainable_variables)
+        grads, _ = tf.clip_by_global_norm(grads, AE_PARAMS.grad_clip_norm)
+        optimizer.apply_gradients(zip(grads, model.trainable_variables))
+        return total, l_rec, l_cl_raw, l_cl, l_aux
+
+    # Dispatch Python puro — ningún condicional entra al grafo TF
+    train_step = _step_mp if use_mixed_precision else _step_fp32
+
     train_p_ds = None
-    # Early Stopping tracking
     patience_counter = 0
     patience_limit = AE_PARAMS.early_stopping_patience
 
     for epoch in range(joint_epochs):
-        # Recompute P (target distribution) every update_interval epochs
+        # 🔧 FIX #3 — warmup lineal de target_blend: empieza suave y sube gradualmente
+        if use_clustering_objective:
+            warmup_progress = min(1.0, epoch / max(1, AE_PARAMS.target_blend_warmup_epochs))
+            current_blend = AE_PARAMS.target_blend + warmup_progress * (
+                AE_PARAMS.target_blend_max - AE_PARAMS.target_blend
+            )
+        else:
+            current_blend = 0.0
+        # Recompute P every update_interval epochs
         if use_clustering_objective and epoch % update_interval == 0:
-            logger.info(f"   🔄 Actualizando distribución objetivo (Epoch {epoch})...")
+            logger.info(f"   🔄 Actualizando distribución objetivo (Epoch {epoch} | blend={current_blend:.3f})...")
 
             m = int(len(X_train) * float(sample_frac))
-            m = max(m, AE_PARAMS.n_clusters * 50)  # small safety floor
+            m = max(m, AE_PARAMS.n_clusters * 50)
             m = min(m, len(X_train))
-
             idx = np.random.choice(len(X_train), m, replace=False)
-            X_p = X_train[idx]
 
-            # Fast inference for q on subset
-            _, q = model.predict(X_p, batch_size=batch_size, verbose=0)
-            q = q.astype(np.float32)
-            p_hard = target_distribution(q)
-            p = ((1.0 - target_blend) * q) + (target_blend * p_hard)
-            p = np.clip(p, 1e-12, 1.0)
-            p = p / p.sum(axis=1, keepdims=True)
+            # ✅ FIX #3 — P se calcula SOLO sobre X_train[idx] (sin leakage de val).
+            # Antes se incluía X_val para que los centroides "vieran" el espacio de val,
+            # pero eso es leakage suave: val influye en el target P que guía el training,
+            # haciendo que la métrica de val sea menos fiable como estimador real.
+            _, q_train_p = model.predict(X_train[idx], batch_size=batch_size, verbose=0)
+            q_train_p = q_train_p.astype(np.float32)
+            p_hard = target_distribution(q_train_p)
+            p_train_only = ((1.0 - current_blend) * q_train_p) + (current_blend * p_hard)
+            p_train_only = np.clip(p_train_only, 1e-12, 1.0)
+            p_train_only = p_train_only / p_train_only.sum(axis=1, keepdims=True)
 
             # label-change diagnostic
-            y_curr = q.argmax(1)
+            y_curr = q_train_p.argmax(1)
             y_prev_subset = y_pred[idx] if len(y_pred) == len(X_train) else y_pred[:m]
             delta_label = float(np.mean(y_curr != y_prev_subset)) * 100.0
             if len(y_pred) == len(X_train):
                 y_pred[idx] = y_curr
 
-            logger.info(f"   📊 Cambio en etiquetas (subset): {delta_label:.4f}% | subset={m}")
+            logger.info(f"   📊 Cambio en etiquetas (subset): {delta_label:.4f}% | subset={m} | blend={current_blend:.3f}")
 
             train_p_ds = (
-                tf.data.Dataset.from_tensor_slices((X_p, p))
+                tf.data.Dataset.from_tensor_slices((X_train[idx], p_train_only))
                 .shuffle(shuffle_buf)
                 .batch(batch_size, drop_remainder=False)
                 .prefetch(tf.data.AUTOTUNE)
@@ -254,6 +318,7 @@ def main(
 
         if not use_clustering_objective and epoch == 0:
             p_train = np.zeros((len(X_train), AE_PARAMS.n_clusters), dtype=np.float32)
+            current_blend = 0.0
             train_p_ds = (
                 tf.data.Dataset.from_tensor_slices((X_train, p_train))
                 .shuffle(shuffle_buf)
@@ -279,17 +344,16 @@ def main(
             epoch_c_raw.update_state(l_cl_raw)
             epoch_c.update_state(l_cl)
             epoch_a.update_state(l_aux)
-            
             pbar.set_postfix({"T": f"{total.numpy():.4f}", "R": f"{l_rec.numpy():.4f}", "C": f"{l_cl.numpy():.4f}"})
 
-        train_t_val = float(epoch_t.result().numpy())
-        train_r_val = float(epoch_r.result().numpy())
+        train_t_val     = float(epoch_t.result().numpy())
+        train_r_val     = float(epoch_r.result().numpy())
         train_c_raw_val = float(epoch_c_raw.result().numpy())
-        train_c_val = float(epoch_c.result().numpy())
-        train_a_val = float(epoch_a.result().numpy())
-        lambda_cl = float(AE_PARAMS.clustering_loss_weight if use_clustering_objective else 0.0)
+        train_c_val     = float(epoch_c.result().numpy())
+        train_a_val     = float(epoch_a.result().numpy())
+        lambda_cl       = float(AE_PARAMS.clustering_loss_weight if use_clustering_objective else 0.0)
         train_cl_contrib = lambda_cl * train_c_val
-        train_obj_val = train_r_val + train_cl_contrib
+        train_obj_val    = train_r_val + train_cl_contrib
         train_cl_share_pct = (100.0 * train_cl_contrib / max(train_obj_val, 1e-12)) if train_obj_val > 0 else 0.0
 
         if X_val is not None:
@@ -298,11 +362,23 @@ def main(
             if use_clustering_objective:
                 q_val = np.clip(q_val.astype(np.float32), 1e-12, 1.0)
                 p_val_hard = target_distribution(q_val)
-                p_val = ((1.0 - target_blend) * q_val) + (target_blend * p_val_hard)
+                # 🐛 FIX #4 — usar current_blend (no target_blend fijo).
+                # Con target_blend=0.05 (inicial), P_val ≈ Q_val → KL(P||Q) ≈ 0
+                # haciendo que val_kl_raw aparezca plano en la gráfica.
+                # Ahora usamos el mismo blend progresivo que en training.
+                p_val = ((1.0 - current_blend) * q_val) + (current_blend * p_val_hard)
                 p_val = np.clip(p_val, 1e-12, 1.0)
                 p_val = p_val / p_val.sum(axis=1, keepdims=True)
-                val_c_raw = float(np.mean(tf.keras.losses.kullback_leibler_divergence(p_val, q_val).numpy()))
+                val_c_raw = float(np.mean(
+                    tf.keras.losses.kullback_leibler_divergence(p_val, q_val).numpy()
+                ))
                 val_c = val_c_raw * float(clustering_loss_scale)
+                # Diagnóstico: aviso si val_kl sigue siendo sospechosamente bajo
+                if val_c_raw < 1e-6:
+                    logger.warning(
+                        f"   ⚠️  Epoch {epoch+1}: val_kl_raw={val_c_raw:.2e} sospechosamente bajo. "
+                        f"blend={current_blend:.3f} | q_val min={q_val.min():.4f} max={q_val.max():.4f}"
+                    )
             else:
                 val_c_raw = 0.0
                 val_c = 0.0
@@ -323,21 +399,105 @@ def main(
             f"{monitor_name}: {model_obj:.4f}"
         )
 
-        # Save best checkpoint & Early Stopping logic
-        if save_best and model_obj < best_obj:
-            best_obj = model_obj
-            patience_counter = 0  # Reset patience
+        # Record metrics for report
+        metrics.record(
+            epoch=epoch + 1,
+            train_recon=train_r_val,
+            train_kl_raw=train_c_raw_val,
+            train_kl_scaled=train_c_val,
+            train_obj=train_obj_val,
+            val_recon=val_r,
+            val_kl_raw=val_c_raw,
+            model_obj=model_obj,
+        )
+
+        # ─── Diagnósticos baratos de clustering ───────────────────────────────
+        # Se calculan sobre q_val ya computada. Costo: O(N·K) en CPU, insignificante.
+        if use_clustering_objective and X_val is not None:
+            q_diag = np.clip(q_val, 1e-12, 1.0)     # q_val ya calculado arriba
+            # 1) Entropía media: si baja demasiado rápido → asignaciones se vuelven duras
+            entropy_mean = float(-np.mean(np.sum(q_diag * np.log(q_diag), axis=1)))
+            # 2) Fracción del cluster más grande: >0.9 → posible colapso a un solo cluster
+            cluster_counts = np.bincount(q_diag.argmax(axis=1), minlength=AE_PARAMS.n_clusters)
+            max_cluster_frac = float(cluster_counts.max() / len(q_diag))
+            logger.info(
+                f"   🔬 Diagnóstico Q | Entropía media: {entropy_mean:.4f} "
+                f"| Cluster más grande: {max_cluster_frac*100:.1f}% "
+                f"| Tamaños: {cluster_counts.tolist()}"
+            )
+            if max_cluster_frac > 0.80:
+                logger.warning(f"   ⚠️  Posible colapso de cluster: {max_cluster_frac*100:.1f}% en un solo cluster")
+
+        # ─── Checkpoint y Early Stopping ─────────────────────────────────────
+        # Monitor: val_recon (no ValObj). El KL sube por diseño durante warmup;
+        # usar ValObj lleva a early stopping prematuro. La reconstrucción es la
+        # señal que indica colapso real del espacio latente.
+        # La paciencia solo empieza a contar después del fin del warmup.
+        monitor_val = val_r   # val_recon como criterio de parada
+        in_warmup   = (epoch + 1) <= early_stop_start_epoch
+
+        if save_best and monitor_val < best_obj:
+            best_obj = monitor_val
+            patience_counter = 0
             model.save(best_path)
-            logger.info(f"   💾 Guardado BEST (Phase 3) | {monitor_name}: {best_obj:.4f} -> {best_path.name}")
-        else:
+            logger.info(f"   💾 Guardado BEST | val_recon: {best_obj:.6f} → {best_path.name}")
+        elif not in_warmup:  # solo penalizar paciencia fuera del warmup
             patience_counter += 1
             if patience_counter >= patience_limit:
-                logger.warning(f"   🛑 Early Stopping activado! No hay mejora en {patience_limit} épocas.")
+                logger.warning(
+                    f"   🛑 Early Stopping activado (post-warmup) "
+                    f"| sin mejora en val_recon durante {patience_limit} épocas."
+                )
                 break
+        else:
+            logger.debug(f"   ⏳ En warmup (epoch {epoch+1}/{early_stop_start_epoch}) — paciencia suspendida")
 
-    # Save last state
     model.save(last_path)
     logger.success(f"✨ DCN completado. BEST: {best_path} | LAST: {last_path}")
+
+    # -----------------------
+    # 5) Save training plots
+    # -----------------------
+    plot_training_evolution(
+        pretrain_history=pretrain_hist.history,
+        collector=metrics,
+        use_clustering_objective=use_clustering_objective,
+        save_path=AE_REPORTS_DIR / "training_evolution.png",
+    )
+
+    # -----------------------
+    # 6) UMAP / PCA de embeddings
+    # -----------------------
+    logger.info("🌏 Generando visualización UMAP del espacio latente...")
+    try:
+        # Cargar el mejor modelo guardado
+        best_model = tf.keras.models.load_model(
+            best_path,
+            custom_objects={"StudentProfileAutoencoder": StudentProfileAutoencoder},
+            compile=False
+        )
+
+        # Concatenar train + val para ver el espacio latente completo
+        if X_val is not None:
+            X_all = np.vstack([X_train, X_val])
+        else:
+            X_all = X_train
+
+        # Obtener embeddings y asignaciones de cluster
+        z_all = best_model.get_embeddings(X_all, batch_size=max(1024, batch_size)).numpy()
+        _, q_all = best_model.predict(X_all, batch_size=max(1024, batch_size), verbose=0)
+        cluster_labels_all = q_all.argmax(axis=1)
+
+        plot_embeddings_umap(
+            embeddings=z_all,
+            cluster_labels=cluster_labels_all,
+            save_path=AE_REPORTS_DIR / "embeddings_umap.png",
+            n_clusters=AE_PARAMS.n_clusters,
+            title_suffix="Best model",
+        )
+    except Exception as e:
+        logger.warning(f"   ⚠️ No se pudo generar UMAP: {e}")
+
 
 
 if __name__ == "__main__":

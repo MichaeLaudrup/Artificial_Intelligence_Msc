@@ -10,7 +10,7 @@ import typer
 from loguru import logger
 from sklearn.metrics import calinski_harabasz_score, davies_bouldin_score, silhouette_score
 from sklearn.mixture import GaussianMixture
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, RobustScaler, PowerTransformer
 
 from educational_ai_analytics.config import (
     CLUSTERING_REPORTS_DIR,
@@ -28,6 +28,10 @@ def _parse_windows(windows: Optional[str]) -> List[int]:
     if not windows:
         return [int(w) for w in CLUSTERING_PARAMS.windows]
     return sorted({int(x.strip()) for x in windows.split(",") if x.strip()})
+
+
+def _parse_splits(splits: str) -> List[str]:
+    return [s.strip() for s in splits.split(",") if s.strip()]
 
 
 def _latent_path(split: str, window: int, latent_filename: str) -> Path:
@@ -48,6 +52,7 @@ def _build_gmm(X: np.ndarray, n_components: int) -> GaussianMixture:
         n_init=CLUSTERING_PARAMS.n_init,
         max_iter=CLUSTERING_PARAMS.max_iter,
         init_params=CLUSTERING_PARAMS.init_params,
+        tol=CLUSTERING_PARAMS.tol,
         random_state=CLUSTERING_PARAMS.random_state,
     )
 
@@ -257,7 +262,8 @@ def main(
       - gmm_k_diagnostics.csv
     """
     selected_windows = _parse_windows(windows)
-    logger.info(f"🧠 Clustering TRAIN | split={split_train} | windows={selected_windows}")
+    splits = _parse_splits(split_train)
+    logger.info(f"🧠 Clustering TRAIN | splits={splits} | windows={selected_windows}")
 
     CLUSTERING_MODELS_DIR.mkdir(parents=True, exist_ok=True)
     CLUSTERING_REPORTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -266,14 +272,29 @@ def main(
     summary_rows: List[Dict[str, Any]] = []
 
     for w in selected_windows:
-        latent_path = _latent_path(split=split_train, window=w, latent_filename=latent_filename)
-        df_lat = _safe_read_csv(latent_path)
-        if df_lat.empty:
-            logger.warning(f"⚠️ W{w:02d}: embeddings vacíos/no encontrados en {latent_path}")
+        df_l_list = []
+        for s in splits:
+            latent_path = _latent_path(split=s, window=w, latent_filename=latent_filename)
+            df_s = _safe_read_csv(latent_path)
+            if not df_s.empty:
+                df_l_list.append(df_s)
+
+        if not df_l_list:
+            logger.warning(f"⚠️ W{w:02d}: embeddings vacíos/no encontrados")
             continue
 
+        df_lat = pd.concat(df_l_list)
+
         X = df_lat.values.astype(np.float32)
-        scaler = StandardScaler()
+        
+        # Selección del Scaler
+        if CLUSTERING_PARAMS.scaler_type == "robust":
+            scaler = RobustScaler()
+        elif CLUSTERING_PARAMS.scaler_type == "power":
+            scaler = PowerTransformer(method="yeo-johnson", standardize=True)
+        else:
+            scaler = StandardScaler()
+            
         X_std = scaler.fit_transform(X)
 
         if CLUSTERING_PARAMS.use_fixed_k:
@@ -293,8 +314,14 @@ def main(
         probs = gmm.predict_proba(X_std)
         labels = probs.argmax(axis=1).astype(int)
 
-        target_path = FEATURES_DATA_DIR / split_train / "target.csv"
-        df_target = _safe_read_csv(target_path)
+        target_list = []
+        for s in splits:
+            target_path = FEATURES_DATA_DIR / s / "target.csv"
+            df_t = _safe_read_csv(target_path)
+            if not df_t.empty:
+                target_list.append(df_t)
+        
+        df_target = pd.concat(target_list) if target_list else pd.DataFrame()
         common = df_lat.index.intersection(df_target.index)
 
         if len(common) > 0 and "final_result" in df_target.columns:
@@ -308,7 +335,7 @@ def main(
 
         metrics = _compute_metrics(X_std, gmm, probs, labels)
         metrics["window"] = int(w)
-        metrics["latent_path"] = str(latent_path)
+        metrics["splits"] = splits
         metrics["k_selection_reason"] = str(k_pick["reason"])
         metrics["cluster_outcome_stats_train"] = stats_records
 

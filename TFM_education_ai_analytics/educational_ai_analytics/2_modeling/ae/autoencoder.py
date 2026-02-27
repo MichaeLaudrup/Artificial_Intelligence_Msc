@@ -43,7 +43,9 @@ class ClusteringLayer(layers.Layer):
         q = tf.pow(q, (self.alpha + 1.0) / 2.0)
 
         # Normalize row-wise to get probabilities
-        q = q / tf.reduce_sum(q, axis=1, keepdims=True)
+        # Epsilon evita div/0 con float16 cuando q colapsa a ceros (→ NaN)
+        den = tf.reduce_sum(q, axis=1, keepdims=True)
+        q = q / (den + 1e-12)
 
         return q
 

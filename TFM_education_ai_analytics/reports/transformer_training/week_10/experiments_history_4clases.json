@@ -1,0 +1,60 @@
+[
+    {
+        "timestamp": "2026-02-28 21:14:52",
+        "hyperparameters": {
+            "upto_week": 10,
+            "num_classes": 4,
+            "paper_baseline": true,
+            "binary_mode": null,
+            "batch_size": 64,
+            "epochs": 80,
+            "with_static": true,
+            "use_clustering_features": true,
+            "accumulated_uptow": true,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128,
+                64,
+                32
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.27,
+                0.35,
+                0.15,
+                0.23
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.09122228622436523,
+            "accuracy": 0.5481829047203064,
+            "balanced_accuracy": 0.5285590057798829,
+            "auc_ovr": 0.793202772251947,
+            "precision": 0.5250201169035145,
+            "recall": 0.5285590057798829,
+            "f1_score": 0.524419338402124,
+            "precision_macro": 0.5250201169035145,
+            "recall_macro": 0.5285590057798829,
+            "f1_macro": 0.524419338402124,
+            "precision_weighted": 0.5634000497845306,
+            "recall_weighted": 0.5481828839390387,
+            "f1_weighted": 0.5538224073942025,
+            "top_2_acc": 0.8586166471277843
+        }
+    }
+]

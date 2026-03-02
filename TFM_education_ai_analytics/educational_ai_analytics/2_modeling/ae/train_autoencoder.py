@@ -13,17 +13,19 @@ from pathlib import Path
 from loguru import logger
 import typer
 from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score, davies_bouldin_score
 
 from educational_ai_analytics.config import (
     FEATURES_DATA_DIR,
     MODELS_DIR,
+    AE_MODELS_DIR,
     AE_REPORTS_DIR,
     W_WINDOWS,
 )
 
 from .hyperparams import AE_PARAMS
 from .autoencoder import StudentProfileAutoencoder
-from .training_reporter import TrainingMetricsCollector, plot_training_evolution, plot_embeddings_umap
+from .training_reporter import TrainingMetricsCollector, plot_training_evolution, plot_embeddings_pca
 
 app = typer.Typer()
 
@@ -71,13 +73,48 @@ def target_distribution(q: np.ndarray, eps: float = 1e-12) -> np.ndarray:
     return p.astype(np.float32)
 
 
+def _compute_clustering_quality(
+    z_val: np.ndarray,
+    labels_val: np.ndarray,
+    max_samples: int = 5000,
+    seed: int = 42,
+) -> tuple[float, float]:
+    """Calcula Silhouette y Davies-Bouldin en validación (con muestreo opcional)."""
+    if z_val.size == 0 or labels_val.size == 0:
+        return float("nan"), float("nan")
+
+    n = z_val.shape[0]
+    if n < 3:
+        return float("nan"), float("nan")
+
+    if n > max_samples:
+        rng = np.random.default_rng(seed)
+        idx = rng.choice(n, size=max_samples, replace=False)
+        z_eval = z_val[idx]
+        labels_eval = labels_val[idx]
+    else:
+        z_eval = z_val
+        labels_eval = labels_val
+
+    n_clusters_present = np.unique(labels_eval).size
+    if n_clusters_present < 2 or n_clusters_present >= len(labels_eval):
+        return float("nan"), float("nan")
+
+    try:
+        sil = float(silhouette_score(z_eval, labels_eval, metric="euclidean"))
+        db = float(davies_bouldin_score(z_eval, labels_eval))
+        return sil, db
+    except Exception:
+        return float("nan"), float("nan")
+
+
 @app.command()
 def main(
     pretrain_epochs: int = AE_PARAMS.pretrain_epochs,
     joint_epochs: int = AE_PARAMS.joint_epochs,
     batch_size: int = AE_PARAMS.batch_size,
     seed: int = 42,
-    update_interval: int = 5,
+    update_interval: int = 10,
     sample_frac: float = AE_PARAMS.sample_frac,
     target_blend: float = AE_PARAMS.target_blend,
     shuffle_buf: int = 10000,
@@ -100,6 +137,8 @@ def main(
     """
     _configure_gpu()
     _set_seed(seed)
+
+    AE_REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
     if use_mixed_precision:
         from tensorflow.keras import mixed_precision
@@ -359,6 +398,8 @@ def main(
         if X_val is not None:
             x_rec_val, q_val = model.predict(X_val, batch_size=batch_size, verbose=0)
             val_r = float(np.mean(tf.keras.losses.huber(X_val, x_rec_val).numpy()))
+            val_sil = float("nan")
+            val_db = float("nan")
             if use_clustering_objective:
                 q_val = np.clip(q_val.astype(np.float32), 1e-12, 1.0)
                 p_val_hard = target_distribution(q_val)
@@ -379,14 +420,30 @@ def main(
                         f"   ⚠️  Epoch {epoch+1}: val_kl_raw={val_c_raw:.2e} sospechosamente bajo. "
                         f"blend={current_blend:.3f} | q_val min={q_val.min():.4f} max={q_val.max():.4f}"
                     )
+
+                # Métricas de calidad de clustering en espacio latente (validación)
+                try:
+                    z_val = model.get_embeddings(X_val, batch_size=max(1024, batch_size)).numpy()
+                    labels_val = q_val.argmax(axis=1)
+                    val_sil, val_db = _compute_clustering_quality(
+                        z_val=z_val,
+                        labels_val=labels_val,
+                        max_samples=5000,
+                        seed=seed + epoch,
+                    )
+                except Exception as e:
+                    logger.debug(f"   ℹ️  No se pudieron calcular métricas de clustering en epoch {epoch+1}: {e}")
             else:
                 val_c_raw = 0.0
                 val_c = 0.0
+                val_sil = float("nan")
+                val_db = float("nan")
             val_cl_contrib = lambda_cl * val_c
             model_obj = val_r + val_cl_contrib
             monitor_name = "ValObj"
         else:
             val_r = val_c_raw = val_c = val_cl_contrib = 0.0
+            val_sil = val_db = float("nan")
             model_obj = train_obj_val
             monitor_name = "TrainObj"
 
@@ -396,6 +453,8 @@ def main(
             f"Train Craw: {train_c_raw_val:.4f} | Train Cscaled: {train_c_val:.4f} | "
             f"Train λ·C: {train_cl_contrib:.4f} ({train_cl_share_pct:.2f}%) | Aux: {train_a_val:.4f} | "
             f"Val R: {val_r:.4f} | Val Craw: {val_c_raw:.4f} | Val Cscaled: {val_c:.4f} | Val λ·C: {val_cl_contrib:.4f} | "
+            f"Sil: {val_sil if np.isfinite(val_sil) else float('nan'):.4f} | "
+            f"DB: {val_db if np.isfinite(val_db) else float('nan'):.4f} | "
             f"{monitor_name}: {model_obj:.4f}"
         )
 
@@ -409,6 +468,8 @@ def main(
             val_recon=val_r,
             val_kl_raw=val_c_raw,
             model_obj=model_obj,
+            val_silhouette=val_sil,
+            val_davies=val_db,
         )
 
         # ─── Diagnósticos baratos de clustering ───────────────────────────────
@@ -466,9 +527,9 @@ def main(
     )
 
     # -----------------------
-    # 6) UMAP / PCA de embeddings
+    # 6) PCA de embeddings
     # -----------------------
-    logger.info("🌏 Generando visualización UMAP del espacio latente...")
+    logger.info("📉 Generando visualización PCA del espacio latente...")
     try:
         # Cargar el mejor modelo guardado
         best_model = tf.keras.models.load_model(
@@ -488,15 +549,15 @@ def main(
         _, q_all = best_model.predict(X_all, batch_size=max(1024, batch_size), verbose=0)
         cluster_labels_all = q_all.argmax(axis=1)
 
-        plot_embeddings_umap(
+        plot_embeddings_pca(
             embeddings=z_all,
             cluster_labels=cluster_labels_all,
-            save_path=AE_REPORTS_DIR / "embeddings_umap.png",
+            save_path=AE_REPORTS_DIR / "embeddings_pca.png",
             n_clusters=AE_PARAMS.n_clusters,
             title_suffix="Best model",
         )
     except Exception as e:
-        logger.warning(f"   ⚠️ No se pudo generar UMAP: {e}")
+        logger.warning(f"   ⚠️ No se pudo generar PCA: {e}")
 
 
 

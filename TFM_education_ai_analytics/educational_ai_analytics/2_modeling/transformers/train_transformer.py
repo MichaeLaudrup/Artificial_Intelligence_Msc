@@ -11,7 +11,6 @@ from dataclasses import asdict
 from loguru import logger
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.utils.class_weight import compute_class_weight
 from sklearn.metrics import roc_auc_score, classification_report, balanced_accuracy_score, confusion_matrix, precision_score, recall_score, f1_score
 from typing import Optional
 import copy
@@ -34,9 +33,39 @@ except ImportError:
 
 app = typer.Typer()
 
-def filter_classes(X_seq, X_mask_pad, X_mask_activity, X_static, y, ids, num_classes=2, paper_baseline=True):
+def _normalize_binary_mode(paper_baseline: bool, binary_mode: Optional[str]) -> str:
+    if binary_mode is None:
+        return "paper" if paper_baseline else "original"
+    mode = str(binary_mode).strip().lower()
+    aliases = {
+        "paper": "paper",
+        "baseline": "paper",
+        "original": "original",
+        "success_vs_risk": "success_vs_risk",
+        "risk": "success_vs_risk",
+        "passdist_vs_failwithdraw": "success_vs_risk",
+    }
+    if mode not in aliases:
+        raise ValueError(
+            f"binary_mode inválido: {binary_mode}. Usa uno de: paper|baseline|original|success_vs_risk"
+        )
+    return aliases[mode]
+
+
+def filter_classes(
+    X_seq,
+    X_mask_pad,
+    X_mask_activity,
+    X_static,
+    y,
+    ids,
+    num_classes=2,
+    paper_baseline=True,
+    binary_mode: Optional[str] = None,
+):
     if num_classes == 2:
-        if paper_baseline:
+        mode = _normalize_binary_mode(paper_baseline=paper_baseline, binary_mode=binary_mode)
+        if mode == "paper":
             # Configuración del Paper: Withdrawn (0) vs Éxito (2,3). Excluye Fail (1).
             valid_mask = (y != 1)
             X_seq = X_seq[valid_mask]
@@ -47,7 +76,7 @@ def filter_classes(X_seq, X_mask_pad, X_mask_activity, X_static, y, ids, num_cla
                 X_static = X_static[valid_mask]
             y_formatted = np.where(y == 0, 1, 0)
             logger.info("Configuración 2 clases (Baseline Paper): [0: Pass/Dist] vs [1: Withdrawn]. (Fail eliminado)")
-        else:
+        elif mode == "original":
             # Configuración original: Fail (1) vs Éxito (2,3). Excluye Withdrawn (0).
             valid_mask = (y != 0)
             X_seq = X_seq[valid_mask]
@@ -58,6 +87,10 @@ def filter_classes(X_seq, X_mask_pad, X_mask_activity, X_static, y, ids, num_cla
                 X_static = X_static[valid_mask]
             y_formatted = np.where(y == 1, 1, 0)
             logger.info("Configuración 2 clases (Original): [0: Pass/Dist] vs [1: Fail]. (Withdrawn eliminado)")
+        else:
+            # Caso especial binario: Éxito (2,3) vs Riesgo (0,1). No elimina clases.
+            y_formatted = np.where(y >= 2, 0, 1)
+            logger.info("Configuración 2 clases (Success vs Risk): [0: Pass/Dist] vs [1: Fail/Withdrawn].")
 
     elif num_classes == 3:
         # Modo Trinario: Fail (0) vs Withdrawn (1) vs Éxito (2)
@@ -75,7 +108,15 @@ def filter_classes(X_seq, X_mask_pad, X_mask_activity, X_static, y, ids, num_cla
     return X_seq, X_mask_pad, X_mask_activity, X_static, y_formatted, ids
 
 
-def load_and_prepare_split(base_npz: Path, split: str, w_key: int, num_classes: int, paper_baseline: bool, with_static: bool):
+def load_and_prepare_split(
+    base_npz: Path,
+    split: str,
+    w_key: int,
+    num_classes: int,
+    paper_baseline: bool,
+    with_static: bool,
+    binary_mode: Optional[str],
+):
     file_path = base_npz / split / f"transformer_uptoW{w_key}.npz"
     if not file_path.exists():
         raise FileNotFoundError(f"No se encuentra {file_path}")
@@ -101,6 +142,7 @@ def load_and_prepare_split(base_npz: Path, split: str, w_key: int, num_classes: 
         ids,
         num_classes,
         paper_baseline,
+        binary_mode,
     )
     
     return X_seq, mask_pad, mask_activity, X_static, y, cluster_feature_dim, static_feature_names, static_feature_sources
@@ -113,6 +155,10 @@ def train(
     upto_week: int = typer.Option(TRANSFORMER_PARAMS.upto_week, help="Semana hasta la que utilizar datos (W)"),
     num_classes: int = typer.Option(TRANSFORMER_PARAMS.num_classes, help="Número de clases objetivo (2, 3, o 4)"),
     paper_baseline: bool = typer.Option(True, help="Si num_classes=2, usar config de Paper (1 vs 2+3). False=Original (0 vs 2+3)"),
+    binary_mode: Optional[str] = typer.Option(
+        TRANSFORMER_PARAMS.binary_mode,
+        help="Modo binario cuando num_classes=2: paper|original|success_vs_risk (pass/dist vs fail/withdraw)",
+    ),
     batch_size: int = typer.Option(TRANSFORMER_PARAMS.batch_size),
     with_static: bool = typer.Option(TRANSFORMER_PARAMS.with_static, help="Usar variables estáticas"),
     use_clustering_features: bool = typer.Option(TRANSFORMER_PARAMS.use_clustering_features, help="Usar features de clustering en X_static (todo o nada)"),
@@ -152,6 +198,8 @@ def train(
     if config_json is not None:
         logger.info(f"📥 Config inyectada desde JSON: {config_json}")
     cfg = runtime_cfg
+    selected_binary_mode = _normalize_binary_mode(cfg.paper_baseline, cfg.binary_mode) if cfg.num_classes == 2 else None
+    target_tag = f"{cfg.num_classes}clases_{selected_binary_mode}" if cfg.num_classes == 2 else f"{cfg.num_classes}clases"
 
     valid_threshold_objectives = {"recall", "f1", "balanced_accuracy"}
     cfg.threshold_objective = str(cfg.threshold_objective).strip().lower()
@@ -197,10 +245,10 @@ def train(
     
     logger.info(f"Cargando datos pre-normalizados desde: {base_npz}")
     
-    X_train_seq, train_mask_pad, train_mask_activity, X_train_stat, y_train, train_cluster_dim, train_static_names, train_static_sources = load_and_prepare_split(base_npz, "training", cfg.upto_week, cfg.num_classes, cfg.paper_baseline, cfg.with_static)
-    X_val_seq, val_mask_pad, val_mask_activity, X_val_stat, y_val, val_cluster_dim, val_static_names, val_static_sources = load_and_prepare_split(base_npz, "validation", cfg.upto_week, cfg.num_classes, cfg.paper_baseline, cfg.with_static)
+    X_train_seq, train_mask_pad, train_mask_activity, X_train_stat, y_train, train_cluster_dim, train_static_names, train_static_sources = load_and_prepare_split(base_npz, "training", cfg.upto_week, cfg.num_classes, cfg.paper_baseline, cfg.with_static, cfg.binary_mode)
+    X_val_seq, val_mask_pad, val_mask_activity, X_val_stat, y_val, val_cluster_dim, val_static_names, val_static_sources = load_and_prepare_split(base_npz, "validation", cfg.upto_week, cfg.num_classes, cfg.paper_baseline, cfg.with_static, cfg.binary_mode)
     if cfg.eval_test:
-        X_test_seq, test_mask_pad, test_mask_activity, X_test_stat, y_test, test_cluster_dim, test_static_names, test_static_sources = load_and_prepare_split(base_npz, "test", cfg.upto_week, cfg.num_classes, cfg.paper_baseline, cfg.with_static)
+        X_test_seq, test_mask_pad, test_mask_activity, X_test_stat, y_test, test_cluster_dim, test_static_names, test_static_sources = load_and_prepare_split(base_npz, "test", cfg.upto_week, cfg.num_classes, cfg.paper_baseline, cfg.with_static, cfg.binary_mode)
 
     use_static_in_model = cfg.with_static
 
@@ -347,11 +395,13 @@ def train(
     
     # --- Focal Loss ---
     focal_gamma_val = hp.focal_gamma
-    if cfg.num_classes == 2:
-        focal_alpha_val = hp.focal_alpha
-    else:
-        weights_values = compute_class_weight('balanced', classes=np.unique(y_train), y=y_train)
-        focal_alpha_val = (weights_values / weights_values.sum()).tolist()
+    alpha_candidate = [float(a) for a in hp.focal_alpha] if hp.focal_alpha is not None else []
+    if len(alpha_candidate) != int(cfg.num_classes):
+        raise ValueError(
+            "Configuración inválida: hp.focal_alpha debe tener exactamente num_classes valores "
+            f"(num_classes={cfg.num_classes}, len={len(alpha_candidate)}, valor={hp.focal_alpha})."
+        )
+    focal_alpha_val = alpha_candidate
     
     def sparse_focal_loss(y_true, y_pred):
         y_true = tf.cast(tf.squeeze(y_true), tf.int32)
@@ -473,8 +523,14 @@ def train(
         y_pred = (p_pos >= selected_threshold).astype(int)
     else:
         y_pred = np.argmax(y_probs, axis=1)
+
+    val_bal_acc = float(balanced_accuracy_score(y_val, y_pred))
+    val_top2_acc = None
+    if cfg.num_classes == 4:
+        top2_idx = np.argsort(y_probs, axis=1)[:, -2:]
+        val_top2_acc = float(np.mean(np.any(top2_idx == y_val.reshape(-1, 1), axis=1)))
     
-    logger.info("\n[Balanced Accuracy VAL]: " + str(balanced_accuracy_score(y_val, y_pred)))
+    logger.info("\n[Balanced Accuracy VAL]: " + str(val_bal_acc))
     logger.info("\n[Confusion Matrix VAL]\n" + str(confusion_matrix(y_val, y_pred)))
     logger.info("\n[Classification Report VAL]\n" + str(classification_report(y_val, y_pred, digits=4)))
     
@@ -486,6 +542,31 @@ def train(
         logger.info(f"AUC VAL (OVR): {auc_val:.4f}")
     except ValueError as e:
         logger.warning(f"No se pudo calcular AUC en VAL: {e}")
+
+    if cfg.num_classes == 2:
+        val_precision = float(precision_score(y_val, y_pred, pos_label=1, average='binary'))
+        val_recall = float(recall_score(y_val, y_pred, pos_label=1, average='binary'))
+        val_f1 = float(f1_score(y_val, y_pred, pos_label=1, average='binary'))
+        val_precision_macro = val_recall_macro = val_f1_macro = None
+        val_precision_weighted = val_recall_weighted = val_f1_weighted = None
+    else:
+        val_precision_macro = float(precision_score(y_val, y_pred, average='macro'))
+        val_recall_macro = float(recall_score(y_val, y_pred, average='macro'))
+        val_f1_macro = float(f1_score(y_val, y_pred, average='macro'))
+        val_precision_weighted = float(precision_score(y_val, y_pred, average='weighted'))
+        val_recall_weighted = float(recall_score(y_val, y_pred, average='weighted'))
+        val_f1_weighted = float(f1_score(y_val, y_pred, average='weighted'))
+        val_precision = val_precision_macro
+        val_recall = val_recall_macro
+        val_f1 = val_f1_macro
+        logger.info(
+            f"[VAL Macro] precision={val_precision_macro:.4f} | recall={val_recall_macro:.4f} | f1={val_f1_macro:.4f}"
+        )
+        logger.info(
+            f"[VAL Weighted] precision={val_precision_weighted:.4f} | recall={val_recall_weighted:.4f} | f1={val_f1_weighted:.4f}"
+        )
+        if val_top2_acc is not None:
+            logger.info(f"[VAL Top-2 Accuracy] {val_top2_acc:.4f}")
         
     if cfg.eval_test:
         logger.info("--------- Evaluando modelo en Test Set (FINAL) ---------")
@@ -506,8 +587,14 @@ def train(
             logger.info(f"🎯 Aplicando en TEST el threshold aprendido en VAL: {selected_threshold:.3f}")
         else:
             y_pred_test = np.argmax(y_probs_test, axis=1)
+
+        test_bal_acc_val = float(balanced_accuracy_score(y_test, y_pred_test))
+        test_top2_acc = None
+        if cfg.num_classes == 4:
+            top2_idx_test = np.argsort(y_probs_test, axis=1)[:, -2:]
+            test_top2_acc = float(np.mean(np.any(top2_idx_test == y_test.reshape(-1, 1), axis=1)))
         
-        logger.info("\n[Balanced Accuracy TEST]: " + str(balanced_accuracy_score(y_test, y_pred_test)))
+        logger.info("\n[Balanced Accuracy TEST]: " + str(test_bal_acc_val))
         logger.info("\n[Confusion Matrix TEST]\n" + str(confusion_matrix(y_test, y_pred_test)))
         logger.info("\n[Classification Report TEST]\n" + str(classification_report(y_test, y_pred_test, digits=4)))
         
@@ -519,88 +606,203 @@ def train(
             logger.info(f"AUC TEST (OVR): {auc_test:.4f}")
         except ValueError as e:
             logger.warning(f"No se pudo calcular AUC en TEST: {e}")
+
+        if cfg.num_classes == 2:
+            test_precision = float(precision_score(y_test, y_pred_test, pos_label=1, average='binary'))
+            test_recall = float(recall_score(y_test, y_pred_test, pos_label=1, average='binary'))
+            test_f1 = float(f1_score(y_test, y_pred_test, pos_label=1, average='binary'))
+            test_precision_macro = test_recall_macro = test_f1_macro = None
+            test_precision_weighted = test_recall_weighted = test_f1_weighted = None
+        else:
+            test_precision_macro = float(precision_score(y_test, y_pred_test, average='macro'))
+            test_recall_macro = float(recall_score(y_test, y_pred_test, average='macro'))
+            test_f1_macro = float(f1_score(y_test, y_pred_test, average='macro'))
+            test_precision_weighted = float(precision_score(y_test, y_pred_test, average='weighted'))
+            test_recall_weighted = float(recall_score(y_test, y_pred_test, average='weighted'))
+            test_f1_weighted = float(f1_score(y_test, y_pred_test, average='weighted'))
+            test_precision = test_precision_macro
+            test_recall = test_recall_macro
+            test_f1 = test_f1_macro
+            logger.info(
+                f"[TEST Macro] precision={test_precision_macro:.4f} | recall={test_recall_macro:.4f} | f1={test_f1_macro:.4f}"
+            )
+            logger.info(
+                f"[TEST Weighted] precision={test_precision_weighted:.4f} | recall={test_recall_weighted:.4f} | f1={test_f1_weighted:.4f}"
+            )
+            if test_top2_acc is not None:
+                logger.info(f"[TEST Top-2 Accuracy] {test_top2_acc:.4f}")
         
     if not cfg.fast_search:
         # Plotting
         save_dir.mkdir(parents=True, exist_ok=True)
         plt.style.use('dark_background')
         plt.rcParams.update({"figure.facecolor": "#1e1e2e", "axes.facecolor": "#1e1e2e"})
-        
-        fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-        fig.suptitle(f"Progreso de Entrenamiento (Ventana: {cfg.upto_week} | Clases: {cfg.num_classes})", fontsize=16, fontweight='bold', y=1.05)
-        
-        axes[0].plot(history.history['loss'], label='Train Loss', linewidth=2)
-        axes[0].plot(history.history['val_loss'], label='Validation Loss', linewidth=2)
-        axes[0].set_title('Evolución de la Función de Pérdida', pad=10)
-        axes[0].set_xlabel('Época')
-        axes[0].set_ylabel('Loss (Sparse Categorical CE)')
-        axes[0].legend()
-        axes[0].grid(True, linestyle='--', alpha=0.3)
-        
-        axes[1].plot(history.history.get('accuracy', []), label='Train Accuracy', linewidth=2)
-        axes[1].plot(history.history.get('val_accuracy', []), label='Validation Accuracy', linewidth=2)
-        
+
+        fig, axes = plt.subplots(2, 2, figsize=(16, 10))
+        mode_suffix = f" | Binario: {selected_binary_mode}" if cfg.num_classes == 2 else ""
+        fig.suptitle(
+            f"Progreso de Entrenamiento (Ventana: {cfg.upto_week} | Clases: {cfg.num_classes}{mode_suffix})",
+            fontsize=16,
+            fontweight='bold',
+            y=0.98,
+        )
+
+        train_loss_hist = np.array(history.history.get('loss', []), dtype=float)
+        val_loss_hist = np.array(history.history.get('val_loss', []), dtype=float)
+        train_acc_hist = np.array(history.history.get('accuracy', []), dtype=float)
+        val_acc_hist = np.array(history.history.get('val_accuracy', []), dtype=float)
+        val_bal_hist = np.array(history.history.get('val_balanced_acc', []), dtype=float)
+        epochs_idx = np.arange(1, len(train_loss_hist) + 1)
+
+        axes[0, 0].plot(epochs_idx, train_loss_hist, label='Train Loss', linewidth=2)
+        axes[0, 0].plot(epochs_idx, val_loss_hist, label='Validation Loss', linewidth=2)
+        axes[0, 0].set_title('Evolución de la Pérdida', pad=10)
+        axes[0, 0].set_xlabel('Época')
+        axes[0, 0].set_ylabel('Loss')
+        axes[0, 0].legend()
+        axes[0, 0].grid(True, linestyle='--', alpha=0.3)
+
+        axes[0, 1].plot(epochs_idx, train_acc_hist, label='Train Accuracy', linewidth=2)
+        axes[0, 1].plot(epochs_idx, val_acc_hist, label='Validation Accuracy', linewidth=2)
+        if len(val_bal_hist) == len(epochs_idx) and len(val_bal_hist) > 0:
+            axes[0, 1].plot(epochs_idx, val_bal_hist, label='Validation Balanced Acc', linewidth=2, linestyle='--')
         if "top_2_acc" in history.history:
-            axes[1].plot(history.history["top_2_acc"], label="Train Top-2", linewidth=2, linestyle='--')
+            axes[0, 1].plot(epochs_idx, history.history["top_2_acc"], label="Train Top-2", linewidth=1.8, linestyle=':')
         if "val_top_2_acc" in history.history:
-            axes[1].plot(history.history["val_top_2_acc"], label="Val Top-2", linewidth=2, linestyle='--')
-        axes[1].set_title('Evolución de la Precisión', pad=10)
-        axes[1].set_xlabel('Época')
-        axes[1].set_ylabel('Accuracy')
-        axes[1].legend()
-        axes[1].grid(True, linestyle='--', alpha=0.3)
-        
+            axes[0, 1].plot(epochs_idx, history.history["val_top_2_acc"], label="Val Top-2", linewidth=1.8, linestyle=':')
+        axes[0, 1].set_title('Métricas de Clasificación', pad=10)
+        axes[0, 1].set_xlabel('Época')
+        axes[0, 1].set_ylabel('Score')
+        axes[0, 1].legend()
+        axes[0, 1].grid(True, linestyle='--', alpha=0.3)
+
+        if len(train_loss_hist) == len(val_loss_hist) and len(train_acc_hist) == len(val_acc_hist):
+            loss_gap = val_loss_hist - train_loss_hist
+            acc_gap = val_acc_hist - train_acc_hist
+            axes[1, 0].plot(epochs_idx, loss_gap, label='Gap Loss (val-train)', linewidth=2)
+            axes[1, 0].plot(epochs_idx, acc_gap, label='Gap Accuracy (val-train)', linewidth=2)
+            axes[1, 0].axhline(0.0, color='white', alpha=0.4, linestyle='--')
+            axes[1, 0].set_title('Gap de Generalización', pad=10)
+            axes[1, 0].set_xlabel('Época')
+            axes[1, 0].set_ylabel('Gap')
+            axes[1, 0].legend()
+            axes[1, 0].grid(True, linestyle='--', alpha=0.3)
+        else:
+            axes[1, 0].text(0.5, 0.5, 'No hay series suficientes para gap', ha='center', va='center')
+            axes[1, 0].set_title('Gap de Generalización', pad=10)
+            axes[1, 0].set_xticks([])
+            axes[1, 0].set_yticks([])
+
+        lr_hist = history.history.get('learning_rate', history.history.get('lr', []))
+        if len(lr_hist) == len(epochs_idx) and len(lr_hist) > 0:
+            axes[1, 1].plot(epochs_idx, lr_hist, label='Learning Rate', linewidth=2, color='#f39c12')
+            axes[1, 1].set_yscale('log')
+            axes[1, 1].set_title('Evolución del Learning Rate', pad=10)
+            axes[1, 1].set_xlabel('Época')
+            axes[1, 1].set_ylabel('LR (log)')
+            axes[1, 1].legend()
+            axes[1, 1].grid(True, linestyle='--', alpha=0.3)
+        else:
+            axes[1, 1].text(0.5, 0.6, f"Val Acc final: {float(results[1]):.4f}", ha='center', va='center')
+            axes[1, 1].text(0.5, 0.45, f"Val Balanced Acc: {val_bal_acc:.4f}", ha='center', va='center')
+            if 'auc_val' in locals():
+                axes[1, 1].text(0.5, 0.3, f"Val AUC OVR: {float(auc_val):.4f}", ha='center', va='center')
+            axes[1, 1].set_title('Resumen de Rendimiento', pad=10)
+            axes[1, 1].set_xticks([])
+            axes[1, 1].set_yticks([])
+
         sns.despine(fig)
-        plt.tight_layout()
-        
-        plot_path = save_dir / f"plot_uptoW{cfg.upto_week}_{cfg.num_classes}clases.png"
+        plt.tight_layout(rect=[0, 0, 1, 0.96])
+
+        plot_path = save_dir / f"plot_uptoW{cfg.upto_week}_{target_tag}.png"
         plt.savefig(plot_path, dpi=300, bbox_inches='tight')
         logger.info(f"✅ Gráfico guardado en: {plot_path}")
+
+        fig_diag, ax_diag = plt.subplots(1, 2, figsize=(16, 6))
+        fig_diag.suptitle(
+            f"Diagnóstico Validación (Ventana: {cfg.upto_week} | Clases: {cfg.num_classes}{mode_suffix})",
+            fontsize=14,
+            fontweight='bold',
+        )
+
+        cm_norm = confusion_matrix(y_val, y_pred, normalize='true')
+        sns.heatmap(
+            cm_norm,
+            ax=ax_diag[0],
+            cmap='mako',
+            annot=True,
+            fmt='.2f',
+            cbar=True,
+            vmin=0.0,
+            vmax=1.0,
+        )
+        ax_diag[0].set_title('Matriz de Confusión Normalizada (VAL)')
+        ax_diag[0].set_xlabel('Predicción')
+        ax_diag[0].set_ylabel('Clase real')
+
+        if cfg.num_classes == 2:
+            pos_scores = y_probs[:, 1]
+            ax_diag[1].hist(pos_scores[y_val == 0], bins=30, alpha=0.6, label='Real clase 0', density=True)
+            ax_diag[1].hist(pos_scores[y_val == 1], bins=30, alpha=0.6, label='Real clase 1', density=True)
+            thr = float(selected_threshold) if selected_threshold is not None else 0.5
+            ax_diag[1].axvline(thr, color='white', linestyle='--', alpha=0.8, label=f'Threshold={thr:.2f}')
+            ax_diag[1].set_title('Distribución de Probabilidad Clase Positiva (VAL)')
+            ax_diag[1].set_xlabel('p(clase positiva)')
+            ax_diag[1].set_ylabel('Densidad')
+            ax_diag[1].legend()
+            ax_diag[1].grid(True, linestyle='--', alpha=0.25)
+        else:
+            conf_max = np.max(y_probs, axis=1)
+            is_ok = (y_pred == y_val)
+            ax_diag[1].hist(conf_max[is_ok], bins=30, alpha=0.6, label='Predicciones correctas', density=True)
+            ax_diag[1].hist(conf_max[~is_ok], bins=30, alpha=0.6, label='Predicciones erróneas', density=True)
+            ax_diag[1].set_title('Confianza Máxima en Predicción (VAL)')
+            ax_diag[1].set_xlabel('max softmax')
+            ax_diag[1].set_ylabel('Densidad')
+            ax_diag[1].legend()
+            ax_diag[1].grid(True, linestyle='--', alpha=0.25)
+
+        plt.tight_layout(rect=[0, 0, 1, 0.95])
+        diag_path = save_dir / f"diagnostics_val_uptoW{cfg.upto_week}_{target_tag}.png"
+        plt.savefig(diag_path, dpi=300, bbox_inches='tight')
+        logger.info(f"✅ Diagnóstico VAL guardado en: {diag_path}")
         
         # Guardar modelo entrenado
         model_dir = Path("/workspace/TFM_education_ai_analytics/models/transformers")
         model_dir.mkdir(parents=True, exist_ok=True)
-        model_path = model_dir / f"transformer_uptoW{cfg.upto_week}_{cfg.num_classes}clases.keras"
+        model_path = model_dir / f"transformer_uptoW{cfg.upto_week}_{target_tag}.keras"
         model.save(model_path)
         logger.info(f"✅ Modelo final guardado en: {model_path}")
     
 
     # Guardar métricas y configuración en historial via hyperparams
-    if cfg.num_classes == 2:
-        val_precision = float(precision_score(y_val, y_pred, pos_label=1, average='binary'))
-        val_recall = float(recall_score(y_val, y_pred, pos_label=1, average='binary'))
-        val_f1 = float(f1_score(y_val, y_pred, pos_label=1, average='binary'))
-    else:
-        val_precision = float(precision_score(y_val, y_pred, average='macro'))
-        val_recall = float(recall_score(y_val, y_pred, average='macro'))
-        val_f1 = float(f1_score(y_val, y_pred, average='macro'))
-
     test_loss = float(results_test[0]) if cfg.eval_test else None
     test_acc = float(results_test[1]) if cfg.eval_test else None
-    test_bacc = balanced_accuracy_score(y_test, y_pred_test) if cfg.eval_test else None
+    test_bacc = float(test_bal_acc_val) if cfg.eval_test else None
     test_auc_val = float(auc_test) if cfg.eval_test and 'auc_test' in locals() else None
-    
-    if cfg.eval_test:
-        if cfg.num_classes == 2:
-            test_precision = float(precision_score(y_test, y_pred_test, pos_label=1, average='binary'))
-            test_recall = float(recall_score(y_test, y_pred_test, pos_label=1, average='binary'))
-            test_f1 = float(f1_score(y_test, y_pred_test, pos_label=1, average='binary'))
-        else:
-            test_precision = float(precision_score(y_test, y_pred_test, average='macro'))
-            test_recall = float(recall_score(y_test, y_pred_test, average='macro'))
-            test_f1 = float(f1_score(y_test, y_pred_test, average='macro'))
-    else:
+
+    if not cfg.eval_test:
         test_precision = test_recall = test_f1 = None
+        test_precision_macro = test_recall_macro = test_f1_macro = None
+        test_precision_weighted = test_recall_weighted = test_f1_weighted = None
+        test_top2_acc = None
 
     # Payload explícito para automatización (Random Search, Optuna, etc.)
     val_metrics = {
         "val_loss": float(results[0]),
         "val_accuracy": float(results[1]),
-        "val_balanced_acc": float(balanced_accuracy_score(y_val, y_pred)),
+        "val_balanced_acc": val_bal_acc,
         "val_f1": float(val_f1 if 'val_f1' in locals() and val_f1 is not None else 0),
         "val_recall": float(val_recall if 'val_recall' in locals() and val_recall is not None else 0),
         "val_precision": float(val_precision if 'val_precision' in locals() and val_precision is not None else 0),
         "val_auc": float(auc_val) if 'auc_val' in locals() else 0,
+        "val_precision_macro": float(val_precision_macro) if val_precision_macro is not None else None,
+        "val_recall_macro": float(val_recall_macro) if val_recall_macro is not None else None,
+        "val_f1_macro": float(val_f1_macro) if val_f1_macro is not None else None,
+        "val_precision_weighted": float(val_precision_weighted) if val_precision_weighted is not None else None,
+        "val_recall_weighted": float(val_recall_weighted) if val_recall_weighted is not None else None,
+        "val_f1_weighted": float(val_f1_weighted) if val_f1_weighted is not None else None,
+        "val_top2_acc": float(val_top2_acc) if val_top2_acc is not None else None,
         "val_threshold": float(selected_threshold) if selected_threshold is not None else None,
     }
     logger.info("VAL_METRICS: " + json.dumps(val_metrics))
@@ -610,13 +812,21 @@ def train(
             save_dir=save_dir,
             upto_week=cfg.upto_week,
             paper_baseline=cfg.paper_baseline,
+            binary_mode=selected_binary_mode,
             val_loss=results[0],
             val_acc=results[1],
-            val_balanced_acc=balanced_accuracy_score(y_val, y_pred),
+            val_balanced_acc=val_bal_acc,
             val_auc=float(auc_val) if 'auc_val' in locals() else None,
             val_precision=val_precision,
             val_recall=val_recall,
             val_f1=val_f1,
+            val_precision_macro=val_precision_macro,
+            val_recall_macro=val_recall_macro,
+            val_f1_macro=val_f1_macro,
+            val_precision_weighted=val_precision_weighted,
+            val_recall_weighted=val_recall_weighted,
+            val_f1_weighted=val_f1_weighted,
+            val_top2_acc=val_top2_acc,
             test_loss=test_loss,
             test_acc=test_acc,
             test_balanced_acc=test_bacc,
@@ -624,10 +834,17 @@ def train(
             test_precision=test_precision,
             test_recall=test_recall,
             test_f1=test_f1,
+            test_precision_macro=test_precision_macro,
+            test_recall_macro=test_recall_macro,
+            test_f1_macro=test_f1_macro,
+            test_precision_weighted=test_precision_weighted,
+            test_recall_weighted=test_recall_weighted,
+            test_f1_weighted=test_f1_weighted,
+            test_top2_acc=test_top2_acc,
             history_filename=cfg.history_filename
         )
         
-        history_file_used = cfg.history_filename if cfg.history_filename else f"experiments_history_{cfg.num_classes}clases.json"
+        history_file_used = cfg.history_filename if cfg.history_filename else f"experiments_history_{target_tag}.json"
         # ------------------
         # Disparar script de comparativa
         # ------------------
@@ -654,6 +871,13 @@ def train(
                 "test_precision": test_precision,
                 "test_recall": test_recall,
                 "test_f1": test_f1,
+                "test_precision_macro": test_precision_macro,
+                "test_recall_macro": test_recall_macro,
+                "test_f1_macro": test_f1_macro,
+                "test_precision_weighted": test_precision_weighted,
+                "test_recall_weighted": test_recall_weighted,
+                "test_f1_weighted": test_f1_weighted,
+                "test_top2_acc": test_top2_acc,
             },
             "selected_threshold": float(selected_threshold) if selected_threshold is not None else None,
         }

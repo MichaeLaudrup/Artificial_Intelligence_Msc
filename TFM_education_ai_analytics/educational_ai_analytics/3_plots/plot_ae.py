@@ -137,8 +137,8 @@ def ae_reconstruction(split: str = "training"):
     fig.patch.set_facecolor(DARK_BG)
     titles = ["1) Original (PCA 2D)", "2) Espacio Latente (PCA 2D)", "3) Reconstrucción (PCA 2D)"]
     
-    # Colores base en caso de no tener clusters
-    cols = ["#A8EDEA", "#FC5C7D", "#43E97B"]
+    # Color único para todos los puntos (sin codificación por cluster)
+    POINT_COLOR = "#A8EDEA"
 
     method_name = "PCA"
 
@@ -162,21 +162,11 @@ def ae_reconstruction(split: str = "training"):
         pca_lat = PCA(n_components=2, random_state=42)
         p_lat = pca_lat.fit_transform(Z_lat)
 
-        # Cargar clusters para colorear
-        clusters = _load_clusters(W, split)
-        c_vals = clusters.reindex(idx).values if not clusters.empty else None
-        
-        # Paleta dark vibrante si tenemos labels de clusters
-        cmap = "plasma" if c_vals is not None else None
-
         data_row = [p_in, p_lat, p_rec]
 
-        for j, (d, t, col_default) in enumerate(zip(data_row, titles, cols)):
+        for j, (d, t) in enumerate(zip(data_row, titles)):
             ax = axes[i, j]
-            if c_vals is not None:
-                ax.scatter(d[:, 0], d[:, 1], s=4, alpha=0.6, c=c_vals, cmap=cmap, edgecolors='none')
-            else:
-                ax.scatter(d[:, 0], d[:, 1], s=4, alpha=0.5, color=col_default, edgecolors='none')
+            ax.scatter(d[:, 0], d[:, 1], s=4, alpha=0.55, color=POINT_COLOR, edgecolors='none')
             
             if i == 0:
                 ax.set_title(t, fontsize=12, fontweight='bold', pad=15, color=TEXT_COLOR)

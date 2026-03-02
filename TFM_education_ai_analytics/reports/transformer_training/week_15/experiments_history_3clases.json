@@ -1,0 +1,114 @@
+[
+    {
+        "timestamp": "2026-02-28 20:20:56",
+        "hyperparameters": {
+            "upto_week": 15,
+            "num_classes": 3,
+            "paper_baseline": true,
+            "binary_mode": null,
+            "batch_size": 64,
+            "epochs": 80,
+            "with_static": true,
+            "use_clustering_features": true,
+            "accumulated_uptow": true,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128,
+                64,
+                32
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.43,
+                0.37,
+                0.2
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.06982730329036713,
+            "accuracy": 0.7079335451126099,
+            "balanced_accuracy": 0.643988743201921,
+            "auc_ovr": 0.8395268239230357,
+            "precision": 0.651438719087137,
+            "recall": 0.643988743201921,
+            "f1_score": 0.6472973492474474,
+            "precision_macro": 0.651438719087137,
+            "recall_macro": 0.643988743201921,
+            "f1_macro": 0.6472973492474474,
+            "precision_weighted": 0.7081500628631708,
+            "recall_weighted": 0.7079335361572665,
+            "f1_weighted": 0.707725110891378
+        }
+    },
+    {
+        "timestamp": "2026-02-28 20:41:37",
+        "hyperparameters": {
+            "upto_week": 15,
+            "num_classes": 3,
+            "paper_baseline": true,
+            "binary_mode": null,
+            "batch_size": 64,
+            "epochs": 80,
+            "with_static": true,
+            "use_clustering_features": true,
+            "accumulated_uptow": true,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128,
+                64,
+                32
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.4,
+                0.4,
+                0.2
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.07081671804189682,
+            "accuracy": 0.7098057866096497,
+            "balanced_accuracy": 0.6415997959653503,
+            "auc_ovr": 0.8375386456740893,
+            "precision": 0.6492886086490448,
+            "recall": 0.6415997959653503,
+            "f1_score": 0.6450315787578856,
+            "precision_macro": 0.6492886086490448,
+            "recall_macro": 0.6415997959653503,
+            "f1_macro": 0.6450315787578856,
+            "precision_weighted": 0.7039651124198469,
+            "recall_weighted": 0.7098057570793354,
+            "f1_weighted": 0.7064760263936306
+        }
+    }
+]

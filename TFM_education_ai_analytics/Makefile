@@ -78,7 +78,7 @@ transformer_features:
 ## 7. Train Transformer
 .PHONY: train_transformer
 train_transformer:
-	$(PYTHON_INTERPRETER) educational_ai_analytics/2_modeling/transformers/train_transformer.py
+	$(PYTHON_INTERPRETER) -m educational_ai_analytics.2_modeling.transformers.train_transformer
 
 ## 7.5. Run Full Transformer Pipeline (Features + Train)
 .PHONY: full_transformer

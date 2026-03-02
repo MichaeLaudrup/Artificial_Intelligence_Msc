@@ -130,5 +130,53 @@
             "recall": 0.8218218218218218,
             "f1_score": 0.8292929292929293
         }
+    },
+    {
+        "timestamp": "2026-02-28 15:21:22",
+        "hyperparameters": {
+            "upto_week": 15,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "batch_size": 64,
+            "epochs": 80,
+            "with_static": true,
+            "use_clustering_features": true,
+            "accumulated_uptow": true,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128,
+                64,
+                32
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.27,
+                0.73
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.02363165281713009,
+            "accuracy": 0.898330807685852,
+            "balanced_accuracy": 0.874176441249612,
+            "auc_ovr": 0.936323082664546,
+            "precision": 0.8458333333333333,
+            "recall": 0.8128128128128128,
+            "f1_score": 0.8289943848902501
+        }
     }
 ]

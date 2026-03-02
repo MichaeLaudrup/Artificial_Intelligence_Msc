@@ -163,18 +163,18 @@ def _build_mapping_from_target(stats: pd.DataFrame) -> Dict[str, Dict[str, Any]]
     if k == 5:
         label_pack = [
             ("CRITICAL_RISK_INACTIVE", "Riesgo crítico (inactivos)"),
-            ("STANDARD_PROFILE", "Perfil estándar"),
-            ("METHODICAL_EXPLORER", "Exploradores metódicos"),
-            ("CONSISTENT_GOOD", "Consistentes (buen nivel)"),
+            ("STANDARD_PROFILE", "Perfil intermedio A"),
+            ("METHODICAL_EXPLORER", "Perfil intermedio B"),
+            ("CONSISTENT_GOOD", "Perfil intermedio C"),
             ("STRATEGIC_HIGH_PERFORMER", "Alto rendimiento (estratégico)"),
         ]
     elif k == 6:
         label_pack = [
             ("CRITICAL_RISK_INACTIVE", "Riesgo crítico (inactivos)"),
-            ("STANDARD_PROFILE", "Perfil estándar"),
-            ("METHODICAL_EXPLORER", "Exploradores metódicos"),
-            ("CONSISTENT_GOOD", "Consistentes (buen nivel)"),
-            ("ENGAGED_FATIGUE", "Comprometidos (con fatiga)"),
+            ("STANDARD_PROFILE", "Perfil intermedio A"),
+            ("METHODICAL_EXPLORER", "Perfil intermedio B"),
+            ("CONSISTENT_GOOD", "Perfil intermedio C"),
+            ("ENGAGED_FATIGUE", "Perfil intermedio D"),
             ("STRATEGIC_HIGH_PERFORMER", "Alto rendimiento (estratégico)"),
         ]
     else:

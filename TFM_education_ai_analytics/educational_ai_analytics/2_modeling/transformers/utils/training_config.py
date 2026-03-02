@@ -14,6 +14,7 @@ class TrainingConfig:
     upto_week: int = TRANSFORMER_PARAMS.upto_week
     num_classes: int = 2
     paper_baseline: bool = True
+    binary_mode: Optional[str] = TRANSFORMER_PARAMS.binary_mode
     batch_size: int = 64
     with_static: bool = True
     use_clustering_features: bool = TRANSFORMER_PARAMS.use_clustering_features

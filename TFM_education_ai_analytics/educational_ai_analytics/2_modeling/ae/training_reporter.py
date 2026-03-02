@@ -55,6 +55,8 @@ class TrainingMetricsCollector:
     val_recon:       list[float] = field(default_factory=list)
     val_kl_raw:      list[float] = field(default_factory=list)
     model_obj:       list[float] = field(default_factory=list)
+    val_silhouette:  list[float] = field(default_factory=list)
+    val_davies:      list[float] = field(default_factory=list)
 
     def record(
         self,
@@ -67,6 +69,8 @@ class TrainingMetricsCollector:
         val_recon: float,
         val_kl_raw: float,
         model_obj: float,
+        val_silhouette: float = np.nan,
+        val_davies: float = np.nan,
     ) -> None:
         self.epochs.append(epoch)
         self.train_recon.append(train_recon)
@@ -76,6 +80,8 @@ class TrainingMetricsCollector:
         self.val_recon.append(val_recon)
         self.val_kl_raw.append(val_kl_raw)
         self.model_obj.append(model_obj)
+        self.val_silhouette.append(val_silhouette)
+        self.val_davies.append(val_davies)
 
     @property
     def best_epoch(self) -> Optional[int]:
@@ -83,8 +89,101 @@ class TrainingMetricsCollector:
         return self.epochs[int(np.argmin(self.model_obj))] if self.model_obj else None
 
     @property
+    def best_epoch_val_recon(self) -> Optional[int]:
+        """Época (1-indexed) con la menor ``val_recon`` válida (>0)."""
+        if not self.epochs or not self.val_recon:
+            return None
+        val_arr = np.asarray(self.val_recon, dtype=float)
+        finite = np.isfinite(val_arr)
+        has_val = finite & (val_arr > 0.0)
+        if not np.any(has_val):
+            return None
+        idx = int(np.argmin(val_arr[has_val]))
+        return int(np.asarray(self.epochs, dtype=int)[has_val][idx])
+
+    @property
     def last_epoch(self) -> Optional[int]:
         return self.epochs[-1] if self.epochs else None
+
+    @property
+    def best_epoch_silhouette(self) -> Optional[int]:
+        """Época con mayor silhouette en validación."""
+        if not self.epochs or not self.val_silhouette:
+            return None
+        sil = np.asarray(self.val_silhouette, dtype=float)
+        finite = np.isfinite(sil)
+        if not np.any(finite):
+            return None
+        idx = int(np.argmax(sil[finite]))
+        return int(np.asarray(self.epochs, dtype=int)[finite][idx])
+
+    @property
+    def best_epoch_davies(self) -> Optional[int]:
+        """Época con menor Davies-Bouldin en validación."""
+        if not self.epochs or not self.val_davies:
+            return None
+        db = np.asarray(self.val_davies, dtype=float)
+        finite = np.isfinite(db) & (db > 0.0)
+        if not np.any(finite):
+            return None
+        idx = int(np.argmin(db[finite]))
+        return int(np.asarray(self.epochs, dtype=int)[finite][idx])
+
+    @property
+    def selected_epoch(self) -> Optional[int]:
+        """
+        Época final seleccionada por compromiso estructural:
+          1) Restringe a épocas con val_recon <= min(val_recon) * (1 + 1%).
+          2) Dentro de ese subconjunto, maximiza score combinado de Silhouette↑ y DB↓.
+          3) En empate, elige la época más tardía.
+        """
+        if not self.epochs:
+            return None
+
+        epochs = np.asarray(self.epochs, dtype=int)
+        recon = np.asarray(self.val_recon, dtype=float)
+        sil = np.asarray(self.val_silhouette, dtype=float) if self.val_silhouette else np.full_like(recon, np.nan)
+        db = np.asarray(self.val_davies, dtype=float) if self.val_davies else np.full_like(recon, np.nan)
+
+        recon_ok = np.isfinite(recon) & (recon > 0.0)
+        if not np.any(recon_ok):
+            return self.best_epoch_val_recon or self.best_epoch
+
+        recon_tol = 0.01
+        recon_min = float(np.min(recon[recon_ok]))
+        candidates = recon_ok & (recon <= recon_min * (1.0 + recon_tol))
+        if not np.any(candidates):
+            return self.best_epoch_val_recon or self.best_epoch
+
+        scores = np.full(len(epochs), np.nan, dtype=float)
+        metric_count = 0
+
+        sil_ok = candidates & np.isfinite(sil)
+        if np.any(sil_ok):
+            sil_vals = sil[sil_ok]
+            sil_rng = float(np.max(sil_vals) - np.min(sil_vals))
+            sil_norm = (sil_vals - np.min(sil_vals)) / (sil_rng + 1e-12)
+            scores[sil_ok] = np.nan_to_num(scores[sil_ok], nan=0.0) + sil_norm
+            metric_count += 1
+
+        db_ok = candidates & np.isfinite(db) & (db > 0.0)
+        if np.any(db_ok):
+            db_vals = db[db_ok]
+            db_rng = float(np.max(db_vals) - np.min(db_vals))
+            db_norm = (np.max(db_vals) - db_vals) / (db_rng + 1e-12)
+            scores[db_ok] = np.nan_to_num(scores[db_ok], nan=0.0) + db_norm
+            metric_count += 1
+
+        if metric_count == 0:
+            return self.best_epoch_val_recon or self.best_epoch
+
+        valid_scores = candidates & np.isfinite(scores)
+        if not np.any(valid_scores):
+            return self.best_epoch_val_recon or self.best_epoch
+
+        best_score = float(np.max(scores[valid_scores]))
+        tied = np.where(valid_scores & (np.abs(scores - best_score) <= 1e-12))[0]
+        return int(epochs[tied[-1]]) if tied.size else (self.best_epoch_val_recon or self.best_epoch)
 
 
 # ─── Utilidades de suavizado ─────────────────────────────────────────────────────
@@ -92,6 +191,8 @@ class TrainingMetricsCollector:
 def _ema(values: list[float], alpha: float = 0.3) -> np.ndarray:
     """Exponential Moving Average de una serie."""
     arr = np.array(values, dtype=float)
+    if arr.size == 0:
+        return arr
     out = np.empty_like(arr)
     out[0] = arr[0]
     for i in range(1, len(arr)):
@@ -116,12 +217,27 @@ def _plot_with_ema(
     marker: str = "o",
 ) -> None:
     """Dibuja la curva cruda semitransparente + su EMA suavizada encima."""
-    ax.plot(x, y, color=color, linewidth=0.8, alpha=MUTED_ALPHA,
+    if not x or not y:
+        return
+
+    n = min(len(x), len(y))
+    x_arr = np.asarray(x[:n])
+    y_arr = np.asarray(y[:n], dtype=float)
+    finite_mask = np.isfinite(y_arr)
+    if not np.any(finite_mask):
+        return
+
+    x_plot = x_arr[finite_mask]
+    y_plot = y_arr[finite_mask]
+    if y_plot.size == 0:
+        return
+
+    ax.plot(x_plot, y_plot, color=color, linewidth=0.8, alpha=MUTED_ALPHA,
             linestyle=linestyle, marker=None)
-    smooth = _ema(y, alpha=alpha)
-    ax.plot(x, smooth, color=color, linewidth=2.2,
+    smooth = _ema(y_plot.tolist(), alpha=alpha)
+    ax.plot(x_plot, smooth, color=color, linewidth=2.2,
             linestyle=linestyle, label=label,
-            marker=marker, markersize=3, markevery=max(1, len(x) // 12))
+            marker=marker, markersize=3, markevery=max(1, len(x_plot) // 12))
 
 
 # ─── Helpers de estilo ───────────────────────────────────────────────────────────
@@ -222,8 +338,15 @@ def _panel_joint_losses(ax: plt.Axes, collector: TrainingMetricsCollector) -> No
     ax2.spines["bottom"].set_color(GRID_COLOR)
 
     # ── Anotaciones ────────────────────────────────────────────────────────
-    if j.best_epoch is not None:
-        _annotate_epoch(ax, j.best_epoch, f"Mejor ({j.best_epoch})", ACCENT_OBJ)
+    best_recon_epoch = j.best_epoch_val_recon
+    if best_recon_epoch is not None:
+        _annotate_epoch(ax, best_recon_epoch,
+                        f"Mejor Recon ({best_recon_epoch})", ACCENT_VAL)
+
+    selected_epoch = j.selected_epoch
+    if selected_epoch is not None:
+        _annotate_epoch(ax, selected_epoch,
+                        f"Seleccionada final ({selected_epoch})", ACCENT_SMOOTH, yrel=0.82)
 
     # ── Leyenda combinada ──────────────────────────────────────────────────
     lines1, labels1 = ax.get_legend_handles_labels()
@@ -290,8 +413,11 @@ def _panel_kl(
             _legend(ax)
 
         # Aviso tendencia alcista (esperado en DEC)
-        trend = np.polyfit(j.epochs, j.val_kl_raw, 1)[0]
-        if trend > 0:
+        epochs_arr = np.asarray(j.epochs, dtype=float)
+        val_kl_arr = np.asarray(j.val_kl_raw, dtype=float)
+        finite = np.isfinite(epochs_arr) & np.isfinite(val_kl_arr)
+        trend = np.polyfit(epochs_arr[finite], val_kl_arr[finite], 1)[0] if np.sum(finite) >= 2 else 0.0
+        if np.isfinite(trend) and trend > 0:
             ax.text(0.97, 0.08,
                     "↑ Val KL creciente\n(esperado en DEC)",
                     transform=ax.transAxes, fontsize=6.5,
@@ -313,34 +439,37 @@ def _panel_kl(
 
 def _panel_convergence(ax: plt.Axes, collector: TrainingMetricsCollector) -> None:
     """
-    Panel 4 — Convergencia:
-      · Curva model_obj cruda (semitransparente).
-      · EMA de model_obj (suavizada).
-      · Running minimum (mejor objetivo alcanzado hasta cada época).
+    Panel 4 — Calidad de clustering en validación:
+      · Silhouette (eje izq., mayor es mejor).
+      · Davies-Bouldin (eje der., menor es mejor).
     """
-    if len(collector.model_obj) < 2:
-        _blank_panel(ax, "Sin datos de\nentrenamiento conjunto",
-                     "Convergencia del Objetivo Monitoreado")
+    j = collector
+    has_sil = np.isfinite(np.asarray(j.val_silhouette, dtype=float)).any() if j.val_silhouette else False
+    has_db = np.isfinite(np.asarray(j.val_davies, dtype=float)).any() if j.val_davies else False
+    if not (has_sil or has_db):
+        _blank_panel(ax, "Sin métricas de\nclustering por época",
+                     "Calidad de Clustering (Val)")
         return
 
-    j = collector
-    obj_arr = np.array(j.model_obj)
+    if has_sil:
+        _plot_with_ema(ax, j.epochs, j.val_silhouette,
+                       ACCENT_VAL, "Silhouette (val)", marker="o")
 
-    # Cruda semitransparente
-    ax.plot(j.epochs, obj_arr, color=ACCENT_OBJ, linewidth=0.8,
-            alpha=MUTED_ALPHA, label=None)
+    _style_ax(ax,
+              "Calidad de Clustering en Validación\n(Silhouette vs Davies-Bouldin)",
+              ylabel="Silhouette (↑ mejor)")
 
-    # EMA suavizada
-    smooth = _ema(j.model_obj, alpha=0.3)
-    ax.plot(j.epochs, smooth, color=ACCENT_OBJ, linewidth=2,
-            linestyle="-", label="ValObj (EMA)",
-            marker="o", markersize=3, markevery=max(1, len(j.epochs) // 12))
-
-    # Running minimum — tendencia real de la mejor solución encontrada
-    run_min = _rolling_min(j.model_obj)
-    ax.fill_between(j.epochs, run_min, alpha=0.18, color=ACCENT_VAL)
-    ax.plot(j.epochs, run_min, color=ACCENT_VAL, linewidth=1.8,
-            linestyle="--", label="Mínimo acumulado")
+    ax2 = ax.twinx()
+    ax2.set_facecolor("none")
+    if has_db:
+        _plot_with_ema(ax2, j.epochs, j.val_davies,
+                       ACCENT_KL, "Davies-Bouldin (val)", marker="s", linestyle="--")
+    ax2.set_ylabel("Davies-Bouldin (↓ mejor)", color=ACCENT_KL, fontsize=8.5)
+    ax2.tick_params(colors=ACCENT_KL, labelsize=7.5)
+    ax2.spines["top"].set_visible(False)
+    ax2.spines["right"].set_color(GRID_COLOR)
+    ax2.spines["left"].set_color(GRID_COLOR)
+    ax2.spines["bottom"].set_color(GRID_COLOR)
 
     # Anotación early stopping
     if j.last_epoch is not None:
@@ -352,14 +481,23 @@ def _panel_convergence(ax: plt.Axes, collector: TrainingMetricsCollector) -> Non
                 f"Early Stop\n(ep. {j.last_epoch})",
                 color=ACCENT_KL, fontsize=6.5, ha="right", va="top")
 
-    # Anotación mejor época
-    if j.best_epoch is not None:
-        _annotate_epoch(ax, j.best_epoch,
-                        f"Mejor ({j.best_epoch})", ACCENT_OBJ, yrel=0.78)
+    if j.best_epoch_silhouette is not None:
+        _annotate_epoch(ax, j.best_epoch_silhouette,
+                        f"Mejor Sil ({j.best_epoch_silhouette})", ACCENT_VAL, yrel=0.85)
+    if j.best_epoch_davies is not None:
+        _annotate_epoch(ax, j.best_epoch_davies,
+                        f"Mejor DB ({j.best_epoch_davies})", ACCENT_KL, yrel=0.70)
 
-    _style_ax(ax, "Convergencia del Objetivo Monitoreado\n(ValObj + Mínimo Acumulado)",
-              ylabel="Objetivo (ValObj)")
-    _legend(ax)
+    selected_epoch = j.selected_epoch
+    if selected_epoch is not None:
+        _annotate_epoch(ax, selected_epoch,
+                        f"Seleccionada final ({selected_epoch})", ACCENT_SMOOTH, yrel=0.55)
+
+    lines1, labels1 = ax.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax.legend(lines1 + lines2, labels1 + labels2,
+              fontsize=7, framealpha=0.3,
+              facecolor=PANEL_BG, edgecolor=GRID_COLOR, labelcolor=TEXT_COLOR)
 
 
 # ─── API pública ─────────────────────────────────────────────────────────────────
@@ -375,7 +513,7 @@ def plot_training_evolution(
       1. Fase 1 — Pérdida de reconstrucción pretrain (train/val, con EMA).
       2. Fase 3 — Reconstrucción (eje izq.) vs Objetivo monitoreado (eje der., twinx).
       3. Fase 3 — Divergencia KL (con EMA + aviso si val KL sube).
-      4. Fase 3 — ValObj crudo + EMA + mínimo acumulado (convergencia real).
+            4. Fase 3 — Calidad de clustering en validación (Silhouette y Davies-Bouldin).
 
     Parameters
     ----------
@@ -419,14 +557,20 @@ def plot_training_evolution(
         for pos in [(0, 1), (1, 0), (1, 1)]:
             _blank_panel(fig.add_subplot(gs[pos]), "Sin datos de\nfase conjunta", "")
 
-    fig.savefig(save_path, dpi=150, bbox_inches="tight", facecolor=DARK_BG)
-    plt.close(fig)
+    tmp_save_path = save_path.with_name(f"{save_path.stem}.tmp{save_path.suffix}")
+    try:
+        fig.savefig(tmp_save_path, dpi=150, bbox_inches="tight", facecolor=DARK_BG)
+        tmp_save_path.replace(save_path)
+    finally:
+        plt.close(fig)
+        if tmp_save_path.exists():
+            tmp_save_path.unlink(missing_ok=True)
     logger.success(f"📊 Gráficas guardadas → {save_path}")
 
 
-# ─── UMAP / PCA de embeddings ─────────────────────────────────────────────────────────
+# ─── PCA de embeddings ─────────────────────────────────────────────────────────
 
-def plot_embeddings_umap(
+def plot_embeddings_pca(
     embeddings: np.ndarray,
     cluster_labels: np.ndarray,
     save_path: Path,
@@ -435,7 +579,7 @@ def plot_embeddings_umap(
 ) -> None:
     """
     Genera una figura 2-panel con la proyección 2D de los embeddings:
-      - Panel izq.: UMAP (o PCA si umap no está instalado).
+            - Panel izq.: PCA.
       - Panel der.: distribución de tamaños de cluster (barras).
 
     Parameters
@@ -454,20 +598,11 @@ def plot_embeddings_umap(
     save_path.parent.mkdir(parents=True, exist_ok=True)
 
     # ── Reducción de dimensionalidad ────────────────────────────────
-    method_label = "UMAP"
-    try:
-        import umap  # type: ignore
-        reducer = umap.UMAP(n_components=2, random_state=42, n_neighbors=15, min_dist=0.1)
-        coords = reducer.fit_transform(embeddings)
-        logger.info("   🌏 UMAP proyección completada")
-    except ImportError:
-        # Fallback: PCA rápida
-        from sklearn.decomposition import PCA
-        reducer = PCA(n_components=2, random_state=42)
-        coords = reducer.fit_transform(embeddings)
-        method_label = "PCA"
-        logger.warning("   ⚠️ umap-learn no disponible → usando PCA como fallback. "
-                       "Instala con: pip install umap-learn")
+    from sklearn.decomposition import PCA
+    method_label = "PCA"
+    reducer = PCA(n_components=2, random_state=42)
+    coords = reducer.fit_transform(embeddings)
+    logger.info("   📉 PCA proyección completada")
 
     # ── Paleta de colores ───────────────────────────────────────────
     palette = [
@@ -487,7 +622,7 @@ def plot_embeddings_umap(
         color=TEXT_COLOR, fontsize=13, fontweight="bold", y=0.98,
     )
 
-    # ── Panel izquierdo: scatter UMAP/PCA ─────────────────────────────
+    # ── Panel izquierdo: scatter PCA ─────────────────────────────
     ax_scatter = axes[0]
     ax_scatter.set_facecolor(PANEL_BG)
 
@@ -500,7 +635,7 @@ def plot_embeddings_umap(
             c=cluster_colors[k], label=f"Cluster {k} (n={mask.sum()})",
             s=8, alpha=0.65, edgecolors="none",
         )
-        # Centroide del cluster en el espacio UMAP
+        # Centroide del cluster en el espacio PCA
         cx, cy = coords[mask, 0].mean(), coords[mask, 1].mean()
         ax_scatter.text(
             cx, cy, str(k),
@@ -574,4 +709,21 @@ def plot_embeddings_umap(
     fig.tight_layout(rect=[0, 0.05, 1, 0.95])
     fig.savefig(save_path, dpi=150, bbox_inches="tight", facecolor=DARK_BG)
     plt.close(fig)
-    logger.success(f"🌏 Embeddings {method_label} guardados → {save_path}")
+    logger.success(f"📉 Embeddings {method_label} guardados → {save_path}")
+
+
+def plot_embeddings_umap(
+    embeddings: np.ndarray,
+    cluster_labels: np.ndarray,
+    save_path: Path,
+    n_clusters: int,
+    title_suffix: str = "",
+) -> None:
+    """Compatibilidad retroactiva: redirige a proyección PCA."""
+    plot_embeddings_pca(
+        embeddings=embeddings,
+        cluster_labels=cluster_labels,
+        save_path=save_path,
+        n_clusters=n_clusters,
+        title_suffix=title_suffix,
+    )

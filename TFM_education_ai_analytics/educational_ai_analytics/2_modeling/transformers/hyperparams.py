@@ -7,7 +7,7 @@ from typing import List, Optional
 @dataclass
 class TransformerHyperparams:
     # General
-    upto_week: int = 5
+    upto_week: int = 25
     with_static: bool = True
     use_clustering_features: bool =True
     accumulated_uptow: bool = True
@@ -43,17 +43,29 @@ class TransformerHyperparams:
     # Focal Loss
     focal_gamma: float = 2.5
 
+    # Binarización para num_classes == 2
+    # - "paper": Pass/Dist vs Withdrawn (excluye Fail)
+    # - "original": Pass/Dist vs Fail (excluye Withdrawn)
+    # - "success_vs_risk": Pass/Dist vs Fail/Withdrawn
+    binary_mode: str = "success_vs_risk"
 
-    num_classes: int = 2
+
+    num_classes: int = 4
     # [Peso Clase 0 (No Riesgo), Peso Clase 1 (Riesgo)] 
     # cuidadito añadir clases implica añadir elementos aqui
-    focal_alpha: List[float] = field(default_factory=lambda: [0.27, 0.73])
+    # PROBLEMA 2 CLASES: [0,1] -> [0.27, 0.73] [Pass , Withdraw]
+    # PROBLEMA 2 CLASES ALTERNATIVO (success_vs_risk): [0,1] -> [0.46, 0.54] [Pass/Distinction vs Fail/Withdraw]
+    # PROBLEMA 3 CLASES: [0,1,2] -> [0.43, 0.37, 0.2] [Fail, Withdraw, Pass]
+    # PROBLEMA 4 CLASES: [0,1,2,3] -> [0.27, 0.35, 0.15, 0.23] [Fail, Withdraw, Pass, Distinction]
+    # focal_alpha: List[float] = field(default_factory=lambda: [0.35, 0.35, 0.2, 0.1])
+    focal_alpha: List[float] = field(default_factory=lambda:  [0.27, 0.35, 0.15, 0.23])
 
     def save_experiment(
         self,
         save_dir: Path,
         upto_week: int,
         paper_baseline: bool,
+        binary_mode: Optional[str],
         val_loss: float,
         val_acc: float,
         val_balanced_acc: float,
@@ -61,6 +73,13 @@ class TransformerHyperparams:
         val_precision: Optional[float] = None,
         val_recall: Optional[float] = None,
         val_f1: Optional[float] = None,
+        val_precision_macro: Optional[float] = None,
+        val_recall_macro: Optional[float] = None,
+        val_f1_macro: Optional[float] = None,
+        val_precision_weighted: Optional[float] = None,
+        val_recall_weighted: Optional[float] = None,
+        val_f1_weighted: Optional[float] = None,
+        val_top2_acc: Optional[float] = None,
         test_loss: Optional[float] = None,
         test_acc: Optional[float] = None,
         test_balanced_acc: Optional[float] = None,
@@ -68,12 +87,23 @@ class TransformerHyperparams:
         test_precision: Optional[float] = None,
         test_recall: Optional[float] = None,
         test_f1: Optional[float] = None,
+        test_precision_macro: Optional[float] = None,
+        test_recall_macro: Optional[float] = None,
+        test_f1_macro: Optional[float] = None,
+        test_precision_weighted: Optional[float] = None,
+        test_recall_weighted: Optional[float] = None,
+        test_f1_weighted: Optional[float] = None,
+        test_top2_acc: Optional[float] = None,
         history_filename: Optional[str] = None
     ):
         if history_filename:
             history_path = save_dir / history_filename
         else:
-            history_path = save_dir / f"experiments_history_{self.num_classes}clases.json"
+            if self.num_classes == 2:
+                mode = str(binary_mode).strip().lower() if binary_mode else ("paper" if paper_baseline else "original")
+                history_path = save_dir / f"experiments_history_{self.num_classes}clases_{mode}.json"
+            else:
+                history_path = save_dir / f"experiments_history_{self.num_classes}clases.json"
         
         results_payload = {
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -81,6 +111,7 @@ class TransformerHyperparams:
                 "upto_week": upto_week,
                 "num_classes": self.num_classes,
                 "paper_baseline": paper_baseline,
+                "binary_mode": binary_mode,
                 "batch_size": self.batch_size,
                 "epochs": self.epochs,
                 "with_static": self.with_static,
@@ -113,6 +144,13 @@ class TransformerHyperparams:
         if val_precision is not None: results_payload["validation_metrics"]["precision"] = float(val_precision)
         if val_recall is not None: results_payload["validation_metrics"]["recall"] = float(val_recall)
         if val_f1 is not None: results_payload["validation_metrics"]["f1_score"] = float(val_f1)
+        if val_precision_macro is not None: results_payload["validation_metrics"]["precision_macro"] = float(val_precision_macro)
+        if val_recall_macro is not None: results_payload["validation_metrics"]["recall_macro"] = float(val_recall_macro)
+        if val_f1_macro is not None: results_payload["validation_metrics"]["f1_macro"] = float(val_f1_macro)
+        if val_precision_weighted is not None: results_payload["validation_metrics"]["precision_weighted"] = float(val_precision_weighted)
+        if val_recall_weighted is not None: results_payload["validation_metrics"]["recall_weighted"] = float(val_recall_weighted)
+        if val_f1_weighted is not None: results_payload["validation_metrics"]["f1_weighted"] = float(val_f1_weighted)
+        if val_top2_acc is not None: results_payload["validation_metrics"]["top_2_acc"] = float(val_top2_acc)
         
         if test_loss is not None:
             results_payload["test_metrics"] = {
@@ -124,6 +162,13 @@ class TransformerHyperparams:
             if test_precision is not None: results_payload["test_metrics"]["precision"] = float(test_precision)
             if test_recall is not None: results_payload["test_metrics"]["recall"] = float(test_recall)
             if test_f1 is not None: results_payload["test_metrics"]["f1_score"] = float(test_f1)
+            if test_precision_macro is not None: results_payload["test_metrics"]["precision_macro"] = float(test_precision_macro)
+            if test_recall_macro is not None: results_payload["test_metrics"]["recall_macro"] = float(test_recall_macro)
+            if test_f1_macro is not None: results_payload["test_metrics"]["f1_macro"] = float(test_f1_macro)
+            if test_precision_weighted is not None: results_payload["test_metrics"]["precision_weighted"] = float(test_precision_weighted)
+            if test_recall_weighted is not None: results_payload["test_metrics"]["recall_weighted"] = float(test_recall_weighted)
+            if test_f1_weighted is not None: results_payload["test_metrics"]["f1_weighted"] = float(test_f1_weighted)
+            if test_top2_acc is not None: results_payload["test_metrics"]["top_2_acc"] = float(test_top2_acc)
             
         if history_path.exists():
             with open(history_path, "r", encoding="utf-8") as f:

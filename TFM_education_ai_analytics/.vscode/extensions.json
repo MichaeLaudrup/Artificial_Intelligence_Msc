@@ -1,0 +1,16 @@
+{
+  "recommendations": [
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "ms-toolsai.jupyter",
+    "charliermarsh.ruff",
+    "ms-azuretools.vscode-docker",
+    "tamasfe.even-better-toml",
+    "eamodio.gitlens",
+    "mechatroner.rainbow-csv",
+    "yzhang.markdown-all-in-one",
+    "njpwerner.autodocstring",
+    "christian-kohler.path-intellisense",
+    "esbenp.prettier-vscode"
+  ]
+}

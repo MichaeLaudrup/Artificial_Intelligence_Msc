@@ -1,0 +1,77 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "🐳 GPU Container: Start & Prepare",
+      "type": "shell",
+      "command": "docker-compose up -d && echo '✅ Container running.' && echo '🔧 Starting symlink watcher (Antigravity v1.16.5 workaround)...' && docker exec -d tfm_education_ai_analytics-tfm-gpu-1 bash -c 'SERVER_DIR=\"$HOME/.antigravity-server/bin\"; mkdir -p \"$SERVER_DIR\"; for i in $(seq 1 1200); do for dir in \"$SERVER_DIR\"/*-*; do if [ -d \"$dir\" ]; then commit=\"${dir##*-}\"; [ ! -e \"$SERVER_DIR/$commit\" ] && ln -s \"$dir\" \"$SERVER_DIR/$commit\" 2>/dev/null && echo \"Symlink created for $commit\"; fi; done; sleep 0.1; done' && echo '🔗 Ready! Use Ctrl+Shift+P → Dev Containers: Attach to Running Container'",
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "shell": {
+          "executable": "C:\\Program Files\\Git\\bin\\bash.exe",
+          "args": ["-c"]
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true
+      },
+      "problemMatcher": [],
+      "group": "build"
+    },
+    {
+      "label": "🛑 GPU Container: Stop",
+      "type": "shell",
+      "command": "docker-compose down",
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "shell": {
+          "executable": "C:\\Program Files\\Git\\bin\\bash.exe",
+          "args": ["-c"]
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "🔄 GPU Container: Rebuild",
+      "type": "shell",
+      "command": "docker-compose down --rmi all && docker-compose build --no-cache && docker-compose up -d && echo '✅ Rebuilt!' && echo '🔧 Starting symlink watcher...' && docker exec -d tfm_education_ai_analytics-tfm-gpu-1 bash -c 'SERVER_DIR=\"$HOME/.antigravity-server/bin\"; mkdir -p \"$SERVER_DIR\"; for i in $(seq 1 1200); do for dir in \"$SERVER_DIR\"/*-*; do if [ -d \"$dir\" ]; then commit=\"${dir##*-}\"; [ ! -e \"$SERVER_DIR/$commit\" ] && ln -s \"$dir\" \"$SERVER_DIR/$commit\" 2>/dev/null && echo \"Symlink created for $commit\"; fi; done; sleep 0.1; done' && echo '🔗 Ready! Use Ctrl+Shift+P → Dev Containers: Attach to Running Container'",
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "shell": {
+          "executable": "C:\\Program Files\\Git\\bin\\bash.exe",
+          "args": ["-c"]
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true
+      },
+      "problemMatcher": [],
+      "group": "build"
+    },
+    {
+      "label": "📊 GPU Container: Status",
+      "type": "shell",
+      "command": "docker-compose ps && echo '---' && docker exec tfm_education_ai_analytics-tfm-gpu-1 nvidia-smi 2>/dev/null || echo '⚠️ Container not running'",
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "shell": {
+          "executable": "C:\\Program Files\\Git\\bin\\bash.exe",
+          "args": ["-c"]
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

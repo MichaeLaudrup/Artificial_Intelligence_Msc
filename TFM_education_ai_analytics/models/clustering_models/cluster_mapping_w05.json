@@ -1,42 +1,42 @@
 {
-  "3": {
+  "2": {
     "label": "CRITICAL_RISK_INACTIVE",
     "name": "Riesgo crítico (inactivos)",
     "rank_worst_to_best": 0,
-    "n": 3882,
-    "withdrawn_pct": 81.78773827923752,
-    "success_pct": 3.786707882534776
+    "n": 3875,
+    "withdrawn_pct": 81.78064516129032,
+    "success_pct": 3.7677419354838713
   },
-  "4": {
+  "1": {
     "label": "STANDARD_PROFILE",
     "name": "Perfil intermedio A",
     "rank_worst_to_best": 1,
-    "n": 2784,
-    "withdrawn_pct": 60.63218390804598,
-    "success_pct": 9.339080459770114
+    "n": 2747,
+    "withdrawn_pct": 60.68438296323262,
+    "success_pct": 8.66399708773207
   },
   "0": {
     "label": "METHODICAL_EXPLORER",
     "name": "Perfil intermedio B",
     "rank_worst_to_best": 2,
-    "n": 4474,
-    "withdrawn_pct": 22.954850245864996,
-    "success_pct": 43.56280733124721
+    "n": 5470,
+    "withdrawn_pct": 23.729433272394882,
+    "success_pct": 45.265082266910426
   },
-  "1": {
+  "3": {
     "label": "CONSISTENT_GOOD",
     "name": "Perfil intermedio C",
     "rank_worst_to_best": 3,
-    "n": 12944,
-    "withdrawn_pct": 17.04264524103832,
-    "success_pct": 64.77132262051916
+    "n": 3200,
+    "withdrawn_pct": 20.34375,
+    "success_pct": 52.0625
   },
-  "2": {
+  "4": {
     "label": "STRATEGIC_HIGH_PERFORMER",
     "name": "Alto rendimiento (estratégico)",
     "rank_worst_to_best": 4,
-    "n": 3590,
-    "withdrawn_pct": 15.264623955431755,
-    "success_pct": 63.816155988857936
+    "n": 12382,
+    "withdrawn_pct": 15.01372960749475,
+    "success_pct": 68.6884186722662
   }
 }

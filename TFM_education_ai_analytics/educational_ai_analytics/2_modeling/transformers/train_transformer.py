@@ -11,7 +11,7 @@ from dataclasses import asdict
 from loguru import logger
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.metrics import roc_auc_score, classification_report, balanced_accuracy_score, confusion_matrix, precision_score, recall_score, f1_score
+from sklearn.metrics import roc_auc_score, classification_report, balanced_accuracy_score, confusion_matrix, precision_score, recall_score, f1_score, roc_curve, auc, precision_recall_curve, average_precision_score
 from typing import Optional
 import copy
 
@@ -145,7 +145,7 @@ def load_and_prepare_split(
         binary_mode,
     )
     
-    return X_seq, mask_pad, mask_activity, X_static, y, cluster_feature_dim, static_feature_names, static_feature_sources
+    return X_seq, mask_pad, mask_activity, X_static, y, ids, cluster_feature_dim, static_feature_names, static_feature_sources
 
 
 
@@ -179,12 +179,12 @@ def train(
     early_stopping_patience: Optional[int] = typer.Option(None, help="Override early_stopping_patience"),
     seed: Optional[int] = typer.Option(None, help="Random seed para reproducibilidad (numpy/tensorflow)"),
     tune_threshold: bool = typer.Option(False, help="Afinar umbral binario en validación con restricciones de accuracy/precision"),
-    threshold_acc_min: float = typer.Option(0.80, help="Accuracy mínima para umbral binario"),
-    threshold_prec_min: float = typer.Option(0.67, help="Precision mínima para umbral binario"),
-    threshold_objective: str = typer.Option("recall", help="Objetivo de tuning de umbral: recall|f1|balanced_accuracy"),
-    threshold_min: float = typer.Option(0.20, help="Umbral mínimo a explorar"),
-    threshold_max: float = typer.Option(0.80, help="Umbral máximo a explorar"),
-    threshold_points: int = typer.Option(301, help="Número de puntos en la rejilla de umbrales"),
+    threshold_acc_min: float = typer.Option(0.70, help="Accuracy mínima para umbral binario (relajar para dar margen al recall)"),
+    threshold_prec_min: float = typer.Option(0.55, help="Precision mínima para umbral binario (relajar para explorar thresholds bajos)"),
+    threshold_objective: str = typer.Option("balanced_accuracy", help="Objetivo de tuning de umbral: recall|f1|balanced_accuracy"),
+    threshold_min: float = typer.Option(0.15, help="Umbral mínimo a explorar"),
+    threshold_max: float = typer.Option(0.75, help="Umbral máximo a explorar"),
+    threshold_points: int = typer.Option(601, help="Número de puntos en la rejilla de umbrales (mayor granularidad)"),
     threshold_fallback: float = typer.Option(0.50, help="Umbral por defecto si no hay candidatos factibles"),
     run_compare: bool = typer.Option(True, help="Ejecutar compare_experiments al finalizar"),
     config_json: Optional[Path] = typer.Option(None, help="Ruta a JSON con TrainingConfig para inyección externa"),
@@ -245,10 +245,10 @@ def train(
     
     logger.info(f"Cargando datos pre-normalizados desde: {base_npz}")
     
-    X_train_seq, train_mask_pad, train_mask_activity, X_train_stat, y_train, train_cluster_dim, train_static_names, train_static_sources = load_and_prepare_split(base_npz, "training", cfg.upto_week, cfg.num_classes, cfg.paper_baseline, cfg.with_static, cfg.binary_mode)
-    X_val_seq, val_mask_pad, val_mask_activity, X_val_stat, y_val, val_cluster_dim, val_static_names, val_static_sources = load_and_prepare_split(base_npz, "validation", cfg.upto_week, cfg.num_classes, cfg.paper_baseline, cfg.with_static, cfg.binary_mode)
+    X_train_seq, train_mask_pad, train_mask_activity, X_train_stat, y_train, ids_train, train_cluster_dim, train_static_names, train_static_sources = load_and_prepare_split(base_npz, "training", cfg.upto_week, cfg.num_classes, cfg.paper_baseline, cfg.with_static, cfg.binary_mode)
+    X_val_seq, val_mask_pad, val_mask_activity, X_val_stat, y_val, ids_val, val_cluster_dim, val_static_names, val_static_sources = load_and_prepare_split(base_npz, "validation", cfg.upto_week, cfg.num_classes, cfg.paper_baseline, cfg.with_static, cfg.binary_mode)
     if cfg.eval_test:
-        X_test_seq, test_mask_pad, test_mask_activity, X_test_stat, y_test, test_cluster_dim, test_static_names, test_static_sources = load_and_prepare_split(base_npz, "test", cfg.upto_week, cfg.num_classes, cfg.paper_baseline, cfg.with_static, cfg.binary_mode)
+        X_test_seq, test_mask_pad, test_mask_activity, X_test_stat, y_test, ids_test, test_cluster_dim, test_static_names, test_static_sources = load_and_prepare_split(base_npz, "test", cfg.upto_week, cfg.num_classes, cfg.paper_baseline, cfg.with_static, cfg.binary_mode)
 
     use_static_in_model = cfg.with_static
 
@@ -718,11 +718,13 @@ def train(
         plt.savefig(plot_path, dpi=300, bbox_inches='tight')
         logger.info(f"✅ Gráfico guardado en: {plot_path}")
 
-        fig_diag, ax_diag = plt.subplots(1, 2, figsize=(16, 6))
+        fig_diag, ax_diag = plt.subplots(2, 2, figsize=(16, 12))
+        ax_diag = ax_diag.flatten()
         fig_diag.suptitle(
             f"Diagnóstico Validación (Ventana: {cfg.upto_week} | Clases: {cfg.num_classes}{mode_suffix})",
-            fontsize=14,
+            fontsize=16,
             fontweight='bold',
+            y=0.98
         )
 
         cm_norm = confusion_matrix(y_val, y_pred, normalize='true')
@@ -736,7 +738,7 @@ def train(
             vmin=0.0,
             vmax=1.0,
         )
-        ax_diag[0].set_title('Matriz de Confusión Normalizada (VAL)')
+        ax_diag[0].set_title('Matriz de Confusión Normalizada (VAL)', pad=10)
         ax_diag[0].set_xlabel('Predicción')
         ax_diag[0].set_ylabel('Clase real')
 
@@ -746,23 +748,84 @@ def train(
             ax_diag[1].hist(pos_scores[y_val == 1], bins=30, alpha=0.6, label='Real clase 1', density=True)
             thr = float(selected_threshold) if selected_threshold is not None else 0.5
             ax_diag[1].axvline(thr, color='white', linestyle='--', alpha=0.8, label=f'Threshold={thr:.2f}')
-            ax_diag[1].set_title('Distribución de Probabilidad Clase Positiva (VAL)')
+            ax_diag[1].set_title('Distribución de Probabilidad Clase Positiva (VAL)', pad=10)
             ax_diag[1].set_xlabel('p(clase positiva)')
             ax_diag[1].set_ylabel('Densidad')
             ax_diag[1].legend()
             ax_diag[1].grid(True, linestyle='--', alpha=0.25)
+
+            # ROC Curve
+            fpr, tpr, _ = roc_curve(y_val, pos_scores)
+            roc_auc = auc(fpr, tpr)
+            ax_diag[2].plot(fpr, tpr, color='#00d2ff', lw=2, label=f'ROC curve (AUC = {roc_auc:.3f})')
+            ax_diag[2].plot([0, 1], [0, 1], color='white', lw=1, linestyle='--')
+            ax_diag[2].set_xlim([0.0, 1.0])
+            ax_diag[2].set_ylim([0.0, 1.05])
+            ax_diag[2].set_xlabel('False Positive Rate')
+            ax_diag[2].set_ylabel('True Positive Rate')
+            ax_diag[2].set_title('Receiver Operating Characteristic (ROC)', pad=10)
+            ax_diag[2].legend(loc="lower right")
+            ax_diag[2].grid(True, linestyle='--', alpha=0.25)
+
+            # Precision-Recall Curve
+            precision_vals, recall_vals, _ = precision_recall_curve(y_val, pos_scores)
+            ap = average_precision_score(y_val, pos_scores)
+            ax_diag[3].plot(recall_vals, precision_vals, color='#ff007f', lw=2, label=f'PR curve (AP = {ap:.3f})')
+            baseline = np.sum(y_val == 1) / len(y_val)
+            ax_diag[3].plot([0, 1], [baseline, baseline], color='white', lw=1, linestyle='--', label=f'Baseline ({baseline:.3f})')
+            ax_diag[3].set_xlim([0.0, 1.0])
+            ax_diag[3].set_ylim([0.0, 1.05])
+            ax_diag[3].set_xlabel('Recall')
+            ax_diag[3].set_ylabel('Precision')
+            ax_diag[3].set_title('Precision-Recall Curve', pad=10)
+            ax_diag[3].legend(loc="lower left")
+            ax_diag[3].grid(True, linestyle='--', alpha=0.25)
+            
         else:
             conf_max = np.max(y_probs, axis=1)
             is_ok = (y_pred == y_val)
             ax_diag[1].hist(conf_max[is_ok], bins=30, alpha=0.6, label='Predicciones correctas', density=True)
             ax_diag[1].hist(conf_max[~is_ok], bins=30, alpha=0.6, label='Predicciones erróneas', density=True)
-            ax_diag[1].set_title('Confianza Máxima en Predicción (VAL)')
+            ax_diag[1].set_title('Confianza Máxima en Predicción (VAL)', pad=10)
             ax_diag[1].set_xlabel('max softmax')
             ax_diag[1].set_ylabel('Densidad')
             ax_diag[1].legend()
             ax_diag[1].grid(True, linestyle='--', alpha=0.25)
 
-        plt.tight_layout(rect=[0, 0, 1, 0.95])
+            # Multiclass ROC OvR
+            from sklearn.preprocessing import label_binarize
+            classes = np.unique(y_val)
+            Y_test_bin = label_binarize(y_val, classes=classes)
+            for i, color in zip(range(cfg.num_classes), sns.color_palette("husl", cfg.num_classes)):
+                fpr, tpr, _ = roc_curve(Y_test_bin[:, i], y_probs[:, i])
+                roc_auc = auc(fpr, tpr)
+                ax_diag[2].plot(fpr, tpr, color=color, lw=2, label=f'Class {i} (AUC = {roc_auc:.2f})')
+            ax_diag[2].plot([0, 1], [0, 1], color='white', lw=1, linestyle='--')
+            ax_diag[2].set_xlim([0.0, 1.0])
+            ax_diag[2].set_ylim([0.0, 1.05])
+            ax_diag[2].set_xlabel('False Positive Rate')
+            ax_diag[2].set_ylabel('True Positive Rate')
+            ax_diag[2].set_title('ROC Curve (One-vs-Rest)', pad=10)
+            ax_diag[2].legend(loc="lower right")
+            ax_diag[2].grid(True, linestyle='--', alpha=0.25)
+
+            # Class-wise Bar Plot (Recall & Precision)
+            precisions = precision_score(y_val, y_pred, average=None)
+            recalls = recall_score(y_val, y_pred, average=None)
+            x = np.arange(cfg.num_classes)
+            width = 0.35
+            ax_diag[3].bar(x - width/2, precisions, width, label='Precision', color='#00d2ff', alpha=0.8)
+            ax_diag[3].bar(x + width/2, recalls, width, label='Recall', color='#ff007f', alpha=0.8)
+            ax_diag[3].set_ylabel('Score')
+            ax_diag[3].set_title('Precision and Recall per Class', pad=10)
+            ax_diag[3].set_xticks(x)
+            ax_diag[3].set_xticklabels([f"Clase {i}" for i in range(cfg.num_classes)])
+            ax_diag[3].set_ylim(0, 1.05)
+            ax_diag[3].legend()
+            ax_diag[3].grid(True, axis='y', linestyle='--', alpha=0.25)
+
+        sns.despine(fig_diag)
+        plt.tight_layout(rect=[0, 0, 1, 0.96])
         diag_path = save_dir / f"diagnostics_val_uptoW{cfg.upto_week}_{target_tag}.png"
         plt.savefig(diag_path, dpi=300, bbox_inches='tight')
         logger.info(f"✅ Diagnóstico VAL guardado en: {diag_path}")
@@ -773,6 +836,27 @@ def train(
         model_path = model_dir / f"transformer_uptoW{cfg.upto_week}_{target_tag}.keras"
         model.save(model_path)
         logger.info(f"✅ Modelo final guardado en: {model_path}")
+
+        # Análisis de Errores: Guardar CSV con los peores casos
+        import pandas as pd
+        if cfg.num_classes == 2:
+            p_true = np.where(y_val == 1, pos_scores, 1.0 - pos_scores)
+            confidence = pos_scores
+        else:
+            p_true = y_probs[np.arange(len(y_val)), y_val]
+            confidence = np.max(y_probs, axis=1)
+
+        error_df = pd.DataFrame({
+            "student_id": ids_val,
+            "true_class": y_val,
+            "pred_class": y_pred,
+            "p_true_class": p_true,
+            "confidence_in_pred": confidence
+        })
+        error_df = error_df.sort_values(by="p_true_class", ascending=True)
+        error_csv_path = save_dir / f"hardest_val_examples_uptoW{cfg.upto_week}_{target_tag}.csv"
+        error_df.to_csv(error_csv_path, index=False)
+        logger.info(f"✅ CSV de análisis de errores guardado en: {error_csv_path}")
     
 
     # Guardar métricas y configuración en historial via hyperparams

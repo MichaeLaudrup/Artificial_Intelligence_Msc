@@ -7,9 +7,9 @@ from typing import List, Optional
 @dataclass
 class TransformerHyperparams:
     # General
-    upto_week: int = 25
+    upto_week: int = 5
     with_static: bool = True
-    use_clustering_features: bool =True
+    use_clustering_features: bool = True
     accumulated_uptow: bool = True
     batch_size: int = 64
     epochs: int = 80
@@ -47,10 +47,10 @@ class TransformerHyperparams:
     # - "paper": Pass/Dist vs Withdrawn (excluye Fail)
     # - "original": Pass/Dist vs Fail (excluye Withdrawn)
     # - "success_vs_risk": Pass/Dist vs Fail/Withdrawn
-    binary_mode: str = "success_vs_risk"
+    binary_mode: str = "paper"
 
 
-    num_classes: int = 4
+    num_classes: int = 2
     # [Peso Clase 0 (No Riesgo), Peso Clase 1 (Riesgo)] 
     # cuidadito añadir clases implica añadir elementos aqui
     # PROBLEMA 2 CLASES: [0,1] -> [0.27, 0.73] [Pass , Withdraw]
@@ -58,7 +58,7 @@ class TransformerHyperparams:
     # PROBLEMA 3 CLASES: [0,1,2] -> [0.43, 0.37, 0.2] [Fail, Withdraw, Pass]
     # PROBLEMA 4 CLASES: [0,1,2,3] -> [0.27, 0.35, 0.15, 0.23] [Fail, Withdraw, Pass, Distinction]
     # focal_alpha: List[float] = field(default_factory=lambda: [0.35, 0.35, 0.2, 0.1])
-    focal_alpha: List[float] = field(default_factory=lambda:  [0.27, 0.35, 0.15, 0.23])
+    focal_alpha: List[float] = field(default_factory=lambda:  [0.27, 0.73])
 
     def save_experiment(
         self,

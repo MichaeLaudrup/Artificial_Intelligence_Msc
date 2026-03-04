@@ -245,6 +245,10 @@ def main(
     loss_kl = tf.keras.losses.KLDivergence()
 
     best_obj = float("inf")
+    
+    # Rutas para checkpoints por época
+    checkpoint_dir = AE_MODELS_DIR / "checkpoints"
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
     best_path = AE_MODELS_DIR / "ae_best_global.keras"
     last_path = AE_MODELS_DIR / "ae_last_global.keras"
 
@@ -497,11 +501,16 @@ def main(
         monitor_val = val_r   # val_recon como criterio de parada
         in_warmup   = (epoch + 1) <= early_stop_start_epoch
 
+        # Siempre guardamos el checkpoint de la época actual si mejora el val_recon 
+        # para evitar llenar el disco, pero guardamos el history completo
+        ckpt_path = checkpoint_dir / f"ae_epoch_{epoch+1:02d}.keras"
+        model.save(ckpt_path)
+
+        # Mantenemos val_recon como monitor estricto del Early Stopping (para evitar colapso)
         if save_best and monitor_val < best_obj:
             best_obj = monitor_val
             patience_counter = 0
-            model.save(best_path)
-            logger.info(f"   💾 Guardado BEST | val_recon: {best_obj:.6f} → {best_path.name}")
+            logger.info(f"   💾 Nuevo mínimo de val_recon: {best_obj:.6f} (Epoch {epoch+1})")
         elif not in_warmup:  # solo penalizar paciencia fuera del warmup
             patience_counter += 1
             if patience_counter >= patience_limit:
@@ -514,7 +523,28 @@ def main(
             logger.debug(f"   ⏳ En warmup (epoch {epoch+1}/{early_stop_start_epoch}) — paciencia suspendida")
 
     model.save(last_path)
-    logger.success(f"✨ DCN completado. BEST: {best_path} | LAST: {last_path}")
+    logger.success(f"✨ Entrenamiento terminado. Procediendo a seleccionar el mejor modelo...")
+
+    # --- Selección Híbrida del Mejor Modelo (sincronizada con la gráfica) ---
+    final_selected_epoch = metrics.selected_epoch
+    if final_selected_epoch is not None:
+        target_ckpt = checkpoint_dir / f"ae_epoch_{final_selected_epoch:02d}.keras"
+        if target_ckpt.exists():
+            import shutil
+            shutil.copy(target_ckpt, best_path)
+            logger.success(f"🏆 Modelo Final Seleccionado: Época {final_selected_epoch} -> {best_path.name}")
+            logger.info(f"   Razonamiento: seleccion_híbrida (val_recon dentro del 1% del mínimo + maximiza Silhouette/DB).")
+        else:
+            logger.warning(f"⚠️ Checkpoint para época {final_selected_epoch} no encontrado. Se mantendrá el último como fallback.")
+    else:
+        logger.warning(f"⚠️ No se pudo determinar selected_epoch (falta de datos).")
+
+    # Limpieza de checkpoints intermedios
+    logger.info("🧹 Limpiando checkpoints temporales...")
+    import shutil
+    shutil.rmtree(checkpoint_dir, ignore_errors=True)
+    
+    logger.success(f"✨ DCN completado. BEST: {best_path.name} | LAST: {last_path.name}")
 
     # -----------------------
     # 5) Save training plots

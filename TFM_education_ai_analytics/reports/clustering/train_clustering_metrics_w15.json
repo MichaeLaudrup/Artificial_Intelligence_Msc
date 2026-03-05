@@ -51,24 +51,24 @@
     "n_students": 27674,
     "latent_dim": 16,
     "k": 5,
-    "bic": 834070.7070089814,
-    "aic": 832721.2742347717,
-    "log_likelihood_mean": -15.039265632629395,
-    "confidence_mean": 0.9455313086509705,
-    "confidence_median": 0.9984390735626221,
+    "bic": 821855.8638540742,
+    "aic": 820506.4310798645,
+    "log_likelihood_mean": -14.818573951721191,
+    "confidence_mean": 0.9636180996894836,
+    "confidence_median": 0.9997978210449219,
     "doubtful_threshold": 0.6,
-    "doubtful_pct": 0.0315097203150972,
+    "doubtful_pct": 0.022656645226566453,
     "cluster_sizes": {
-      "0": 3281,
-      "1": 8131,
-      "2": 10227,
-      "3": 2476,
-      "4": 3559
+      "0": 5667,
+      "1": 12457,
+      "2": 3338,
+      "3": 3550,
+      "4": 2662
     },
-    "min_cluster_pct": 0.08947026089470261,
-    "silhouette": 0.1736387461423874,
-    "calinski_harabasz": 8911.56772990375,
-    "davies_bouldin": 1.8187477473568556,
+    "min_cluster_pct": 0.09619137096191371,
+    "silhouette": 0.19741696119308472,
+    "calinski_harabasz": 6023.160137128425,
+    "davies_bouldin": 1.6031666817280859,
     "window": 15,
     "splits": [
       "training",
@@ -78,43 +78,43 @@
     "cluster_outcome_stats_train": [
       {
         "cluster_id": 0,
-        "n": 3281,
-        "withdrawn_rate": 0.598902773544651,
-        "success_rate": 0.04846083511124657,
-        "withdrawn_pct": 59.890277354465105,
-        "success_pct": 4.8460835111246565
+        "n": 5667,
+        "withdrawn_rate": 0.47432503970354684,
+        "success_rate": 0.15704958531851068,
+        "withdrawn_pct": 47.43250397035468,
+        "success_pct": 15.704958531851068
       },
       {
         "cluster_id": 1,
-        "n": 8131,
-        "withdrawn_rate": 0.07662034190136514,
-        "success_rate": 0.8265895953757225,
-        "withdrawn_pct": 7.662034190136515,
-        "success_pct": 82.65895953757226
+        "n": 12457,
+        "withdrawn_rate": 0.15854539616280003,
+        "success_rate": 0.6531267560407803,
+        "withdrawn_pct": 15.854539616280002,
+        "success_pct": 65.31267560407802
       },
       {
         "cluster_id": 2,
-        "n": 10227,
-        "withdrawn_rate": 0.23418402268504937,
-        "success_rate": 0.4883152439620612,
-        "withdrawn_pct": 23.418402268504938,
-        "success_pct": 48.83152439620612
+        "n": 3338,
+        "withdrawn_rate": 0.17225883762732175,
+        "success_rate": 0.6144397843019772,
+        "withdrawn_pct": 17.225883762732174,
+        "success_pct": 61.443978430197724
       },
       {
         "cluster_id": 3,
-        "n": 2476,
-        "withdrawn_rate": 0.2245557350565428,
-        "success_rate": 0.45920840064620355,
-        "withdrawn_pct": 22.45557350565428,
-        "success_pct": 45.92084006462036
+        "n": 3550,
+        "withdrawn_rate": 0.8749295774647887,
+        "success_rate": 0.004507042253521127,
+        "withdrawn_pct": 87.49295774647888,
+        "success_pct": 0.4507042253521127
       },
       {
         "cluster_id": 4,
-        "n": 3559,
-        "withdrawn_rate": 0.8724360775498735,
-        "success_rate": 0.005619556055071649,
-        "withdrawn_pct": 87.24360775498735,
-        "success_pct": 0.561955605507165
+        "n": 2662,
+        "withdrawn_rate": 0.11269722013523667,
+        "success_rate": 0.7280240420736288,
+        "withdrawn_pct": 11.269722013523667,
+        "success_pct": 72.80240420736288
       }
     ]
   }

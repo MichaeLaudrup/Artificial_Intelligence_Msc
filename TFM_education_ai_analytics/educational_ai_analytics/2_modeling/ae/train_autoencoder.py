@@ -1,10 +1,19 @@
 import os
+import sys
 import warnings
 
 # Silence Protobuf and TF warnings
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+os.environ["TF_USE_LEGACY_KERAS"] = "1"  # Fix RTX 5080 JIT compilation bugs
+os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
+os.environ["TF_XLA_FLAGS"] = "--tf_xla_auto_jit=0"
+os.environ["CUDA_CACHE_DISABLE"] = "1"
 warnings.filterwarnings("ignore", category=UserWarning, module="google.protobuf")
 warnings.filterwarnings("ignore", category=UserWarning, module="tensorflow")
+
+# Render a single in-place progress bar only when stdout/stderr are true TTYs.
+IS_TTY = sys.stdout.isatty() and sys.stderr.isatty()
 
 import numpy as np
 import pandas as pd
@@ -37,6 +46,8 @@ def _set_seed(seed: int = 42):
 
 
 def _configure_gpu():
+    # Force-disable XLA JIT to avoid noisy PTX feature warnings in training logs.
+    tf.config.optimizer.set_jit(False)
     gpus = tf.config.list_physical_devices("GPU")
     if gpus:
         try:
@@ -118,7 +129,7 @@ def main(
     sample_frac: float = AE_PARAMS.sample_frac,
     target_blend: float = AE_PARAMS.target_blend,
     shuffle_buf: int = 10000,
-    use_mixed_precision: bool = True,
+    use_mixed_precision: bool = False,
     save_best: bool = True,
     use_clustering_objective: bool = AE_PARAMS.use_clustering_objective,
     clustering_loss_scale: float = AE_PARAMS.clustering_loss_scale,
@@ -202,7 +213,7 @@ def main(
         validation_data=val_data,
         epochs=pretrain_epochs,
         batch_size=batch_size,
-        verbose=1,
+        verbose=1 if IS_TTY else 2,
     )
 
     # -----------------------
@@ -379,7 +390,13 @@ def main(
         epoch_a = tf.keras.metrics.Mean()
 
         from tqdm import tqdm
-        pbar = tqdm(train_p_ds, desc=f"   Epoch {epoch+1:02d}/{joint_epochs}", leave=False)
+        pbar = tqdm(
+            train_p_ds,
+            desc=f"   Epoch {epoch+1:02d}/{joint_epochs}",
+            leave=False,
+            disable=not IS_TTY,
+            dynamic_ncols=True,
+        )
         for x_batch, p_batch in pbar:
             total, l_rec, l_cl_raw, l_cl, l_aux = train_step(x_batch, p_batch)
             epoch_t.update_state(total)
@@ -387,7 +404,12 @@ def main(
             epoch_c_raw.update_state(l_cl_raw)
             epoch_c.update_state(l_cl)
             epoch_a.update_state(l_aux)
-            pbar.set_postfix({"T": f"{total.numpy():.4f}", "R": f"{l_rec.numpy():.4f}", "C": f"{l_cl.numpy():.4f}"})
+            if IS_TTY:
+                pbar.set_postfix({
+                    "T": f"{total.numpy():.4f}",
+                    "R": f"{l_rec.numpy():.4f}",
+                    "C": f"{l_cl.numpy():.4f}",
+                })
 
         train_t_val     = float(epoch_t.result().numpy())
         train_r_val     = float(epoch_r.result().numpy())

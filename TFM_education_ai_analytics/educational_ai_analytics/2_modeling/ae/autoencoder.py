@@ -107,7 +107,7 @@ class StudentProfileAutoencoder(tf.keras.Model):
             enc.append(layers.BatchNormalization())
             enc.append(layers.LeakyReLU(0.1))
             if self.dropout_rate and self.dropout_rate > 0:
-                enc.append(layers.Dropout(self.dropout_rate))
+                enc.append(tf.keras.layers.Dropout(self.dropout_rate))
         self.encoder_layers = tf.keras.Sequential(enc, name="encoder")
 
         # Latent projections
@@ -146,7 +146,7 @@ class StudentProfileAutoencoder(tf.keras.Model):
             dec.append(layers.BatchNormalization())
             dec.append(layers.LeakyReLU(0.1))
             if self.dropout_rate and self.dropout_rate > 0:
-                dec.append(layers.Dropout(self.dropout_rate))
+                dec.append(tf.keras.layers.Dropout(self.dropout_rate))
         self.decoder_layers = tf.keras.Sequential(dec, name="decoder")
 
         self.output_layer = layers.Dense(

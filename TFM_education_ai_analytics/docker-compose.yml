@@ -11,8 +11,9 @@ services:
           devices:
             - driver: nvidia
               count: 1
-              capabilities: [gpu]
-    command: tail -f /dev/null  # Keep container running indefinitely
+              capabilities: [ gpu ]
+    entrypoint: [ "/bin/bash", "/workspace/TFM_education_ai_analytics/entrypoint.sh" ]
+    command: [ "tail", "-f", "/dev/null" ]
     restart: unless-stopped
     ports:
-      - "8888:8888"  # Expose Jupyter port if needed
+      - "8888:8888" # Expose Jupyter port if needed

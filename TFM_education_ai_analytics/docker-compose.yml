@@ -1,17 +1,14 @@
 services:
   tfm-gpu:
     build:
-      context: ..
-      dockerfile: TFM_education_ai_analytics/Dockerfile
+      context: .
+      dockerfile: Dockerfile
     volumes:
-      - ..:/workspace
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [ gpu ]
+      - .:/workspace/TFM_education_ai_analytics
+    gpus: all
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
     entrypoint: [ "/bin/bash", "/workspace/TFM_education_ai_analytics/entrypoint.sh" ]
     command: [ "tail", "-f", "/dev/null" ]
     restart: unless-stopped

@@ -19,7 +19,8 @@ class AutoencoderParams:
     # Entrenamiento por fases
     pretrain_epochs: int = 40
     joint_epochs: int = 40
-    batch_size: int = 128
+    batch_size: int = 254
+    # RTX 50xx + current TF nightly can hit PTX compiler crashes with mixed precision.
     use_mixed_precision: bool = False
     learning_rate: float = 0.001
 

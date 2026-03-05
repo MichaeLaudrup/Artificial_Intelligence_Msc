@@ -4,7 +4,9 @@
 
 PROJECT_NAME = educational_ai_analytics
 PYTHON_VERSION = 3.12
-PYTHON_INTERPRETER = python
+# Force global Python by default (user requested non-venv workflow).
+# You can still override per command, e.g. `make train_ae PYTHON_INTERPRETER=/path/to/python`.
+PYTHON_INTERPRETER ?= /usr/bin/python
 METHOD = pca
 HPARAM_MAX_TRIALS ?= 5000
 SHELL := /bin/bash

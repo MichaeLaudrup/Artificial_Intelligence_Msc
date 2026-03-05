@@ -29,9 +29,9 @@ dependencies = [
     "requests",
     "seaborn",
     "scipy",
+    "shap",
     "scikit-learn",
-    # --- Deep Learning (Encoder-Decoder) ---
-    "tensorflow[and-cuda]",
+    "tf-nightly[and-cuda]>=2.22.0.dev0",
     "tensorboard",
     "ipykernel",
     # --- Serialización y utilidades ---

@@ -1,6 +1,17 @@
 import os
+from educational_ai_analytics.config import EXECUTION_DEVICE
+
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+# Force modern Keras with tf-nightly to avoid legacy tf_keras mismatches.
+os.environ["TF_USE_LEGACY_KERAS"] = "0"
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
+os.environ["TF_XLA_FLAGS"] = "--tf_xla_auto_jit=0 --tf_xla_enable_xla_devices=false"
+os.environ["XLA_FLAGS"] = "--xla_gpu_enable_triton_gemm=false"
+os.environ["CUDA_CACHE_DISABLE"] = "1"
+
+if EXECUTION_DEVICE == "cpu":
+    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 import json
 import typer
@@ -9,11 +20,45 @@ import tensorflow as tf
 from pathlib import Path
 from dataclasses import asdict
 from loguru import logger
+import sys
+from contextlib import contextmanager
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import roc_auc_score, classification_report, balanced_accuracy_score, confusion_matrix, precision_score, recall_score, f1_score, roc_curve, auc, precision_recall_curve, average_precision_score
 from typing import Optional
 import copy
+
+class _FilteredStderr:
+    """Drop known noisy low-level CUDA/XLA lines without hiding real errors."""
+    _DROP_TOKENS = (
+        "+ptx85",
+        "could not open file to read NUMA node",
+        "Your kernel may have been built without NUMA support.",
+        "XLA service",
+        "Compiled cluster using XLA",
+    )
+    def __init__(self, wrapped):
+        self._wrapped = wrapped
+    def write(self, data):
+        for line in data.splitlines(True):
+            if any(token in line for token in self._DROP_TOKENS):
+                continue
+            self._wrapped.write(line)
+    def flush(self):
+        self._wrapped.flush()
+    def isatty(self):
+        end_val = getattr(self._wrapped, "isatty", None)
+        return end_val() if end_val else False
+
+@contextmanager
+def _suppress_low_level_cuda_noise():
+    original_stderr = sys.stderr
+    sys.stderr = _FilteredStderr(original_stderr)
+    try:
+        yield
+    finally:
+        sys.stderr = original_stderr
+
 
 from educational_ai_analytics.config import W_WINDOWS
 
@@ -429,6 +474,31 @@ def train(
         final_training_set.append(X_train_stat.astype(np.float32))
         final_validation_set.append(X_val_stat.astype(np.float32))
         
+    print(f"[{'GPU' if EXECUTION_DEVICE == 'gpu' else 'CPU'}] Initializing runtime environment...")
+    
+    # Force-disable XLA JIT to avoid GPU stutter
+    tf.config.optimizer.set_jit(False)
+
+    if EXECUTION_DEVICE == "gpu":
+        gpus = tf.config.list_physical_devices("GPU")
+        if gpus:
+            try:
+                for gpu in gpus:
+                    tf.config.experimental.set_memory_growth(gpu, True)
+                logger.info(f"✅ GPU Activa: {gpus}")
+                # Activa mixed precision SOLO en GPU
+                from tensorflow.keras import mixed_precision
+                mixed_precision.set_global_policy("mixed_float16")
+                logger.info("⚡ Mixed precision: ACTIVADO (mixed_float16)")
+            except RuntimeError as e:
+                logger.error(f"Error configuración GPU: {e}")
+    else:
+        logger.info("🖥️ Modo de ejecución: CPU (mixed precision DESACTIVADO)")
+        try:
+            tf.config.set_visible_devices([], "GPU")
+        except Exception:
+            pass
+
     logger.info("Construyendo modelo...")
     model = GLUTransformerClassifier(
         latent_d=hp.latent_d,
@@ -478,22 +548,25 @@ def train(
     ]
     
     logger.info("Comenzando entrenamiento...")
-    history = model.fit(
-        x=final_training_set,
-        y=y_train,
-        validation_data=(final_validation_set, y_val),
-        epochs=hp.epochs,
-        batch_size=cfg.batch_size,
-        # Focal loss maneja el desbalanceo internamente
-        callbacks=callbacks,
-        verbose=2
-    )
+    with _suppress_low_level_cuda_noise():
+        history = model.fit(
+            x=final_training_set,
+            y=y_train,
+            validation_data=(final_validation_set, y_val),
+            epochs=hp.epochs,
+            batch_size=cfg.batch_size,
+            # Focal loss maneja el desbalanceo internamente
+            callbacks=callbacks,
+            verbose=2
+        )
     
     logger.info("Evaluando modelo en Validation Set...")
-    results = model.evaluate(final_validation_set, y_val, verbose=0)
+    with _suppress_low_level_cuda_noise():
+        results = model.evaluate(final_validation_set, y_val, verbose=0)
     logger.info(f"Loss final Val: {results[0]:.4f} | Accuracy: {results[1]:.4f}")
     
-    y_probs = model.predict(final_validation_set, verbose=0)
+    with _suppress_low_level_cuda_noise():
+        y_probs = model.predict(final_validation_set, verbose=0)
     selected_threshold = None
     if cfg.num_classes == 2 and cfg.tune_threshold:
         p_pos = y_probs[:, 1]
@@ -578,10 +651,12 @@ def train(
         if use_static_in_model:
             final_test_set.append(X_test_stat.astype(np.float32))
             
-        results_test = model.evaluate(final_test_set, y_test, verbose=0)
+        with _suppress_low_level_cuda_noise():
+            results_test = model.evaluate(final_test_set, y_test, verbose=0)
         logger.info(f"Loss final TEST: {results_test[0]:.4f} | Accuracy TEST: {results_test[1]:.4f}")
         
-        y_probs_test = model.predict(final_test_set, verbose=0)
+        with _suppress_low_level_cuda_noise():
+            y_probs_test = model.predict(final_test_set, verbose=0)
         if cfg.num_classes == 2 and selected_threshold is not None:
             y_pred_test = (y_probs_test[:, 1] >= selected_threshold).astype(int)
             logger.info(f"🎯 Aplicando en TEST el threshold aprendido en VAL: {selected_threshold:.3f}")

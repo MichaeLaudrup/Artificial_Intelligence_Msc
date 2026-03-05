@@ -7,7 +7,8 @@ from educational_ai_analytics.config import EXECUTION_DEVICE
 
 # Silence Protobuf and TF warnings
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-os.environ["TF_USE_LEGACY_KERAS"] = "1"  # Fix RTX 5080 JIT compilation bugs
+# Force modern Keras with tf-nightly to avoid legacy tf_keras mismatches.
+os.environ["TF_USE_LEGACY_KERAS"] = "0"
 os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
 # Disable XLA auto-jit/device registration to avoid ptx85 spam on RTX 50xx.
@@ -225,10 +226,13 @@ def main(
 
     AE_REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
-    if use_mixed_precision:
+    if use_mixed_precision and EXECUTION_DEVICE == "gpu":
         from tensorflow.keras import mixed_precision
         mixed_precision.set_global_policy("mixed_float16")
         logger.info("⚡ Mixed precision: ACTIVADO (mixed_float16)")
+    elif use_mixed_precision and EXECUTION_DEVICE == "cpu":
+        use_mixed_precision = False
+        logger.info("⚡ Mixed precision: DESACTIVADO (sin beneficio en CPU)")
 
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
     windows = sorted([int(w) for w in W_WINDOWS])
@@ -272,6 +276,7 @@ def main(
         optimizer=tf.keras.optimizers.Adam(AE_PARAMS.learning_rate),
         loss=[tf.keras.losses.Huber(), tf.keras.losses.MeanSquaredError()],
         loss_weights=[1.0, 0.0],
+        jit_compile=False,
     )
 
     y_dummy_train = np.zeros((len(X_train), AE_PARAMS.n_clusters), dtype=np.float32)

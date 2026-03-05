@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -36,6 +37,12 @@ W_WINDOWS = [5, 10, 15, 20, 25]
 
 # Clustering Config (single source of truth)
 N_CLUSTERS = 5
+
+# Runtime device configuration (single source of truth for training scripts)
+# Allowed values: "gpu" | "cpu"
+EXECUTION_DEVICE = os.getenv("EXECUTION_DEVICE", "cpu").strip().lower()
+if EXECUTION_DEVICE not in {"gpu", "cpu"}:
+    raise ValueError("EXECUTION_DEVICE must be 'gpu' or 'cpu'.")
 
 # If tqdm is installed, configure loguru with tqdm.write
 # https://github.com/Delgan/loguru/issues/135

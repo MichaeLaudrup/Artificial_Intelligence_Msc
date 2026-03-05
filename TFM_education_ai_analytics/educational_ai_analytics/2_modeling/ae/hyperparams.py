@@ -20,6 +20,7 @@ class AutoencoderParams:
     pretrain_epochs: int = 40
     joint_epochs: int = 40
     batch_size: int = 128
+    use_mixed_precision: bool = False
     learning_rate: float = 0.001
 
     # ✅ NEW: Configuración para Deep Clustering (DCN)

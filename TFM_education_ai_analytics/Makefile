@@ -53,7 +53,7 @@ features:
 ## 2. Train Autoencoder
 .PHONY: train_ae
 train_ae:
-	$(PYTHON_INTERPRETER) -m educational_ai_analytics.2_modeling.ae.train_autoencoder
+	$(PYTHON_INTERPRETER) -m educational_ai_analytics.2_modeling.ae.train_autoencoder 2> >(grep -vE "\+ptx85|could not open file to read NUMA node|Your kernel may have been built without NUMA support\.|XLA service|Compiled cluster using XLA|All log messages before absl::InitializeLog\(\)" >&2)
 
 ## 3. Generate Latent Space (Embeddings) -> data/3_embeddings
 .PHONY: encode

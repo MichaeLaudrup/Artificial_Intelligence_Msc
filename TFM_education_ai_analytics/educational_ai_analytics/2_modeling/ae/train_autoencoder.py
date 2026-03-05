@@ -1,14 +1,23 @@
 import os
 import sys
 import warnings
+from contextlib import contextmanager
+
+from educational_ai_analytics.config import EXECUTION_DEVICE
 
 # Silence Protobuf and TF warnings
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 os.environ["TF_USE_LEGACY_KERAS"] = "1"  # Fix RTX 5080 JIT compilation bugs
 os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
-os.environ["TF_XLA_FLAGS"] = "--tf_xla_auto_jit=0"
+# Disable XLA auto-jit/device registration to avoid ptx85 spam on RTX 50xx.
+os.environ["TF_XLA_FLAGS"] = "--tf_xla_auto_jit=0 --tf_xla_enable_xla_devices=false"
+# Disable Triton GEMM backend, which is the main source of repeated '+ptx85' logs.
+os.environ["XLA_FLAGS"] = "--xla_gpu_enable_triton_gemm=false"
 os.environ["CUDA_CACHE_DISABLE"] = "1"
+if EXECUTION_DEVICE == "cpu":
+    # Keep this before importing TensorFlow to avoid initializing CUDA in CPU mode.
+    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 warnings.filterwarnings("ignore", category=UserWarning, module="google.protobuf")
 warnings.filterwarnings("ignore", category=UserWarning, module="tensorflow")
 
@@ -39,6 +48,59 @@ from .training_reporter import TrainingMetricsCollector, plot_training_evolution
 app = typer.Typer()
 
 
+class _ValLossOnlyCallback(tf.keras.callbacks.Callback):
+    """Print only val_loss each epoch to keep terminal output clean."""
+
+    def __init__(self, total_epochs: int):
+        super().__init__()
+        self.total_epochs = total_epochs
+
+    def on_epoch_end(self, epoch, logs=None):
+        logs = logs or {}
+        val_loss = logs.get("val_loss")
+        if val_loss is None:
+            logger.info(f"Epoch {epoch + 1}/{self.total_epochs} | val_loss: N/A")
+        else:
+            logger.info(f"Epoch {epoch + 1}/{self.total_epochs} | val_loss: {val_loss:.4f}")
+
+
+class _FilteredStderr:
+    """Drop known noisy low-level CUDA/XLA lines without hiding real errors."""
+
+    _DROP_TOKENS = (
+        "+ptx85",
+        "could not open file to read NUMA node",
+        "Your kernel may have been built without NUMA support.",
+        "XLA service",
+        "Compiled cluster using XLA",
+    )
+
+    def __init__(self, wrapped):
+        self._wrapped = wrapped
+
+    def write(self, data):
+        for line in data.splitlines(True):
+            if any(token in line for token in self._DROP_TOKENS):
+                continue
+            self._wrapped.write(line)
+
+    def flush(self):
+        self._wrapped.flush()
+
+    def isatty(self):
+        return self._wrapped.isatty()
+
+
+@contextmanager
+def _suppress_low_level_cuda_noise():
+    original_stderr = sys.stderr
+    sys.stderr = _FilteredStderr(original_stderr)
+    try:
+        yield
+    finally:
+        sys.stderr = original_stderr
+
+
 def _set_seed(seed: int = 42):
     os.environ["PYTHONHASHSEED"] = str(seed)
     np.random.seed(seed)
@@ -48,6 +110,16 @@ def _set_seed(seed: int = 42):
 def _configure_gpu():
     # Force-disable XLA JIT to avoid noisy PTX feature warnings in training logs.
     tf.config.optimizer.set_jit(False)
+
+    if EXECUTION_DEVICE == "cpu":
+        try:
+            tf.config.set_visible_devices([], "GPU")
+        except Exception:
+            # If TensorFlow already initialized devices, CUDA_VISIBLE_DEVICES=-1 already did the job.
+            pass
+        logger.info("🖥️ Modo de ejecución: CPU (EXECUTION_DEVICE=cpu)")
+        return
+
     gpus = tf.config.list_physical_devices("GPU")
     if gpus:
         try:
@@ -56,6 +128,8 @@ def _configure_gpu():
             logger.info(f"✅ GPU Activa: {gpus}")
         except RuntimeError as e:
             logger.error(f"Error configuración GPU: {e}")
+    else:
+        logger.warning("⚠️ EXECUTION_DEVICE=gpu pero no se detectó ninguna GPU física.")
 
 
 def load_features(path: Path, W: int):
@@ -129,7 +203,7 @@ def main(
     sample_frac: float = AE_PARAMS.sample_frac,
     target_blend: float = AE_PARAMS.target_blend,
     shuffle_buf: int = 10000,
-    use_mixed_precision: bool = False,
+    use_mixed_precision: bool = AE_PARAMS.use_mixed_precision,
     save_best: bool = True,
     use_clustering_objective: bool = AE_PARAMS.use_clustering_objective,
     clustering_loss_scale: float = AE_PARAMS.clustering_loss_scale,
@@ -207,14 +281,16 @@ def main(
     else:
         val_data = None
 
-    pretrain_hist = model.fit(
-        X_train,
-        [X_train, y_dummy_train],
-        validation_data=val_data,
-        epochs=pretrain_epochs,
-        batch_size=batch_size,
-        verbose=1 if IS_TTY else 2,
-    )
+    with _suppress_low_level_cuda_noise():
+        pretrain_hist = model.fit(
+            X_train,
+            [X_train, y_dummy_train],
+            validation_data=val_data,
+            epochs=pretrain_epochs,
+            batch_size=batch_size,
+            verbose=0,
+            callbacks=[_ValLossOnlyCallback(pretrain_epochs)],
+        )
 
     # -----------------------
     # 3) Phase 2: KMeans init
@@ -266,6 +342,7 @@ def main(
     metrics = TrainingMetricsCollector()
 
     # ─── Bloque de losses compartido (siempre float32) ────────────────────────
+    @tf.autograph.experimental.do_not_convert
     def _compute_loss(x_batch, p_batch, is_training: bool):
         x_rec, q_batch = model(x_batch, training=is_training)
         x32      = tf.cast(x_batch, tf.float32)
@@ -288,7 +365,7 @@ def main(
         return total, l_rec, l_cl_raw, l_cl, l_aux
 
     # ─── Mixed precision: scale_loss() → gradientes escalados → unscale ──────
-    @tf.function
+    @tf.function(jit_compile=False, reduce_retracing=True)
     def _step_mp(x_batch, p_batch):
         with tf.GradientTape() as tape:
             total, l_rec, l_cl_raw, l_cl, l_aux = _compute_loss(
@@ -307,7 +384,7 @@ def main(
         return total, l_rec, l_cl_raw, l_cl, l_aux
 
     # ─── Float32 puro: sin escala ─────────────────────────────────────────────
-    @tf.function
+    @tf.function(jit_compile=False, reduce_retracing=True)
     def _step_fp32(x_batch, p_batch):
         with tf.GradientTape() as tape:
             total, l_rec, l_cl_raw, l_cl, l_aux = _compute_loss(
@@ -318,12 +395,25 @@ def main(
         optimizer.apply_gradients(zip(grads, model.trainable_variables))
         return total, l_rec, l_cl_raw, l_cl, l_aux
 
-    # Dispatch Python puro — ningún condicional entra al grafo TF
-    train_step = _step_mp if use_mixed_precision else _step_fp32
+    # Dispatch Python puro — ningún condicional entra al grafo TF.
+    # En algunas combinaciones TF/Keras, LossScaleOptimizer no expone scale_loss.
+    can_scale_loss = bool(use_mixed_precision and hasattr(optimizer, "scale_loss"))
+    if use_mixed_precision and not can_scale_loss:
+        logger.warning("   ⚠️ mixed_precision activa, pero optimizer.scale_loss no está disponible; se usará paso FP32 estable.")
+    train_step = _step_mp if can_scale_loss else _step_fp32
 
     train_p_ds = None
     patience_counter = 0
     patience_limit = AE_PARAMS.early_stopping_patience
+
+    from tqdm import tqdm
+    epoch_pbar = tqdm(
+        total=joint_epochs,
+        desc="   Phase3",
+        leave=False,
+        disable=not IS_TTY,
+        dynamic_ncols=True,
+    )
 
     for epoch in range(joint_epochs):
         # 🔧 FIX #3 — warmup lineal de target_blend: empieza suave y sube gradualmente
@@ -389,27 +479,14 @@ def main(
         epoch_c = tf.keras.metrics.Mean()
         epoch_a = tf.keras.metrics.Mean()
 
-        from tqdm import tqdm
-        pbar = tqdm(
-            train_p_ds,
-            desc=f"   Epoch {epoch+1:02d}/{joint_epochs}",
-            leave=False,
-            disable=not IS_TTY,
-            dynamic_ncols=True,
-        )
-        for x_batch, p_batch in pbar:
-            total, l_rec, l_cl_raw, l_cl, l_aux = train_step(x_batch, p_batch)
-            epoch_t.update_state(total)
-            epoch_r.update_state(l_rec)
-            epoch_c_raw.update_state(l_cl_raw)
-            epoch_c.update_state(l_cl)
-            epoch_a.update_state(l_aux)
-            if IS_TTY:
-                pbar.set_postfix({
-                    "T": f"{total.numpy():.4f}",
-                    "R": f"{l_rec.numpy():.4f}",
-                    "C": f"{l_cl.numpy():.4f}",
-                })
+        with _suppress_low_level_cuda_noise():
+            for x_batch, p_batch in train_p_ds:
+                total, l_rec, l_cl_raw, l_cl, l_aux = train_step(x_batch, p_batch)
+                epoch_t.update_state(total)
+                epoch_r.update_state(l_rec)
+                epoch_c_raw.update_state(l_cl_raw)
+                epoch_c.update_state(l_cl)
+                epoch_a.update_state(l_aux)
 
         train_t_val     = float(epoch_t.result().numpy())
         train_r_val     = float(epoch_r.result().numpy())
@@ -484,6 +561,14 @@ def main(
             f"{monitor_name}: {model_obj:.4f}"
         )
 
+        if IS_TTY:
+            epoch_pbar.set_postfix({
+                "epoch": f"{epoch+1}/{joint_epochs}",
+                "TrainObj": f"{train_obj_val:.4f}",
+                "ValR": f"{val_r:.4f}",
+            })
+        epoch_pbar.update(1)
+
         # Record metrics for report
         metrics.record(
             epoch=epoch + 1,
@@ -543,6 +628,8 @@ def main(
                 break
         else:
             logger.debug(f"   ⏳ En warmup (epoch {epoch+1}/{early_stop_start_epoch}) — paciencia suspendida")
+
+    epoch_pbar.close()
 
     model.save(last_path)
     logger.success(f"✨ Entrenamiento terminado. Procediendo a seleccionar el mejor modelo...")

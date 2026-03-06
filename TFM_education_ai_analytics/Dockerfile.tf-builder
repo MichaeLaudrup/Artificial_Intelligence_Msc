@@ -1,35 +1,39 @@
-FROM tensorflow/tensorflow:2.20.0-gpu
+FROM nvcr.io/nvidia/tensorflow:25.02-tf2-py3
 
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
     ca-certificates \
+    cmake \
     curl \
     git \
     gnupg \
     lsb-release \
+    patchelf \
     software-properties-common \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
-# Prefer latest supported Python for TF 2.20 (3.13 if available).
+# Prefer Python 3.12 for TensorFlow 2.22 custom Blackwell builds.
 RUN add-apt-repository -y ppa:deadsnakes/ppa && \
     apt-get update && apt-get install -y --no-install-recommends \
-    python3.13 \
-    python3.13-dev \
-    python3.13-venv \
-    && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.13 20 \
+    python3.12 \
+    python3.12-dev \
+    python3.12-venv \
+    && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 20 \
     && ln -sf /usr/bin/python3 /usr/bin/python \
+    && python -m ensurepip --upgrade \
     && rm -rf /var/lib/apt/lists/*
 
-# Install LLVM/Clang 18 from the official LLVM apt repository.
-RUN wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /usr/share/keyrings/llvm.gpg && \
-    echo "deb [signed-by=/usr/share/keyrings/llvm.gpg] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main" > /etc/apt/sources.list.d/llvm.list && \
-    apt-get update && apt-get install -y --no-install-recommends clang-18 lld-18 && \
+# Install the newest Clang toolchain readily available in Ubuntu 24.04.
+RUN apt-get update && apt-get install -y --no-install-recommends clang-20 lld-20 && \
     rm -rf /var/lib/apt/lists/*
 
-# Bazelisk automatically downloads Bazel 7.4.1 from TensorFlow r2.20 .bazelversion.
+# Bazelisk downloads the exact Bazel version required by the selected TensorFlow commit.
 RUN curl -fsSL -o /usr/local/bin/bazel https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-linux-amd64 && \
     chmod +x /usr/local/bin/bazel
+
+RUN python -m pip install --upgrade pip setuptools wheel packaging numpy absl-py astunparse gast google-pasta opt-einsum requests six termcolor libclang
 
 WORKDIR /workspace/TFM_education_ai_analytics

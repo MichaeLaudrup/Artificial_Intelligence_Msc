@@ -4,10 +4,12 @@ from tensorflow.keras import layers
 # =========================
 # GLU (Gated Linear Unit)
 # =========================
+@tf.keras.utils.register_keras_serializable(package="educational_ai_analytics")
 class GLULayer(layers.Layer):
     """Dense(2*units) -> split -> a * sigmoid(b)"""
     def __init__(self, units: int, name=None):
         super().__init__(name=name)
+        self.units = units
         self.proj = layers.Dense(2 * units)
 
     def call(self, x):
@@ -15,15 +17,25 @@ class GLULayer(layers.Layer):
         a, b = tf.split(z, num_or_size_splits=2, axis=-1)
         return a * tf.sigmoid(b)
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({"units": self.units})
+        return config
+
 
 # =========================
 # Encoder Block (Pre-LN + mask (B,W,W) + FFN GLU)
 # =========================
+@tf.keras.utils.register_keras_serializable(package="educational_ai_analytics")
 class TransformerEncoderBlock(layers.Layer):
     def __init__(self, d_model: int, num_heads: int, ff_dim: int, dropout: float, name=None):
         super().__init__(name=name)
         if d_model % num_heads != 0:
             raise ValueError("d_model debe ser divisible por num_heads")
+        self.d_model = d_model
+        self.num_heads = num_heads
+        self.ff_dim = ff_dim
+        self.dropout = dropout
 
         # Esto es como decir varios observadores que observan a la vez
         # y cada uno fragua sus opiniones (atención) con una parte diferente de la información (subespacios)
@@ -73,10 +85,23 @@ class TransformerEncoderBlock(layers.Layer):
 
         return x
 
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "d_model": self.d_model,
+                "num_heads": self.num_heads,
+                "ff_dim": self.ff_dim,
+                "dropout": self.dropout,
+            }
+        )
+        return config
+
 
 # =========================
 # Modelo completo: Temporal + Static (Early Fusion via Feature Addition)
 # =========================
+@tf.keras.utils.register_keras_serializable(package="educational_ai_analytics")
 class GLUTransformerClassifier(tf.keras.Model):
     def __init__(
         self,
@@ -93,6 +118,16 @@ class GLUTransformerClassifier(tf.keras.Model):
         name=None,
     ):
         super().__init__(name=name)
+        self.latent_d = latent_d
+        self.num_heads = num_heads
+        self.ff_dim = ff_dim
+        self.dropout = dropout
+        self.num_classes = num_classes
+        self.num_layers = num_layers
+        self.max_len = max_len
+        self.with_static_features = with_static_features
+        self.static_hidden = list(static_hidden)
+        self.head_hidden = list(head_hidden)
 
         # Variable para saber usamos variables estaticas o no
         self.with_static_features = with_static_features
@@ -142,7 +177,7 @@ class GLUTransformerClassifier(tf.keras.Model):
             ]
         head_layers += [
             layers.Dropout(dropout),
-            layers.Dense(num_classes, activation="softmax"),
+            layers.Dense(num_classes, activation="softmax", dtype="float32"),
         ]
         self.head = tf.keras.Sequential(head_layers, name="head")
 
@@ -209,8 +244,9 @@ class GLUTransformerClassifier(tf.keras.Model):
         # 1. Average Pooling
         avg_pooled = tf.reduce_sum(x_seq * m, axis=1) / (tf.reduce_sum(m, axis=1) + 1e-8)
         
-        # 2. Max Pooling (penalizamos los pads con valor infinito negativo)
-        x_seq_masked = x_seq + (1.0 - m) * -1e9
+        # 2. Max Pooling con penalización representable en float16/float32
+        mask_penalty = tf.cast(-1e4, x_seq.dtype)
+        x_seq_masked = tf.where(tf.cast(m, tf.bool), x_seq, tf.fill(tf.shape(x_seq), mask_penalty))
         max_pooled = tf.reduce_max(x_seq_masked, axis=1)
         has_activity = tf.reduce_sum(m, axis=1) > 0
         max_pooled = tf.where(has_activity, max_pooled, tf.zeros_like(max_pooled))
@@ -230,3 +266,21 @@ class GLUTransformerClassifier(tf.keras.Model):
 
         # Clasificación final
         return self.head(z, training=training)
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "latent_d": self.latent_d,
+                "num_heads": self.num_heads,
+                "ff_dim": self.ff_dim,
+                "dropout": self.dropout,
+                "num_classes": self.num_classes,
+                "num_layers": self.num_layers,
+                "max_len": self.max_len,
+                "with_static_features": self.with_static_features,
+                "static_hidden": self.static_hidden,
+                "head_hidden": self.head_hidden,
+            }
+        )
+        return config

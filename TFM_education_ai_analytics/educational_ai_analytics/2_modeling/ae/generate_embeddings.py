@@ -1,5 +1,18 @@
 import os
 import warnings
+
+try:
+    from .hyperparams import AE_PARAMS
+except ImportError:
+    from hyperparams import AE_PARAMS
+
+from educational_ai_analytics.tf_runtime import configure_tensorflow_runtime, resolve_execution_device
+
+EXECUTION_DEVICE = resolve_execution_device(AE_PARAMS.execution_device)
+
+if EXECUTION_DEVICE == "cpu":
+    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
 # Silence Protobuf and TF warnings
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 warnings.filterwarnings("ignore", category=UserWarning, module="google.protobuf")
@@ -20,7 +33,6 @@ from educational_ai_analytics.config import (
     MODELS_DIR,
     W_WINDOWS,
 )
-from .hyperparams import AE_PARAMS
 from .autoencoder import StudentProfileAutoencoder
 
 app = typer.Typer()
@@ -66,6 +78,7 @@ def main(
     Genera embeddings (PCA y AE Latent) para las ventanas configuradas utilizando una estrategia GLOBAL.
     Tanto el PCA como el AE se aplican de forma alineada (entrenados con todas las semanas apiladas).
     """
+    configure_tensorflow_runtime(tf, EXECUTION_DEVICE, logger)
     _set_seed(seed)
     
     windows = sorted([int(w) for w in W_WINDOWS])

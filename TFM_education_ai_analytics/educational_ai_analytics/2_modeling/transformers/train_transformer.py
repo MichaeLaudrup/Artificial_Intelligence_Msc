@@ -1,37 +1,40 @@
+import copy
+import json
 import os
-from educational_ai_analytics.config import EXECUTION_DEVICE
+import sys
+from contextlib import contextmanager
+from dataclasses import asdict
+from pathlib import Path
+from typing import Optional
+
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
+import typer
+from loguru import logger
+from sklearn.metrics import auc, average_precision_score, balanced_accuracy_score, classification_report, confusion_matrix, f1_score, precision_recall_curve, precision_score, recall_score, roc_auc_score, roc_curve
+
+try:
+    from .hyperparams import TRANSFORMER_PARAMS
+except ImportError:
+    from hyperparams import TRANSFORMER_PARAMS
+
+from educational_ai_analytics.tf_runtime import configure_tensorflow_runtime, resolve_execution_device
+
+EXECUTION_DEVICE = resolve_execution_device(TRANSFORMER_PARAMS.execution_device)
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-# Force modern Keras with tf-nightly to avoid legacy tf_keras mismatches.
 os.environ["TF_USE_LEGACY_KERAS"] = "0"
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
-os.environ["TF_XLA_FLAGS"] = "--tf_xla_auto_jit=0 --tf_xla_enable_xla_devices=false"
-os.environ["XLA_FLAGS"] = "--xla_gpu_enable_triton_gemm=false"
 os.environ["CUDA_CACHE_DISABLE"] = "1"
 
 if EXECUTION_DEVICE == "cpu":
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
-import json
-import typer
-import numpy as np
-import tensorflow as tf
-from pathlib import Path
-from dataclasses import asdict
-from loguru import logger
-import sys
-from contextlib import contextmanager
-import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.metrics import roc_auc_score, classification_report, balanced_accuracy_score, confusion_matrix, precision_score, recall_score, f1_score, roc_curve, auc, precision_recall_curve, average_precision_score
-from typing import Optional
-import copy
-
 class _FilteredStderr:
     """Drop known noisy low-level CUDA/XLA lines without hiding real errors."""
     _DROP_TOKENS = (
-        "+ptx85",
         "could not open file to read NUMA node",
         "Your kernel may have been built without NUMA support.",
         "XLA service",
@@ -59,24 +62,66 @@ def _suppress_low_level_cuda_noise():
     finally:
         sys.stderr = original_stderr
 
-
-from educational_ai_analytics.config import W_WINDOWS
-
 try:
     from .transformer_GLU_classifier import GLUTransformerClassifier
-    from .hyperparams import TRANSFORMER_PARAMS
     from .utils.training_config import build_runtime_config_from_cli
     from .utils.thresholding import select_binary_threshold_with_constraints
     from .utils.training_callbacks import ReduceLRWithRestore, KeepBestValBalancedAcc
 except ImportError:
-    # Fallback para ejecución directa del archivo (python path/to/train_transformer.py)
     from transformer_GLU_classifier import GLUTransformerClassifier
-    from hyperparams import TRANSFORMER_PARAMS
     from utils.training_config import build_runtime_config_from_cli
     from utils.thresholding import select_binary_threshold_with_constraints
     from utils.training_callbacks import ReduceLRWithRestore, KeepBestValBalancedAcc
 
 app = typer.Typer()
+
+
+def _available_transformer_weeks(base_npz: Path, splits: list[str]) -> list[int]:
+    common_weeks = None
+    for split in splits:
+        split_dir = base_npz / split
+        split_weeks = {
+            int(path.stem.removeprefix("transformer_uptoW"))
+            for path in split_dir.glob("transformer_uptoW*.npz")
+            if path.stem.removeprefix("transformer_uptoW").isdigit()
+        }
+        common_weeks = split_weeks if common_weeks is None else (common_weeks & split_weeks)
+
+    return sorted(common_weeks or [])
+
+
+def _resolve_upto_week(
+    base_npz: Path,
+    requested_week: Optional[int],
+    eval_test: bool,
+    default_week: int,
+) -> int:
+    required_splits = ["training", "validation"]
+    if eval_test:
+        required_splits.append("test")
+
+    available_weeks = _available_transformer_weeks(base_npz, required_splits)
+    if not available_weeks:
+        raise FileNotFoundError(
+            f"No hay features transformer disponibles en {base_npz} para los splits requeridos: {required_splits}"
+        )
+
+    if requested_week is None:
+        preferred_week = default_week
+        if preferred_week in available_weeks:
+            return preferred_week
+
+        return next((week for week in available_weeks if week >= preferred_week), available_weeks[-1])
+
+    if requested_week in available_weeks:
+        return requested_week
+
+    fallback_week = next((week for week in available_weeks if week >= requested_week), available_weeks[-1])
+    logger.warning(
+        f"⚠️ upto_week={requested_week} no está disponible. "
+        f"Ventanas disponibles: {available_weeks}. Usando upto_week={fallback_week}."
+    )
+    return fallback_week
 
 def _normalize_binary_mode(paper_baseline: bool, binary_mode: Optional[str]) -> str:
     if binary_mode is None:
@@ -111,7 +156,6 @@ def filter_classes(
     if num_classes == 2:
         mode = _normalize_binary_mode(paper_baseline=paper_baseline, binary_mode=binary_mode)
         if mode == "paper":
-            # Configuración del Paper: Withdrawn (0) vs Éxito (2,3). Excluye Fail (1).
             valid_mask = (y != 1)
             X_seq = X_seq[valid_mask]
             X_mask_pad = X_mask_pad[valid_mask]
@@ -122,7 +166,6 @@ def filter_classes(
             y_formatted = np.where(y == 0, 1, 0)
             logger.info("Configuración 2 clases (Baseline Paper): [0: Pass/Dist] vs [1: Withdrawn]. (Fail eliminado)")
         elif mode == "original":
-            # Configuración original: Fail (1) vs Éxito (2,3). Excluye Withdrawn (0).
             valid_mask = (y != 0)
             X_seq = X_seq[valid_mask]
             X_mask_pad = X_mask_pad[valid_mask]
@@ -133,17 +176,14 @@ def filter_classes(
             y_formatted = np.where(y == 1, 1, 0)
             logger.info("Configuración 2 clases (Original): [0: Pass/Dist] vs [1: Fail]. (Withdrawn eliminado)")
         else:
-            # Caso especial binario: Éxito (2,3) vs Riesgo (0,1). No elimina clases.
             y_formatted = np.where(y >= 2, 0, 1)
             logger.info("Configuración 2 clases (Success vs Risk): [0: Pass/Dist] vs [1: Fail/Withdrawn].")
 
     elif num_classes == 3:
-        # Modo Trinario: Fail (0) vs Withdrawn (1) vs Éxito (2)
         y_formatted = np.where(y >= 2, 2, y)
         logger.info("Configuración 3 clases: [0: Fail], [1: Withdrawn], [2: Pass/Dist]")
 
     elif num_classes == 4:
-        # Modo Cuaternario: Todas las originales
         y_formatted = y
         logger.info("Configuración 4 clases: [0: Fail], [1: Withdrawn], [2: Pass], [3: Distinction]")
     
@@ -197,49 +237,16 @@ def load_and_prepare_split(
 
 @app.command()
 def train(
-    upto_week: int = typer.Option(TRANSFORMER_PARAMS.upto_week, help="Semana hasta la que utilizar datos (W)"),
-    num_classes: int = typer.Option(TRANSFORMER_PARAMS.num_classes, help="Número de clases objetivo (2, 3, o 4)"),
-    paper_baseline: bool = typer.Option(True, help="Si num_classes=2, usar config de Paper (1 vs 2+3). False=Original (0 vs 2+3)"),
-    binary_mode: Optional[str] = typer.Option(
-        TRANSFORMER_PARAMS.binary_mode,
-        help="Modo binario cuando num_classes=2: paper|original|success_vs_risk (pass/dist vs fail/withdraw)",
-    ),
-    batch_size: int = typer.Option(TRANSFORMER_PARAMS.batch_size),
-    with_static: bool = typer.Option(TRANSFORMER_PARAMS.with_static, help="Usar variables estáticas"),
-    use_clustering_features: bool = typer.Option(TRANSFORMER_PARAMS.use_clustering_features, help="Usar features de clustering en X_static (todo o nada)"),
-    accumulated_uptow: bool = typer.Option(TRANSFORMER_PARAMS.accumulated_uptow, help="Usar features estáticas acumuladas ae_uptow (todo o nada)"),
-    eval_test: bool = typer.Option(False, help="Evaluar también en test (úsalo solo al final)"),
-    history_filename: Optional[str] = typer.Option(None, help="Nombre custom para el archivo historial (ej. random_search.json)"),
-    latent_d: Optional[int] = typer.Option(None, help="Override latent_d"),
-    num_heads: Optional[int] = typer.Option(None, help="Override num_heads"),
-    ff_dim: Optional[int] = typer.Option(None, help="Override ff_dim"),
-    dropout: Optional[float] = typer.Option(None, help="Override dropout"),
-    num_layers: Optional[int] = typer.Option(None, help="Override num_layers"),
-    learning_rate: Optional[float] = typer.Option(None, help="Override learning_rate"),
-    focal_gamma: Optional[float] = typer.Option(None, help="Override focal_gamma"),
-    focal_alpha_pos: Optional[float] = typer.Option(None, help="Override alpha clase positiva para focal loss binaria (0-1)"),
-    static_hidden_dim: Optional[int] = typer.Option(None, help="Override static_hidden starting dimension"),
-    head_hidden_dim: Optional[int] = typer.Option(None, help="Override head_hidden starting dimension"),
-    reduce_lr_patience: Optional[int] = typer.Option(None, help="Override reduce_lr_patience"),
-    early_stopping_patience: Optional[int] = typer.Option(None, help="Override early_stopping_patience"),
-    seed: Optional[int] = typer.Option(None, help="Random seed para reproducibilidad (numpy/tensorflow)"),
-    tune_threshold: bool = typer.Option(False, help="Afinar umbral binario en validación con restricciones de accuracy/precision"),
-    threshold_acc_min: float = typer.Option(0.70, help="Accuracy mínima para umbral binario (relajar para dar margen al recall)"),
-    threshold_prec_min: float = typer.Option(0.55, help="Precision mínima para umbral binario (relajar para explorar thresholds bajos)"),
-    threshold_objective: str = typer.Option("balanced_accuracy", help="Objetivo de tuning de umbral: recall|f1|balanced_accuracy"),
-    threshold_min: float = typer.Option(0.15, help="Umbral mínimo a explorar"),
-    threshold_max: float = typer.Option(0.75, help="Umbral máximo a explorar"),
-    threshold_points: int = typer.Option(601, help="Número de puntos en la rejilla de umbrales (mayor granularidad)"),
-    threshold_fallback: float = typer.Option(0.50, help="Umbral por defecto si no hay candidatos factibles"),
-    run_compare: bool = typer.Option(True, help="Ejecutar compare_experiments al finalizar"),
     config_json: Optional[Path] = typer.Option(None, help="Ruta a JSON con TrainingConfig para inyección externa"),
     metrics_out: Optional[Path] = typer.Option(None, help="Ruta de salida JSON con métricas de esta corrida"),
-    fast_search: bool = typer.Option(False, help="Disable plots and model saving for fast search")
 ):
     """
-    Entrena el modelo Transformer y evalúa el rendimiento.
+    Entrena el modelo Transformer usando siempre la configuración del archivo asociado
+    (`hyperparams.py`) o una configuración JSON inyectada.
     """
-    runtime_cfg = build_runtime_config_from_cli(locals(), config_json=config_json)
+    import tensorflow as tf
+
+    runtime_cfg = build_runtime_config_from_cli(config_json=config_json)
     if config_json is not None:
         logger.info(f"📥 Config inyectada desde JSON: {config_json}")
     cfg = runtime_cfg
@@ -286,6 +293,12 @@ def train(
         hp.focal_alpha = [1.0 - float(cfg.focal_alpha_pos), float(cfg.focal_alpha_pos)]
     hp.batch_size = cfg.batch_size
     base_npz = Path("/workspace/TFM_education_ai_analytics/data/6_transformer_features")
+    cfg.upto_week = _resolve_upto_week(
+        base_npz,
+        cfg.upto_week,
+        cfg.eval_test,
+        default_week=TRANSFORMER_PARAMS.upto_week,
+    )
     save_dir = Path(f"/workspace/TFM_education_ai_analytics/reports/transformer_training/week_{cfg.upto_week}")
     
     logger.info(f"Cargando datos pre-normalizados desde: {base_npz}")
@@ -335,7 +348,6 @@ def train(
             names = np.array(feature_names).astype(str)
             return np.array([_is_cluster_name(c) for c in names], dtype=bool)
 
-        # Fallback para npz legacy sin metadata: asume bloque cluster al inicio
         fallback = np.zeros((n_features,), dtype=bool)
         if cluster_dim > 0:
             fallback[:min(cluster_dim, n_features)] = True
@@ -438,7 +450,6 @@ def train(
     for c, n in zip(train_classes, train_counts):
         logger.info(f"  Clase {c}: {n} ({n/len(y_train)*100:.2f}%)")
     
-    # --- Focal Loss ---
     focal_gamma_val = hp.focal_gamma
     alpha_candidate = [float(a) for a in hp.focal_alpha] if hp.focal_alpha is not None else []
     if len(alpha_candidate) != int(cfg.num_classes):
@@ -449,10 +460,12 @@ def train(
     focal_alpha_val = alpha_candidate
     
     def sparse_focal_loss(y_true, y_pred):
-        y_true = tf.cast(tf.squeeze(y_true), tf.int32)
-        y_pred = tf.clip_by_value(y_pred, 1e-7, 1.0 - 1e-7)
+        y_true = tf.cast(tf.reshape(y_true, [-1]), tf.int32)
+        y_pred = tf.cast(y_pred, tf.float32)
+        y_pred = tf.clip_by_value(y_pred, tf.keras.backend.epsilon(), 1.0 - tf.keras.backend.epsilon())
         y_one_hot = tf.one_hot(y_true, depth=cfg.num_classes)
         p_t = tf.reduce_sum(y_one_hot * y_pred, axis=-1)
+        p_t = tf.clip_by_value(p_t, tf.keras.backend.epsilon(), 1.0 - tf.keras.backend.epsilon())
         focal_weight = tf.pow(1.0 - p_t, focal_gamma_val)
         alpha_t = tf.reduce_sum(y_one_hot * tf.constant(focal_alpha_val, dtype=tf.float32), axis=-1)
         ce = -tf.math.log(p_t)
@@ -474,30 +487,23 @@ def train(
         final_training_set.append(X_train_stat.astype(np.float32))
         final_validation_set.append(X_val_stat.astype(np.float32))
         
-    print(f"[{'GPU' if EXECUTION_DEVICE == 'gpu' else 'CPU'}] Initializing runtime environment...")
-    
-    # Force-disable XLA JIT to avoid GPU stutter
-    tf.config.optimizer.set_jit(False)
+    print(f"[{EXECUTION_DEVICE.upper()}] Initializing runtime environment...")
+    runtime_device = configure_tensorflow_runtime(tf, EXECUTION_DEVICE, logger)
 
-    if EXECUTION_DEVICE == "gpu":
-        gpus = tf.config.list_physical_devices("GPU")
-        if gpus:
-            try:
-                for gpu in gpus:
-                    tf.config.experimental.set_memory_growth(gpu, True)
-                logger.info(f"✅ GPU Activa: {gpus}")
-                # Activa mixed precision SOLO en GPU
-                from tensorflow.keras import mixed_precision
-                mixed_precision.set_global_policy("mixed_float16")
-                logger.info("⚡ Mixed precision: ACTIVADO (mixed_float16)")
-            except RuntimeError as e:
-                logger.error(f"Error configuración GPU: {e}")
+    use_mixed_precision = getattr(hp, "use_mixed_precision", False)
+    mp_override = os.getenv("TFM_TRANSFORMER_MIXED_PRECISION")
+    if mp_override is not None:
+        use_mixed_precision = mp_override.strip().lower() in {"1", "true", "yes", "on"}
+
+    if runtime_device == "gpu" and use_mixed_precision:
+        from tensorflow.keras import mixed_precision
+
+        mixed_precision.set_global_policy("mixed_float16")
+        logger.info("⚡ Mixed precision: ACTIVADO (mixed_float16)")
+    elif runtime_device == "gpu":
+        logger.info("⚡ GPU activa con precisión float32 estable (mixed precision DESACTIVADO)")
     else:
-        logger.info("🖥️ Modo de ejecución: CPU (mixed precision DESACTIVADO)")
-        try:
-            tf.config.set_visible_devices([], "GPU")
-        except Exception:
-            pass
+        logger.info("🖥️ Modo de ejecución efectivo: CPU (mixed precision DESACTIVADO)")
 
     logger.info("Construyendo modelo...")
     model = GLUTransformerClassifier(
@@ -536,7 +542,7 @@ def train(
         tf.keras.callbacks.EarlyStopping(
             monitor="val_loss", 
             patience=hp.early_stopping_patience, 
-            restore_best_weights=False,  # Lo hace la clase ReduceLRWithRestore
+            restore_best_weights=False,
             verbose=1
         ),
         KeepBestValBalancedAcc(
@@ -555,7 +561,6 @@ def train(
             validation_data=(final_validation_set, y_val),
             epochs=hp.epochs,
             batch_size=cfg.batch_size,
-            # Focal loss maneja el desbalanceo internamente
             callbacks=callbacks,
             verbose=2
         )
@@ -567,6 +572,13 @@ def train(
     
     with _suppress_low_level_cuda_noise():
         y_probs = model.predict(final_validation_set, verbose=0)
+    y_probs = np.asarray(y_probs, dtype=np.float32)
+    if not np.isfinite(y_probs).all():
+        bad_count = int(np.size(y_probs) - np.count_nonzero(np.isfinite(y_probs)))
+        raise RuntimeError(
+            f"Predicciones no finitas en validation ({bad_count} valores). "
+            "Entrenamiento inestable: revisa loss, LR o mixed precision."
+        )
     selected_threshold = None
     if cfg.num_classes == 2 and cfg.tune_threshold:
         p_pos = y_probs[:, 1]
@@ -657,6 +669,13 @@ def train(
         
         with _suppress_low_level_cuda_noise():
             y_probs_test = model.predict(final_test_set, verbose=0)
+        y_probs_test = np.asarray(y_probs_test, dtype=np.float32)
+        if not np.isfinite(y_probs_test).all():
+            bad_count_test = int(np.size(y_probs_test) - np.count_nonzero(np.isfinite(y_probs_test)))
+            raise RuntimeError(
+                f"Predicciones no finitas en test ({bad_count_test} valores). "
+                "Entrenamiento inestable: revisa loss, LR o mixed precision."
+            )
         if cfg.num_classes == 2 and selected_threshold is not None:
             y_pred_test = (y_probs_test[:, 1] >= selected_threshold).astype(int)
             logger.info(f"🎯 Aplicando en TEST el threshold aprendido en VAL: {selected_threshold:.3f}")
@@ -708,7 +727,6 @@ def train(
                 logger.info(f"[TEST Top-2 Accuracy] {test_top2_acc:.4f}")
         
     if not cfg.fast_search:
-        # Plotting
         save_dir.mkdir(parents=True, exist_ok=True)
         plt.style.use('dark_background')
         plt.rcParams.update({"figure.facecolor": "#1e1e2e", "axes.facecolor": "#1e1e2e"})
@@ -819,42 +837,54 @@ def train(
 
         if cfg.num_classes == 2:
             pos_scores = y_probs[:, 1]
-            ax_diag[1].hist(pos_scores[y_val == 0], bins=30, alpha=0.6, label='Real clase 0', density=True)
-            ax_diag[1].hist(pos_scores[y_val == 1], bins=30, alpha=0.6, label='Real clase 1', density=True)
-            thr = float(selected_threshold) if selected_threshold is not None else 0.5
-            ax_diag[1].axvline(thr, color='white', linestyle='--', alpha=0.8, label=f'Threshold={thr:.2f}')
-            ax_diag[1].set_title('Distribución de Probabilidad Clase Positiva (VAL)', pad=10)
-            ax_diag[1].set_xlabel('p(clase positiva)')
-            ax_diag[1].set_ylabel('Densidad')
-            ax_diag[1].legend()
-            ax_diag[1].grid(True, linestyle='--', alpha=0.25)
+            if np.isfinite(pos_scores).all():
+                ax_diag[1].hist(pos_scores[y_val == 0], bins=30, alpha=0.6, label='Real clase 0', density=True)
+                ax_diag[1].hist(pos_scores[y_val == 1], bins=30, alpha=0.6, label='Real clase 1', density=True)
+                thr = float(selected_threshold) if selected_threshold is not None else 0.5
+                ax_diag[1].axvline(thr, color='white', linestyle='--', alpha=0.8, label=f'Threshold={thr:.2f}')
+                ax_diag[1].set_title('Distribución de Probabilidad Clase Positiva (VAL)', pad=10)
+                ax_diag[1].set_xlabel('p(clase positiva)')
+                ax_diag[1].set_ylabel('Densidad')
+                ax_diag[1].legend()
+                ax_diag[1].grid(True, linestyle='--', alpha=0.25)
 
-            # ROC Curve
-            fpr, tpr, _ = roc_curve(y_val, pos_scores)
-            roc_auc = auc(fpr, tpr)
-            ax_diag[2].plot(fpr, tpr, color='#00d2ff', lw=2, label=f'ROC curve (AUC = {roc_auc:.3f})')
-            ax_diag[2].plot([0, 1], [0, 1], color='white', lw=1, linestyle='--')
-            ax_diag[2].set_xlim([0.0, 1.0])
-            ax_diag[2].set_ylim([0.0, 1.05])
-            ax_diag[2].set_xlabel('False Positive Rate')
-            ax_diag[2].set_ylabel('True Positive Rate')
-            ax_diag[2].set_title('Receiver Operating Characteristic (ROC)', pad=10)
-            ax_diag[2].legend(loc="lower right")
-            ax_diag[2].grid(True, linestyle='--', alpha=0.25)
+                fpr, tpr, _ = roc_curve(y_val, pos_scores)
+                roc_auc = auc(fpr, tpr)
+                ax_diag[2].plot(fpr, tpr, color='#00d2ff', lw=2, label=f'ROC curve (AUC = {roc_auc:.3f})')
+                ax_diag[2].plot([0, 1], [0, 1], color='white', lw=1, linestyle='--')
+                ax_diag[2].set_xlim([0.0, 1.0])
+                ax_diag[2].set_ylim([0.0, 1.05])
+                ax_diag[2].set_xlabel('False Positive Rate')
+                ax_diag[2].set_ylabel('True Positive Rate')
+                ax_diag[2].set_title('Receiver Operating Characteristic (ROC)', pad=10)
+                ax_diag[2].legend(loc="lower right")
+                ax_diag[2].grid(True, linestyle='--', alpha=0.25)
 
-            # Precision-Recall Curve
-            precision_vals, recall_vals, _ = precision_recall_curve(y_val, pos_scores)
-            ap = average_precision_score(y_val, pos_scores)
-            ax_diag[3].plot(recall_vals, precision_vals, color='#ff007f', lw=2, label=f'PR curve (AP = {ap:.3f})')
-            baseline = np.sum(y_val == 1) / len(y_val)
-            ax_diag[3].plot([0, 1], [baseline, baseline], color='white', lw=1, linestyle='--', label=f'Baseline ({baseline:.3f})')
-            ax_diag[3].set_xlim([0.0, 1.0])
-            ax_diag[3].set_ylim([0.0, 1.05])
-            ax_diag[3].set_xlabel('Recall')
-            ax_diag[3].set_ylabel('Precision')
-            ax_diag[3].set_title('Precision-Recall Curve', pad=10)
-            ax_diag[3].legend(loc="lower left")
-            ax_diag[3].grid(True, linestyle='--', alpha=0.25)
+                precision_vals, recall_vals, _ = precision_recall_curve(y_val, pos_scores)
+                ap = average_precision_score(y_val, pos_scores)
+                ax_diag[3].plot(recall_vals, precision_vals, color='#ff007f', lw=2, label=f'PR curve (AP = {ap:.3f})')
+                baseline = np.sum(y_val == 1) / len(y_val)
+                ax_diag[3].plot([0, 1], [baseline, baseline], color='white', lw=1, linestyle='--', label=f'Baseline ({baseline:.3f})')
+                ax_diag[3].set_xlim([0.0, 1.0])
+                ax_diag[3].set_ylim([0.0, 1.05])
+                ax_diag[3].set_xlabel('Recall')
+                ax_diag[3].set_ylabel('Precision')
+                ax_diag[3].set_title('Precision-Recall Curve', pad=10)
+                ax_diag[3].legend(loc="lower left")
+                ax_diag[3].grid(True, linestyle='--', alpha=0.25)
+            else:
+                ax_diag[1].text(0.5, 0.5, 'Probabilidades no finitas en validación', ha='center', va='center')
+                ax_diag[1].set_title('Distribución de Probabilidad Clase Positiva (VAL)', pad=10)
+                ax_diag[1].set_xticks([])
+                ax_diag[1].set_yticks([])
+                ax_diag[2].text(0.5, 0.5, 'ROC no disponible por valores no finitos', ha='center', va='center')
+                ax_diag[2].set_title('Receiver Operating Characteristic (ROC)', pad=10)
+                ax_diag[2].set_xticks([])
+                ax_diag[2].set_yticks([])
+                ax_diag[3].text(0.5, 0.5, 'PR no disponible por valores no finitos', ha='center', va='center')
+                ax_diag[3].set_title('Precision-Recall Curve', pad=10)
+                ax_diag[3].set_xticks([])
+                ax_diag[3].set_yticks([])
             
         else:
             conf_max = np.max(y_probs, axis=1)
@@ -867,7 +897,6 @@ def train(
             ax_diag[1].legend()
             ax_diag[1].grid(True, linestyle='--', alpha=0.25)
 
-            # Multiclass ROC OvR
             from sklearn.preprocessing import label_binarize
             classes = np.unique(y_val)
             Y_test_bin = label_binarize(y_val, classes=classes)
@@ -884,7 +913,6 @@ def train(
             ax_diag[2].legend(loc="lower right")
             ax_diag[2].grid(True, linestyle='--', alpha=0.25)
 
-            # Class-wise Bar Plot (Recall & Precision)
             precisions = precision_score(y_val, y_pred, average=None)
             recalls = recall_score(y_val, y_pred, average=None)
             x = np.arange(cfg.num_classes)
@@ -905,14 +933,12 @@ def train(
         plt.savefig(diag_path, dpi=300, bbox_inches='tight')
         logger.info(f"✅ Diagnóstico VAL guardado en: {diag_path}")
         
-        # Guardar modelo entrenado
         model_dir = Path("/workspace/TFM_education_ai_analytics/models/transformers")
         model_dir.mkdir(parents=True, exist_ok=True)
         model_path = model_dir / f"transformer_uptoW{cfg.upto_week}_{target_tag}.keras"
         model.save(model_path)
         logger.info(f"✅ Modelo final guardado en: {model_path}")
 
-        # Análisis de Errores: Guardar CSV con los peores casos
         import pandas as pd
         if cfg.num_classes == 2:
             p_true = np.where(y_val == 1, pos_scores, 1.0 - pos_scores)
@@ -934,7 +960,6 @@ def train(
         logger.info(f"✅ CSV de análisis de errores guardado en: {error_csv_path}")
     
 
-    # Guardar métricas y configuración en historial via hyperparams
     test_loss = float(results_test[0]) if cfg.eval_test else None
     test_acc = float(results_test[1]) if cfg.eval_test else None
     test_bacc = float(test_bal_acc_val) if cfg.eval_test else None
@@ -946,7 +971,6 @@ def train(
         test_precision_weighted = test_recall_weighted = test_f1_weighted = None
         test_top2_acc = None
 
-    # Payload explícito para automatización (Random Search, Optuna, etc.)
     val_metrics = {
         "val_loss": float(results[0]),
         "val_accuracy": float(results[1]),
@@ -1004,9 +1028,6 @@ def train(
         )
         
         history_file_used = cfg.history_filename if cfg.history_filename else f"experiments_history_{target_tag}.json"
-        # ------------------
-        # Disparar script de comparativa
-        # ------------------
         if cfg.run_compare:
             try:
                 try:

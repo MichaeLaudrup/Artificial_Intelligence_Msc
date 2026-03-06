@@ -250,31 +250,3 @@ Tú pulsas "Reopen in Container"
     │ 6. READY ✅  │  VS Code abre tu workspace dentro del contenedor
     │              │  ¡Ya estás en Linux con GPU!
     └─────────────┘
-```
-
----
-
-## 🛠️ Comandos útiles
-
-| Qué quieres hacer | Comando |
-|---|---|
-| Ver contenedores activos | `docker ps` |
-| Ver logs del contenedor | `docker logs tfm_education_ai_analytics-tfm-gpu-1` |
-| Entrar al contenedor manualmente | `docker exec -it tfm_education_ai_analytics-tfm-gpu-1 bash` |
-| Parar todo | `docker compose down` |
-| Parar y borrar imagen | `docker compose down --rmi all` |
-| Reconstruir desde cero | `docker compose build --no-cache` |
-| Verificar GPU dentro del contenedor | `nvidia-smi` (desde la terminal del contenedor) |
-
----
-
-## ❓ Problemas que tuvimos y por qué
-
-| Error | Causa | Solución |
-|-------|-------|----------|
-| `README.md does not exist` | El Dockerfile solo copiaba `pyproject.toml`, pero `flit` necesita también README.md y LICENSE | Añadir `COPY README.md LICENSE ./` |
-| `Error need wget to download server binary` | VS Code necesita descargar su servidor remoto dentro del contenedor | Añadir `wget` al `apt-get install` |
-| `subprocess terminated with return code 127` | VS Code necesita `socat` para port-forwarding | Añadir `socat` al `apt-get install` |
-| `file:///root does not appear to be a Python project` | `postCreateCommand` se ejecutaba en `/root` en vez de `/workspace` | Cambiar a `cd /workspace && pip install ...` |
-| Build muy lento | Sin `.dockerignore`, Docker enviaba data, .venv, .git, etc. | Crear `.dockerignore` |
-| pip tardaba siglos | `tensorflow` estaba en `pyproject.toml` pero ya viene en la imagen base | Quitarlo de las dependencias |

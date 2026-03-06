@@ -13,14 +13,14 @@ class AutoencoderParams:
     denoise_std: float = 0.01
     l2_latent: float = 1e-6
     z_norm_penalty: float = 1e-4
-    normalize_latent: bool = False  # Desactivar para que el clustering sea más natural
+    normalize_latent: bool = False 
     activation: str = "leaky_relu"
     
     # Entrenamiento por fases
-    pretrain_epochs: int = 40
+    pretrain_epochs: int = 60
     joint_epochs: int = 40
     batch_size: int = 254
-    # RTX 50xx + current TF nightly can hit PTX compiler crashes with mixed precision.
+    execution_device: str = "cpu"
     use_mixed_precision: bool = False
     learning_rate: float = 0.001
 

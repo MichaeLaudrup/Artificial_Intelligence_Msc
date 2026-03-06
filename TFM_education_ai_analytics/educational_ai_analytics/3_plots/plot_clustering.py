@@ -16,7 +16,6 @@ import typer
 import json
 import importlib
 from educational_ai_analytics.config import (
-    REPORTS_DIR,
     EMBEDDINGS_DATA_DIR,
     FEATURES_DATA_DIR,
     MODELS_DIR,

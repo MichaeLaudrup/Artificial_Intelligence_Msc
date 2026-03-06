@@ -3,18 +3,21 @@ import sys
 import warnings
 from contextlib import contextmanager
 
-from educational_ai_analytics.config import EXECUTION_DEVICE
+try:
+    from .hyperparams import AE_PARAMS
+except ImportError:
+    from hyperparams import AE_PARAMS
+
+from educational_ai_analytics.tf_runtime import configure_tensorflow_runtime, resolve_execution_device
+
+EXECUTION_DEVICE = resolve_execution_device(AE_PARAMS.execution_device)
 
 # Silence Protobuf and TF warnings
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-# Force modern Keras with tf-nightly to avoid legacy tf_keras mismatches.
+# Force modern Keras and avoid legacy tf_keras mismatches.
 os.environ["TF_USE_LEGACY_KERAS"] = "0"
 os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
-# Disable XLA auto-jit/device registration to avoid ptx85 spam on RTX 50xx.
-os.environ["TF_XLA_FLAGS"] = "--tf_xla_auto_jit=0 --tf_xla_enable_xla_devices=false"
-# Disable Triton GEMM backend, which is the main source of repeated '+ptx85' logs.
-os.environ["XLA_FLAGS"] = "--xla_gpu_enable_triton_gemm=false"
 os.environ["CUDA_CACHE_DISABLE"] = "1"
 if EXECUTION_DEVICE == "cpu":
     # Keep this before importing TensorFlow to avoid initializing CUDA in CPU mode.
@@ -41,8 +44,6 @@ from educational_ai_analytics.config import (
     AE_REPORTS_DIR,
     W_WINDOWS,
 )
-
-from .hyperparams import AE_PARAMS
 from .autoencoder import StudentProfileAutoencoder
 from .training_reporter import TrainingMetricsCollector, plot_training_evolution, plot_embeddings_pca
 
@@ -69,7 +70,6 @@ class _FilteredStderr:
     """Drop known noisy low-level CUDA/XLA lines without hiding real errors."""
 
     _DROP_TOKENS = (
-        "+ptx85",
         "could not open file to read NUMA node",
         "Your kernel may have been built without NUMA support.",
         "XLA service",
@@ -109,28 +109,7 @@ def _set_seed(seed: int = 42):
 
 
 def _configure_gpu():
-    # Force-disable XLA JIT to avoid noisy PTX feature warnings in training logs.
-    tf.config.optimizer.set_jit(False)
-
-    if EXECUTION_DEVICE == "cpu":
-        try:
-            tf.config.set_visible_devices([], "GPU")
-        except Exception:
-            # If TensorFlow already initialized devices, CUDA_VISIBLE_DEVICES=-1 already did the job.
-            pass
-        logger.info("🖥️ Modo de ejecución: CPU (EXECUTION_DEVICE=cpu)")
-        return
-
-    gpus = tf.config.list_physical_devices("GPU")
-    if gpus:
-        try:
-            for gpu in gpus:
-                tf.config.experimental.set_memory_growth(gpu, True)
-            logger.info(f"✅ GPU Activa: {gpus}")
-        except RuntimeError as e:
-            logger.error(f"Error configuración GPU: {e}")
-    else:
-        logger.warning("⚠️ EXECUTION_DEVICE=gpu pero no se detectó ninguna GPU física.")
+    return configure_tensorflow_runtime(tf, EXECUTION_DEVICE, logger)
 
 
 def load_features(path: Path, W: int):
@@ -221,16 +200,16 @@ def main(
     3) Joint: reconstrucción + KL(P||Q)
     Al finalizar guarda reports/ae/training_evolution.png con gráficas ilustrativas.
     """
-    _configure_gpu()
+    runtime_device = _configure_gpu()
     _set_seed(seed)
 
     AE_REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
-    if use_mixed_precision and EXECUTION_DEVICE == "gpu":
+    if use_mixed_precision and runtime_device == "gpu":
         from tensorflow.keras import mixed_precision
         mixed_precision.set_global_policy("mixed_float16")
         logger.info("⚡ Mixed precision: ACTIVADO (mixed_float16)")
-    elif use_mixed_precision and EXECUTION_DEVICE == "cpu":
+    elif use_mixed_precision and runtime_device == "cpu":
         use_mixed_precision = False
         logger.info("⚡ Mixed precision: DESACTIVADO (sin beneficio en CPU)")
 

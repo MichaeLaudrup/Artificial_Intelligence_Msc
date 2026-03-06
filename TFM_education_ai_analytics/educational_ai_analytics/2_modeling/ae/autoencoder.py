@@ -3,7 +3,6 @@ import numpy as np
 from tensorflow.keras import layers, regularizers
 from loguru import logger
 
-from educational_ai_analytics.config import EXECUTION_DEVICE
 from .hyperparams import AE_PARAMS
 
 

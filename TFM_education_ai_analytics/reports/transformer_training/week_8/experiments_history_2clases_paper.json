@@ -1,0 +1,152 @@
+[
+    {
+        "timestamp": "2026-03-06 15:20:04",
+        "hyperparameters": {
+            "upto_week": 8,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "binary_mode": "paper",
+            "batch_size": 64,
+            "epochs": 80,
+            "use_mixed_precision": false,
+            "with_static": true,
+            "use_clustering_features": true,
+            "accumulated_uptow": true,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128,
+                64,
+                32
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.27,
+                0.73
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.03211883082985878,
+            "accuracy": 0.8507462739944458,
+            "balanced_accuracy": 0.8071429950393613,
+            "auc_ovr": 0.8775855124428404,
+            "precision": 0.7877412031782066,
+            "recall": 0.6960882647943831,
+            "f1_score": 0.739084132055378
+        }
+    },
+    {
+        "timestamp": "2026-03-06 15:54:06",
+        "hyperparameters": {
+            "upto_week": 8,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "binary_mode": "paper",
+            "batch_size": 64,
+            "epochs": 80,
+            "use_mixed_precision": false,
+            "with_static": true,
+            "use_clustering_features": true,
+            "accumulated_uptow": true,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128,
+                64,
+                32
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.27,
+                0.73
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.03169242665171623,
+            "accuracy": 0.8260737061500549,
+            "balanced_accuracy": 0.8106350986467714,
+            "auc_ovr": 0.8824768268058769,
+            "precision": 0.6915467625899281,
+            "recall": 0.7713139418254764,
+            "f1_score": 0.7292555713608345
+        }
+    },
+    {
+        "timestamp": "2026-03-06 16:22:56",
+        "hyperparameters": {
+            "upto_week": 8,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "binary_mode": "paper",
+            "batch_size": 64,
+            "epochs": 80,
+            "use_mixed_precision": false,
+            "with_static": true,
+            "use_clustering_features": true,
+            "accumulated_uptow": true,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128,
+                64,
+                32
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.27,
+                0.73
+            ]
+        },
+        "validation_metrics": {
+            "loss": 0.032015856355428696,
+            "accuracy": 0.8303381204605103,
+            "balanced_accuracy": 0.8097382699278939,
+            "auc_ovr": 0.8796406717966672,
+            "precision": 0.705607476635514,
+            "recall": 0.757271815446339,
+            "f1_score": 0.7305273343009192
+        }
+    }
+]

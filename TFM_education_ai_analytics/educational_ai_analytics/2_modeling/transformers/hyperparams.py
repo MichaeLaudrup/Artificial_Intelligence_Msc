@@ -8,11 +8,14 @@ from typing import List, Optional
 class TransformerHyperparams:
     # General
     upto_week: int = 5
+    paper_baseline: bool = True
     with_static: bool = True
     use_clustering_features: bool = True
     accumulated_uptow: bool = True
     batch_size: int = 64
     epochs: int = 80
+    execution_device: str = "gpu"
+    use_mixed_precision: bool = False
 
     # Arquitectura Temporal (Transformer)
     latent_d: int = 256
@@ -51,6 +54,19 @@ class TransformerHyperparams:
 
 
     num_classes: int = 2
+    eval_test: bool = False
+    history_filename: Optional[str] = None
+    seed: Optional[int] = None
+    tune_threshold: bool = False
+    threshold_acc_min: float = 0.70
+    threshold_prec_min: float = 0.55
+    threshold_objective: str = "balanced_accuracy"
+    threshold_min: float = 0.15
+    threshold_max: float = 0.75
+    threshold_points: int = 601
+    threshold_fallback: float = 0.50
+    run_compare: bool = True
+    fast_search: bool = False
     # [Peso Clase 0 (No Riesgo), Peso Clase 1 (Riesgo)] 
     # cuidadito añadir clases implica añadir elementos aqui
     # PROBLEMA 2 CLASES: [0,1] -> [0.27, 0.73] [Pass , Withdraw]
@@ -114,9 +130,11 @@ class TransformerHyperparams:
                 "binary_mode": binary_mode,
                 "batch_size": self.batch_size,
                 "epochs": self.epochs,
+                     "execution_device": self.execution_device,
+                     "use_mixed_precision": self.use_mixed_precision,
                 "with_static": self.with_static,
                 "use_clustering_features": self.use_clustering_features,
-                   "accumulated_uptow": self.accumulated_uptow,
+                     "accumulated_uptow": self.accumulated_uptow,
                 "latent_d": self.latent_d,
                 "num_heads": self.num_heads,
                 "ff_dim": self.ff_dim,
@@ -131,7 +149,20 @@ class TransformerHyperparams:
                 "reduce_lr_min_lr": self.reduce_lr_min_lr,
                 "early_stopping_patience": self.early_stopping_patience,
                 "focal_gamma": self.focal_gamma,
-                "focal_alpha": self.focal_alpha
+                "focal_alpha": self.focal_alpha,
+                "eval_test": self.eval_test,
+                "history_filename": self.history_filename,
+                "seed": self.seed,
+                "tune_threshold": self.tune_threshold,
+                "threshold_acc_min": self.threshold_acc_min,
+                "threshold_prec_min": self.threshold_prec_min,
+                "threshold_objective": self.threshold_objective,
+                "threshold_min": self.threshold_min,
+                "threshold_max": self.threshold_max,
+                "threshold_points": self.threshold_points,
+                "threshold_fallback": self.threshold_fallback,
+                "run_compare": self.run_compare,
+                "fast_search": self.fast_search,
             },
             "validation_metrics": {
                 "loss": float(val_loss),

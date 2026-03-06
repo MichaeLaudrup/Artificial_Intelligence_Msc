@@ -31,7 +31,6 @@ dependencies = [
     "scipy",
     "shap",
     "scikit-learn",
-    "tf-nightly[and-cuda]>=2.22.0.dev0",
     "tensorboard",
     "ipykernel",
     # --- Serialización y utilidades ---
@@ -41,6 +40,11 @@ dependencies = [
     "umap-learn",
 ]
 requires-python = ">=3.10"
+
+  [project.optional-dependencies]
+  tensorflow = [
+    "tf-nightly[and-cuda]>=2.22.0.dev20260305",
+  ]
 
 
 [tool.ruff]

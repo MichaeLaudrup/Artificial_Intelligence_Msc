@@ -4,9 +4,10 @@
 
 PROJECT_NAME = educational_ai_analytics
 PYTHON_VERSION = 3.12
-# Force global Python by default (user requested non-venv workflow).
+# Use the active Python from PATH by default so `make` follows the current
+# environment (for example the Blackwell TensorFlow wheel installed in a venv).
 # You can still override per command, e.g. `make train_ae PYTHON_INTERPRETER=/path/to/python`.
-PYTHON_INTERPRETER ?= /usr/bin/python
+PYTHON_INTERPRETER ?= $(shell command -v python)
 METHOD = pca
 HPARAM_MAX_TRIALS ?= 5000
 SHELL := /bin/bash
@@ -19,6 +20,11 @@ SHELL := /bin/bash
 .PHONY: requirements
 requirements:
 	pip install -e .
+
+## Install optional TensorFlow wheel dependencies in the current environment
+.PHONY: requirements_tf
+requirements_tf:
+	pip install -e .[tensorflow]
 
 ## Delete all compiled Python files
 .PHONY: clean
@@ -82,9 +88,43 @@ transformer_features:
 train_transformer:
 	$(PYTHON_INTERPRETER) -m educational_ai_analytics.2_modeling.transformers.train_transformer
 
+## 7.1. Train Transformer for every configured window
+.PHONY: train_transformer_windows
+train_transformer_windows:
+	@set -e; \
+	WINDOWS="$$($(PYTHON_INTERPRETER) -c 'from educational_ai_analytics.config import W_WINDOWS; print(" ".join(str(int(w)) for w in W_WINDOWS))')"; \
+	echo "🧠 Transformer TRAIN | windows=$$WINDOWS"; \
+	for W in $$WINDOWS; do \
+		echo "➡️  train_transformer upto_week=$$W"; \
+		TMP_CONFIG="$$(mktemp)"; \
+		printf '{"upto_week": %s}\n' "$$W" > "$$TMP_CONFIG"; \
+		$(PYTHON_INTERPRETER) -m educational_ai_analytics.2_modeling.transformers.train_transformer --config-json "$$TMP_CONFIG"; \
+		rm -f "$$TMP_CONFIG"; \
+	done
+
+## Build custom TensorFlow wheel for Blackwell GPUs (RTX 50xx / sm_120)
+.PHONY: build_tf_blackwell_wheel
+build_tf_blackwell_wheel:
+	bash scripts/build_tf220_wheel.sh
+
+## Install latest locally built TensorFlow wheel
+.PHONY: install_tf_blackwell_wheel
+install_tf_blackwell_wheel:
+	bash scripts/install_tf220_wheel.sh
+
+## Data-free Blackwell TensorFlow runtime check
+.PHONY: check_tf_blackwell
+check_tf_blackwell:
+	bash scripts/check_tf_blackwell.sh
+
+## Quick Blackwell TensorFlow benchmark / compatibility check
+.PHONY: bench_tf_blackwell
+bench_tf_blackwell:
+	bash scripts/bench_tf220.sh
+
 ## 7.5. Run Full Transformer Pipeline (Features + Train)
 .PHONY: full_transformer
-full_transformer: transformer_features train_transformer
+full_transformer: transformer_features train_transformer_windows
 
 ## 7.6. Super finetuning automático (Random Search Transformer)
 .PHONY: hparam_search
@@ -180,24 +220,24 @@ from_data_to_clustering_predict: data features train_ae encode train_clustering 
 .PHONY: from_ae_train_to_predict
 from_ae_train_to_predict: train_ae encode train_clustering predict_clustering
 
-## Grouped: full pipeline (data -> features -> AE -> clustering -> prediction -> plots)
+## Grouped: full pipeline end-to-end (data -> features -> AE -> clustering -> transformer, sin XAI)
 .PHONY: full_pipeline
-full_pipeline: from_data_to_clustering_predict all_plots
+full_pipeline: from_data_to_transformer
 
 ## Grouped: from raw data to transformer training
 .PHONY: from_data_to_transformer
-from_data_to_transformer: data features train_ae encode train_clustering predict_clustering all_plots transformer_features train_transformer
+from_data_to_transformer: data features train_ae encode train_clustering predict_clustering all_plots transformer_features train_transformer_windows
 
 ## Grouped: from AE training to full transformer pipeline
 .PHONY: from_ae_train_to_transformer
-from_ae_train_to_transformer: train_ae encode train_clustering predict_clustering all_plots transformer_features train_transformer
+from_ae_train_to_transformer: train_ae encode train_clustering predict_clustering all_plots transformer_features train_transformer_windows
 
 ## Menú interactivo con opciones numeradas
 .PHONY: menu
 menu:
 	@echo ""
 	@echo "================= 📋 MENU PIPELINES ================="
-	@echo "  1) full_pipeline"
+	@echo "  1) full_pipeline (hasta transformer, sin XAI)"
 	@echo "  2) all_plots"
 	@echo "  3) from_data_to_clustering_predict"
 	@echo "  4) from_ae_train_to_predict"

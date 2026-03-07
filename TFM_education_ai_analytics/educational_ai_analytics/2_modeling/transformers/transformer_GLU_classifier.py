@@ -7,8 +7,8 @@ from tensorflow.keras import layers
 @tf.keras.utils.register_keras_serializable(package="educational_ai_analytics")
 class GLULayer(layers.Layer):
     """Dense(2*units) -> split -> a * sigmoid(b)"""
-    def __init__(self, units: int, name=None):
-        super().__init__(name=name)
+    def __init__(self, units: int, name=None, **kwargs):
+        super().__init__(name=name, **kwargs)
         self.units = units
         self.proj = layers.Dense(2 * units)
 
@@ -28,8 +28,8 @@ class GLULayer(layers.Layer):
 # =========================
 @tf.keras.utils.register_keras_serializable(package="educational_ai_analytics")
 class TransformerEncoderBlock(layers.Layer):
-    def __init__(self, d_model: int, num_heads: int, ff_dim: int, dropout: float, name=None):
-        super().__init__(name=name)
+    def __init__(self, d_model: int, num_heads: int, ff_dim: int, dropout: float, name=None, **kwargs):
+        super().__init__(name=name, **kwargs)
         if d_model % num_heads != 0:
             raise ValueError("d_model debe ser divisible por num_heads")
         self.d_model = d_model
@@ -116,8 +116,9 @@ class GLUTransformerClassifier(tf.keras.Model):
         static_hidden=(64, 64),
         head_hidden=(128, 64),
         name=None,
+        **kwargs,
     ):
-        super().__init__(name=name)
+        super().__init__(name=name, **kwargs)
         self.latent_d = latent_d
         self.num_heads = num_heads
         self.ff_dim = ff_dim

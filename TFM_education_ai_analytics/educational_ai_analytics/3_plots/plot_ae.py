@@ -289,8 +289,15 @@ def clean():
         import shutil
         hist_dir = AE_REPORTS_DIR / ".history"
         hist_dir.mkdir(parents=True, exist_ok=True)
+        preserved_files = {
+            "training_evolution.png",
+            "embeddings_pca.png",
+            "ae_loss_curve_global.png",
+        }
         for item in AE_REPORTS_DIR.iterdir():
             if item.name == ".history": continue
+            if item.name in preserved_files:
+                continue
             if item.is_file() and item.suffix == ".csv":
                 shutil.move(str(item), str(hist_dir / item.name))
             elif item.is_file(): item.unlink()

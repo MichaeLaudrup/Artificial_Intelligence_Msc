@@ -32,7 +32,7 @@ TRANSFORMERS_REPORTS_DIR = REPORTS_DIR / "transformers"
 OULAD_DATASET_URL = "https://analyse.kmi.open.ac.uk/open-dataset/download"
 
 # Feature Engineering Config
-W_WINDOWS = list(range(1, 26))
+W_WINDOWS = [1,3,5,8,10,12,15,18,20,24,28]
 
 # Clustering Config (single source of truth)
 N_CLUSTERS = 5

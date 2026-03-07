@@ -124,7 +124,12 @@ bench_tf_blackwell:
 
 ## 7.5. Run Full Transformer Pipeline (Features + Train)
 .PHONY: full_transformer
-full_transformer: transformer_features train_transformer_windows
+full_transformer: transformer_features train_transformer_windows plot_transformer_summary
+
+## 7.5.1. Generate global transformer validation summary (CSV + PNG)
+.PHONY: plot_transformer_summary
+plot_transformer_summary:
+	$(PYTHON_INTERPRETER) -m educational_ai_analytics.3_plots.plot_transformers
 
 ## 7.6. Super finetuning automático (Random Search Transformer)
 .PHONY: hparam_search
@@ -226,11 +231,11 @@ full_pipeline: from_data_to_transformer
 
 ## Grouped: from raw data to transformer training
 .PHONY: from_data_to_transformer
-from_data_to_transformer: data features train_ae encode train_clustering predict_clustering all_plots transformer_features train_transformer_windows
+from_data_to_transformer: data features train_ae encode train_clustering predict_clustering all_plots transformer_features train_transformer_windows plot_transformer_summary
 
 ## Grouped: from AE training to full transformer pipeline
 .PHONY: from_ae_train_to_transformer
-from_ae_train_to_transformer: train_ae encode train_clustering predict_clustering all_plots transformer_features train_transformer_windows
+from_ae_train_to_transformer: train_ae encode train_clustering predict_clustering all_plots transformer_features train_transformer_windows plot_transformer_summary
 
 ## Menú interactivo con opciones numeradas
 .PHONY: menu

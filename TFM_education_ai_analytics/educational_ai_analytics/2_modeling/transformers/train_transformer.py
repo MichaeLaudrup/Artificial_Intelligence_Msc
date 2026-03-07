@@ -1,4 +1,5 @@
 import copy
+import importlib
 import json
 import os
 import sys
@@ -1026,6 +1027,19 @@ def train(
             test_top2_acc=test_top2_acc,
             history_filename=cfg.history_filename
         )
+
+        try:
+            plot_transformers = importlib.import_module("educational_ai_analytics.3_plots.plot_transformers")
+            plot_transformers.generate_global_validation_summary(
+                report_root=Path("/workspace/TFM_education_ai_analytics/reports/transformer_training"),
+                data_root=base_npz,
+                num_classes=cfg.num_classes,
+                paper_baseline=cfg.paper_baseline,
+                binary_mode=selected_binary_mode,
+                history_filename=cfg.history_filename,
+            )
+        except Exception as e:
+            logger.error(f"No se pudo generar el resumen global de validación del transformer: {e}")
         
         history_file_used = cfg.history_filename if cfg.history_filename else f"experiments_history_{target_tag}.json"
         if cfg.run_compare:

@@ -102,6 +102,25 @@ train_transformer_windows:
 		rm -f "$$TMP_CONFIG"; \
 	done
 
+## 7.2. Evaluate latest Transformer on test
+.PHONY: test_transformer
+test_transformer:
+	$(PYTHON_INTERPRETER) -m educational_ai_analytics.2_modeling.transformers.evaluate_transformer
+
+## 7.3. Evaluate latest Transformer on test for every configured window
+.PHONY: test_transformer_windows
+test_transformer_windows:
+	@set -e; \
+	WINDOWS="$$($(PYTHON_INTERPRETER) -c 'from educational_ai_analytics.config import W_WINDOWS; print(" ".join(str(int(w)) for w in W_WINDOWS))')"; \
+	echo "🧪 Transformer TEST | windows=$$WINDOWS"; \
+	for W in $$WINDOWS; do \
+		echo "➡️  test_transformer upto_week=$$W"; \
+		TMP_CONFIG="$$(mktemp)"; \
+		printf '{"upto_week": %s}\n' "$$W" > "$$TMP_CONFIG"; \
+		$(PYTHON_INTERPRETER) -m educational_ai_analytics.2_modeling.transformers.evaluate_transformer --config-json "$$TMP_CONFIG"; \
+		rm -f "$$TMP_CONFIG"; \
+	done
+
 ## Build custom TensorFlow wheel for Blackwell GPUs (RTX 50xx / sm_120)
 .PHONY: build_tf_blackwell_wheel
 build_tf_blackwell_wheel:
@@ -124,12 +143,17 @@ bench_tf_blackwell:
 
 ## 7.5. Run Full Transformer Pipeline (Features + Train)
 .PHONY: full_transformer
-full_transformer: transformer_features train_transformer_windows plot_transformer_summary
+full_transformer: transformer_features train_transformer_windows test_transformer_windows plot_transformer_summary xai_transformer
 
-## 7.5.1. Generate global transformer validation summary (CSV + PNG)
+## 7.5.1. Generate global transformer validation/test summaries (CSV + PNG when available)
 .PHONY: plot_transformer_summary
 plot_transformer_summary:
 	$(PYTHON_INTERPRETER) -m educational_ai_analytics.3_plots.plot_transformers
+
+## 7.5.2. Generate transformer XAI SHAP reports (weekly + global)
+.PHONY: xai_transformer
+xai_transformer:
+	$(PYTHON_INTERPRETER) -m educational_ai_analytics.2_modeling.xai.xai run-all
 
 ## 7.6. Super finetuning automático (Random Search Transformer)
 .PHONY: hparam_search
@@ -225,24 +249,24 @@ from_data_to_clustering_predict: data features train_ae encode train_clustering 
 .PHONY: from_ae_train_to_predict
 from_ae_train_to_predict: train_ae encode train_clustering predict_clustering
 
-## Grouped: full pipeline end-to-end (data -> features -> AE -> clustering -> transformer, sin XAI)
+## Grouped: full pipeline end-to-end (data -> features -> AE -> clustering -> transformer + XAI)
 .PHONY: full_pipeline
 full_pipeline: from_data_to_transformer
 
-## Grouped: from raw data to transformer training
+## Grouped: from raw data to transformer training + reporting + XAI
 .PHONY: from_data_to_transformer
-from_data_to_transformer: data features train_ae encode train_clustering predict_clustering all_plots transformer_features train_transformer_windows plot_transformer_summary
+from_data_to_transformer: data features train_ae encode train_clustering predict_clustering all_plots transformer_features train_transformer_windows test_transformer_windows plot_transformer_summary xai_transformer
 
-## Grouped: from AE training to full transformer pipeline
+## Grouped: from AE training to full transformer pipeline + XAI
 .PHONY: from_ae_train_to_transformer
-from_ae_train_to_transformer: train_ae encode train_clustering predict_clustering all_plots transformer_features train_transformer_windows plot_transformer_summary
+from_ae_train_to_transformer: train_ae encode train_clustering predict_clustering all_plots transformer_features train_transformer_windows test_transformer_windows plot_transformer_summary xai_transformer
 
 ## Menú interactivo con opciones numeradas
 .PHONY: menu
 menu:
 	@echo ""
 	@echo "================= 📋 MENU PIPELINES ================="
-	@echo "  1) full_pipeline (hasta transformer, sin XAI)"
+	@echo "  1) full_pipeline (incluye transformer, summary y XAI)"
 	@echo "  2) all_plots"
 	@echo "  3) from_data_to_clustering_predict"
 	@echo "  4) from_ae_train_to_predict"

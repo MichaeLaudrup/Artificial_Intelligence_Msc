@@ -29,6 +29,16 @@ SUMMARY_COLUMNS = [
 ]
 
 
+@app.callback(invoke_without_command=True)
+def main(ctx: typer.Context):
+    """Genera resúmenes globales del transformer."""
+    if ctx.invoked_subcommand is None:
+        validation_result = generate_global_split_summary(split_name="validation")
+        test_result = generate_global_split_summary(split_name="test")
+        if validation_result is None and test_result is None:
+            raise typer.Exit(code=1)
+
+
 def _load_active_transformer_params():
     try:
         module = importlib.import_module("educational_ai_analytics.2_modeling.transformers.hyperparams")
@@ -179,14 +189,15 @@ def _filtered_sample_count(
     return int(len(y))
 
 
-def _load_validation_sample_count(
+def _load_split_sample_count(
     data_root: Path,
+    split_name: str,
     upto_week: int,
     num_classes: int,
     paper_baseline: bool,
     binary_mode: Optional[str],
 ) -> Optional[int]:
-    npz_path = data_root / "validation" / f"transformer_uptoW{int(upto_week)}.npz"
+    npz_path = data_root / split_name / f"transformer_uptoW{int(upto_week)}.npz"
     if not npz_path.exists():
         return None
 
@@ -194,7 +205,7 @@ def _load_validation_sample_count(
         with np.load(npz_path, allow_pickle=True) as data:
             y = np.asarray(data["y"], dtype=np.int64)
     except Exception as exc:
-        logger.warning(f"No se pudo leer {npz_path} para contar muestras de validación: {exc}")
+        logger.warning(f"No se pudo leer {npz_path} para contar muestras de {split_name}: {exc}")
         return None
 
     return _filtered_sample_count(
@@ -210,9 +221,10 @@ def _metric_or_none(metrics: dict, key: str) -> Optional[float]:
     return None if value is None else float(value)
 
 
-def build_validation_summary_dataframe(
+def build_split_summary_dataframe(
     report_root: Path = TRANSFORMER_REPORTS_ROOT,
     data_root: Path = TRANSFORMER_FEATURES_ROOT,
+    split_name: str = "validation",
     weeks: Optional[Iterable[int]] = None,
     num_classes: Optional[int] = None,
     paper_baseline: Optional[bool] = None,
@@ -251,21 +263,26 @@ def build_validation_summary_dataframe(
         if latest_entry is None:
             continue
 
-        validation_metrics = latest_entry.get("validation_metrics", {})
+        metrics_key = f"{split_name}_metrics"
+        split_metrics = latest_entry.get(metrics_key, {})
+        if not split_metrics:
+            continue
+
         rows.append({
             "upto_week": int(upto_week),
-            "n_samples": _load_validation_sample_count(
+            "n_samples": _load_split_sample_count(
                 data_root=data_root,
+                split_name=split_name,
                 upto_week=upto_week,
                 num_classes=resolved_num_classes,
                 paper_baseline=resolved_paper_baseline,
                 binary_mode=expected_binary_mode,
             ),
-            "accuracy": _metric_or_none(validation_metrics, "accuracy"),
-            "balanced_accuracy": _metric_or_none(validation_metrics, "balanced_accuracy"),
-            "precision": _metric_or_none(validation_metrics, "precision"),
-            "recall": _metric_or_none(validation_metrics, "recall"),
-            "auc": _metric_or_none(validation_metrics, "auc_ovr"),
+            "accuracy": _metric_or_none(split_metrics, "accuracy"),
+            "balanced_accuracy": _metric_or_none(split_metrics, "balanced_accuracy"),
+            "precision": _metric_or_none(split_metrics, "precision"),
+            "recall": _metric_or_none(split_metrics, "recall"),
+            "auc": _metric_or_none(split_metrics, "auc_ovr"),
         })
 
     if not rows:
@@ -289,7 +306,7 @@ def _format_summary_for_table(df: pd.DataFrame) -> pd.DataFrame:
     return formatted
 
 
-def render_validation_summary_table_png(
+def render_summary_table_png(
     summary_df: pd.DataFrame,
     output_path: Path,
     title: str,
@@ -332,9 +349,10 @@ def render_validation_summary_table_png(
     return output_path
 
 
-def generate_global_validation_summary(
+def generate_global_split_summary(
     report_root: Path = TRANSFORMER_REPORTS_ROOT,
     data_root: Path = TRANSFORMER_FEATURES_ROOT,
+    split_name: str = "validation",
     weeks: Optional[Iterable[int]] = None,
     num_classes: Optional[int] = None,
     paper_baseline: Optional[bool] = None,
@@ -355,9 +373,10 @@ def generate_global_validation_summary(
         history_filename=history_filename,
     )
 
-    summary_df = build_validation_summary_dataframe(
+    summary_df = build_split_summary_dataframe(
         report_root=report_root,
         data_root=data_root,
+        split_name=split_name,
         weeks=weeks,
         num_classes=resolved_num_classes,
         paper_baseline=resolved_paper_baseline,
@@ -365,21 +384,65 @@ def generate_global_validation_summary(
         history_filename=history_filename,
     )
     if summary_df.empty:
-        logger.warning(f"No se encontraron experimentos compatibles para generar el resumen global ({target_tag}).")
+        logger.warning(
+            f"No se encontraron experimentos compatibles para generar el resumen global de {split_name} ({target_tag})."
+        )
         return None
 
-    csv_path = report_root / f"validation_summary_{target_tag}.csv"
-    png_path = report_root / f"validation_summary_{target_tag}.png"
+    csv_path = report_root / f"{split_name}_summary_{target_tag}.csv"
+    png_path = report_root / f"{split_name}_summary_{target_tag}.png"
     summary_df.to_csv(csv_path, index=False)
-    render_validation_summary_table_png(
+    render_summary_table_png(
         summary_df=summary_df,
         output_path=png_path,
-        title=f"Transformer Validation Summary | {target_tag}",
+        title=f"Transformer {split_name.capitalize()} Summary | {target_tag}",
     )
 
     logger.info(f"✅ CSV global guardado en: {csv_path}")
     logger.info(f"✅ Tabla PNG global guardada en: {png_path}")
     return summary_df, csv_path, png_path
+
+
+def generate_global_validation_summary(
+    report_root: Path = TRANSFORMER_REPORTS_ROOT,
+    data_root: Path = TRANSFORMER_FEATURES_ROOT,
+    weeks: Optional[Iterable[int]] = None,
+    num_classes: Optional[int] = None,
+    paper_baseline: Optional[bool] = None,
+    binary_mode: Optional[str] = None,
+    history_filename: Optional[str] = None,
+) -> Optional[tuple[pd.DataFrame, Path, Path]]:
+    return generate_global_split_summary(
+        report_root=report_root,
+        data_root=data_root,
+        split_name="validation",
+        weeks=weeks,
+        num_classes=num_classes,
+        paper_baseline=paper_baseline,
+        binary_mode=binary_mode,
+        history_filename=history_filename,
+    )
+
+
+def generate_global_test_summary(
+    report_root: Path = TRANSFORMER_REPORTS_ROOT,
+    data_root: Path = TRANSFORMER_FEATURES_ROOT,
+    weeks: Optional[Iterable[int]] = None,
+    num_classes: Optional[int] = None,
+    paper_baseline: Optional[bool] = None,
+    binary_mode: Optional[str] = None,
+    history_filename: Optional[str] = None,
+) -> Optional[tuple[pd.DataFrame, Path, Path]]:
+    return generate_global_split_summary(
+        report_root=report_root,
+        data_root=data_root,
+        split_name="test",
+        weeks=weeks,
+        num_classes=num_classes,
+        paper_baseline=paper_baseline,
+        binary_mode=binary_mode,
+        history_filename=history_filename,
+    )
 
 
 @app.command("validation-summary")
@@ -393,6 +456,28 @@ def validation_summary(
 ):
     """Genera un CSV y una tabla PNG global con métricas de validación del transformer."""
     result = generate_global_validation_summary(
+        report_root=report_root,
+        data_root=data_root,
+        num_classes=num_classes,
+        paper_baseline=paper_baseline,
+        binary_mode=binary_mode,
+        history_filename=history_filename,
+    )
+    if result is None:
+        raise typer.Exit(code=1)
+
+
+@app.command("test-summary")
+def test_summary(
+    report_root: Path = typer.Option(TRANSFORMER_REPORTS_ROOT, help="Raíz de reports/transformer_training."),
+    data_root: Path = typer.Option(TRANSFORMER_FEATURES_ROOT, help="Raíz de data/6_transformer_features."),
+    num_classes: Optional[int] = typer.Option(None, help="Sobrescribe num_classes activo."),
+    paper_baseline: Optional[bool] = typer.Option(None, help="Sobrescribe paper_baseline activo."),
+    binary_mode: Optional[str] = typer.Option(None, help="Sobrescribe binary_mode activo."),
+    history_filename: Optional[str] = typer.Option(None, help="Nombre del history JSON a consolidar."),
+):
+    """Genera un CSV y una tabla PNG global con métricas de test del transformer."""
+    result = generate_global_test_summary(
         report_root=report_root,
         data_root=data_root,
         num_classes=num_classes,

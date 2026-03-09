@@ -2,6 +2,7 @@ import copy
 import importlib
 import json
 import os
+import shutil
 import sys
 from contextlib import contextmanager
 from dataclasses import asdict
@@ -20,6 +21,7 @@ try:
 except ImportError:
     from hyperparams import TRANSFORMER_PARAMS
 
+from educational_ai_analytics.config import W_WINDOWS
 from educational_ai_analytics.tf_runtime import configure_tensorflow_runtime, resolve_execution_device
 
 EXECUTION_DEVICE = resolve_execution_device(TRANSFORMER_PARAMS.execution_device)
@@ -65,16 +67,20 @@ def _suppress_low_level_cuda_noise():
 
 try:
     from .transformer_GLU_classifier import GLUTransformerClassifier
+    from .report_paths import migrate_legacy_transformer_reports, normalize_binary_mode as normalize_binary_mode_shared, resolve_report_dir
     from .utils.training_config import build_runtime_config_from_cli
     from .utils.thresholding import select_binary_threshold_with_constraints
     from .utils.training_callbacks import ReduceLRWithRestore, KeepBestValBalancedAcc
 except ImportError:
     from transformer_GLU_classifier import GLUTransformerClassifier
+    from report_paths import migrate_legacy_transformer_reports, normalize_binary_mode as normalize_binary_mode_shared, resolve_report_dir
     from utils.training_config import build_runtime_config_from_cli
     from utils.thresholding import select_binary_threshold_with_constraints
     from utils.training_callbacks import ReduceLRWithRestore, KeepBestValBalancedAcc
 
 app = typer.Typer()
+
+TRANSFORMER_REPORTS_ROOT = Path("/workspace/TFM_education_ai_analytics/reports/transformer_training")
 
 
 def _available_transformer_weeks(base_npz: Path, splits: list[str]) -> list[int]:
@@ -124,23 +130,34 @@ def _resolve_upto_week(
     )
     return fallback_week
 
-def _normalize_binary_mode(paper_baseline: bool, binary_mode: Optional[str]) -> str:
-    if binary_mode is None:
-        return "paper" if paper_baseline else "original"
-    mode = str(binary_mode).strip().lower()
-    aliases = {
-        "paper": "paper",
-        "baseline": "paper",
-        "original": "original",
-        "success_vs_risk": "success_vs_risk",
-        "risk": "success_vs_risk",
-        "passdist_vs_failwithdraw": "success_vs_risk",
-    }
-    if mode not in aliases:
-        raise ValueError(
-            f"binary_mode inválido: {binary_mode}. Usa uno de: paper|baseline|original|success_vs_risk"
+
+def _cleanup_transformer_report_weeks(reports_root: Path, allowed_weeks: list[int]) -> None:
+    allowed = {int(week) for week in allowed_weeks}
+    removed_dirs: list[str] = []
+
+    for week_dir in reports_root.glob("week_*"):
+        if not week_dir.is_dir():
+            continue
+
+        suffix = week_dir.name.removeprefix("week_")
+        if not suffix.isdigit():
+            continue
+
+        week = int(suffix)
+        if week in allowed:
+            continue
+
+        shutil.rmtree(week_dir)
+        removed_dirs.append(week_dir.name)
+
+    if removed_dirs:
+        logger.info(
+            "🧹 Limpieza reports/transformer_training: eliminadas carpetas fuera de W_WINDOWS -> {}",
+            ", ".join(sorted(removed_dirs, key=lambda name: int(name.removeprefix("week_")))),
         )
-    return aliases[mode]
+
+def _normalize_binary_mode(paper_baseline: bool, binary_mode: Optional[str]) -> str:
+    return normalize_binary_mode_shared(paper_baseline=paper_baseline, binary_mode=binary_mode)
 
 
 def filter_classes(
@@ -300,7 +317,18 @@ def train(
         cfg.eval_test,
         default_week=TRANSFORMER_PARAMS.upto_week,
     )
-    save_dir = Path(f"/workspace/TFM_education_ai_analytics/reports/transformer_training/week_{cfg.upto_week}")
+    moved_paths = migrate_legacy_transformer_reports(TRANSFORMER_REPORTS_ROOT)
+    if moved_paths:
+        logger.info("🗂️ Reportes transformer migrados a subcarpetas por esquema de clases")
+    scoped_reports_root = resolve_report_dir(
+        TRANSFORMER_REPORTS_ROOT,
+        num_classes=cfg.num_classes,
+        paper_baseline=cfg.paper_baseline,
+        binary_mode=cfg.binary_mode,
+    )
+    scoped_reports_root.mkdir(parents=True, exist_ok=True)
+    _cleanup_transformer_report_weeks(scoped_reports_root, W_WINDOWS)
+    save_dir = scoped_reports_root / f"week_{cfg.upto_week}"
     
     logger.info(f"Cargando datos pre-normalizados desde: {base_npz}")
     

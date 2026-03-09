@@ -1,4 +1,5 @@
 import json
+import re
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -17,11 +18,44 @@ from educational_ai_analytics.config import (
     EMBEDDINGS_DATA_DIR,
     FEATURES_DATA_DIR,
     CLUSTERING_MODELS_DIR,
+    W_WINDOWS,
 )
 
 from .hyperparams import CLUSTERING_PARAMS
 
 app = typer.Typer(add_completion=False)
+
+
+def _cleanup_weekly_clustering_artifacts(allowed_weeks: List[int]) -> None:
+    allowed = {int(week) for week in allowed_weeks}
+    week_pattern = re.compile(r"_w(\d{2})\.")
+    removed_paths: List[str] = []
+
+    cleanup_roots = [CLUSTERING_MODELS_DIR, CLUSTERING_REPORTS_DIR]
+    for root in cleanup_roots:
+        if not root.exists():
+            continue
+
+        for item in root.iterdir():
+            if not item.is_file():
+                continue
+
+            match = week_pattern.search(item.name)
+            if match is None:
+                continue
+
+            week = int(match.group(1))
+            if week in allowed:
+                continue
+
+            item.unlink()
+            removed_paths.append(str(item.relative_to(root.parent.parent)))
+
+    if removed_paths:
+        logger.info(
+            "🧹 Limpieza clustering: eliminados artefactos fuera de W_WINDOWS -> {}",
+            ", ".join(sorted(removed_paths)),
+        )
 
 
 def _parse_windows(windows: Optional[str]) -> List[int]:
@@ -267,6 +301,7 @@ def main(
 
     CLUSTERING_MODELS_DIR.mkdir(parents=True, exist_ok=True)
     CLUSTERING_REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    _cleanup_weekly_clustering_artifacts([int(w) for w in W_WINDOWS])
 
     all_diag_rows: List[Dict[str, Any]] = []
     summary_rows: List[Dict[str, Any]] = []

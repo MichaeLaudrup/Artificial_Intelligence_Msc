@@ -11,6 +11,11 @@ import typer
 
 from educational_ai_analytics.config import DATA_DIR, REPORTS_DIR
 
+_report_paths = importlib.import_module("educational_ai_analytics.2_modeling.transformers.report_paths")
+migrate_legacy_transformer_reports = getattr(_report_paths, "migrate_legacy_transformer_reports")
+normalize_binary_mode_shared = getattr(_report_paths, "normalize_binary_mode")
+resolve_report_dir = getattr(_report_paths, "resolve_report_dir")
+
 from .style import set_style
 
 app = typer.Typer(help="Visualizaciones para Transformers.")
@@ -49,23 +54,7 @@ def _load_active_transformer_params():
 
 
 def _normalize_binary_mode(paper_baseline: bool, binary_mode: Optional[str]) -> str:
-    if binary_mode is None:
-        return "paper" if paper_baseline else "original"
-
-    mode = str(binary_mode).strip().lower()
-    aliases = {
-        "paper": "paper",
-        "baseline": "paper",
-        "original": "original",
-        "success_vs_risk": "success_vs_risk",
-        "risk": "success_vs_risk",
-        "passdist_vs_failwithdraw": "success_vs_risk",
-    }
-    if mode not in aliases:
-        raise ValueError(
-            f"binary_mode inválido: {binary_mode}. Usa uno de: paper|baseline|original|success_vs_risk"
-        )
-    return aliases[mode]
+    return normalize_binary_mode_shared(paper_baseline=paper_baseline, binary_mode=binary_mode)
 
 
 def _resolve_target_tag(num_classes: int, paper_baseline: bool, binary_mode: Optional[str]) -> tuple[str, Optional[str]]:
@@ -246,9 +235,17 @@ def build_split_summary_dataframe(
         history_filename=history_filename,
     )
 
+    migrate_legacy_transformer_reports(report_root)
+    scoped_report_root = resolve_report_dir(
+        report_root,
+        num_classes=resolved_num_classes,
+        paper_baseline=resolved_paper_baseline,
+        binary_mode=resolved_binary_mode,
+    )
+
     rows: list[dict] = []
-    for upto_week in _discover_candidate_weeks(report_root=report_root, data_root=data_root, preferred_weeks=weeks):
-        history_path = report_root / f"week_{int(upto_week)}" / history_file
+    for upto_week in _discover_candidate_weeks(report_root=scoped_report_root, data_root=data_root, preferred_weeks=weeks):
+        history_path = scoped_report_root / f"week_{int(upto_week)}" / history_file
         entries = _load_history_entries(history_path)
         if not entries:
             continue
@@ -373,6 +370,14 @@ def generate_global_split_summary(
         history_filename=history_filename,
     )
 
+    scoped_report_root = resolve_report_dir(
+        report_root,
+        num_classes=resolved_num_classes,
+        paper_baseline=resolved_paper_baseline,
+        binary_mode=resolved_binary_mode,
+    )
+    scoped_report_root.mkdir(parents=True, exist_ok=True)
+
     summary_df = build_split_summary_dataframe(
         report_root=report_root,
         data_root=data_root,
@@ -389,8 +394,8 @@ def generate_global_split_summary(
         )
         return None
 
-    csv_path = report_root / f"{split_name}_summary_{target_tag}.csv"
-    png_path = report_root / f"{split_name}_summary_{target_tag}.png"
+    csv_path = scoped_report_root / f"{split_name}_summary_{target_tag}.csv"
+    png_path = scoped_report_root / f"{split_name}_summary_{target_tag}.png"
     summary_df.to_csv(csv_path, index=False)
     render_summary_table_png(
         summary_df=summary_df,

@@ -16,6 +16,7 @@ class ClusteringLayer(layers.Layer):
 
     q_ij ∝ (1 + ||z_i - mu_j||^2 / alpha)^(-(alpha+1)/2)
     """
+
     def __init__(self, n_clusters: int, alpha: float = 1.0, **kwargs):
         super().__init__(**kwargs)
         self.n_clusters = int(n_clusters)
@@ -37,8 +38,8 @@ class ClusteringLayer(layers.Layer):
 
     def call(self, inputs):
         # inputs: (B, D)
-        z = tf.expand_dims(inputs, axis=1)           # (B, 1, D)
-        mu = tf.expand_dims(self.clusters, axis=0)   # (1, K, D)
+        z = tf.expand_dims(inputs, axis=1)  # (B, 1, D)
+        mu = tf.expand_dims(self.clusters, axis=0)  # (1, K, D)
         dist = tf.reduce_sum(tf.square(z - mu), axis=2)  # (B, K)
 
         q = 1.0 / (1.0 + dist / self.alpha)
@@ -53,10 +54,12 @@ class ClusteringLayer(layers.Layer):
 
     def get_config(self):
         config = super().get_config()
-        config.update({
-            "n_clusters": self.n_clusters,
-            "alpha": self.alpha,
-        })
+        config.update(
+            {
+                "n_clusters": self.n_clusters,
+                "alpha": self.alpha,
+            }
+        )
         return config
 
 
@@ -205,18 +208,20 @@ class StudentProfileAutoencoder(tf.keras.Model):
 
     def get_config(self):
         config = super().get_config()
-        config.update({
-            "input_dim": self.input_dim,
-            "latent_dim": self.latent_dim,
-            "hidden_dims": self.hidden_dims,
-            "n_clusters": self.n_clusters,
-            "dropout_rate": self.dropout_rate,
-            "denoise_std": self.denoise_std,
-            "l2_latent": self.l2_latent,
-            "z_norm_penalty": self.z_norm_penalty,
-            "normalize_latent": self.normalize_latent,
-            "alpha": self.alpha,
-        })
+        config.update(
+            {
+                "input_dim": self.input_dim,
+                "latent_dim": self.latent_dim,
+                "hidden_dims": self.hidden_dims,
+                "n_clusters": self.n_clusters,
+                "dropout_rate": self.dropout_rate,
+                "denoise_std": self.denoise_std,
+                "l2_latent": self.l2_latent,
+                "z_norm_penalty": self.z_norm_penalty,
+                "normalize_latent": self.normalize_latent,
+                "alpha": self.alpha,
+            }
+        )
         return config
 
     @classmethod

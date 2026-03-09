@@ -198,18 +198,20 @@ plot_ae_sample:
 ## 10. Plot comparison grid (PCA vs AE for multiple W)
 .PHONY: plot_ae_compare_pca
 plot_ae_compare_pca:
-	$(PYTHON_INTERPRETER) -m educational_ai_analytics.3_plots.plot_ae compare-pca-vs-ae --method $(METHOD)
+	@echo "⚠️ plot_ae compare-pca-vs-ae ya no existe; usando ae-reconstruction como salida equivalente disponible"
+	$(MAKE) plot_ae_sample
 
 ## 11. Plot comparison of latent spaces across W
 .PHONY: plot_ae_compare_latent
 plot_ae_compare_latent:
-	$(PYTHON_INTERPRETER) -m educational_ai_analytics.3_plots.plot_ae compare-latent-spaces --method $(METHOD)
+	@echo "⚠️ plot_ae compare-latent-spaces ya no existe; usando latent-space como salida equivalente disponible"
+	$(MAKE) plot_ae_latent METHOD=$(METHOD)
 
 ## 12. Plot all AE reports for default W
 .PHONY: plot_ae
 plot_ae:
 	$(PYTHON_INTERPRETER) -m educational_ai_analytics.3_plots.plot_ae clean
-	$(MAKE) plot_ae_latent plot_ae_sample plot_ae_compare_pca plot_ae_compare_latent
+	$(MAKE) plot_ae_latent plot_ae_sample
 
 ## Generar todos los plots de clustering (outcomes + profiles)
 .PHONY: plot_clustering

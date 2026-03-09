@@ -14,6 +14,7 @@ from loguru import logger
 import typer
 from sklearn.decomposition import PCA
 import tensorflow as tf
+from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 
 from educational_ai_analytics.config import (
     REPORTS_DIR,
@@ -98,7 +99,7 @@ def loss_curve():
 
 @app.command()
 def ae_reconstruction(split: str = "training"):
-    """Visualiza el flujo del AE para todas las semanas en 2D (Dark Mode): Original -> Latente -> Recon."""
+    """Visualiza el flujo del AE para todas las semanas en 2D y 3D: Original -> Latente -> Recon."""
     split_dir = FEATURES_DATA_DIR / split
     model_path = _ae_model_path()
     if not model_path.exists(): 
@@ -134,8 +135,13 @@ def ae_reconstruction(split: str = "training"):
     if n_rows == 1:
         axes = np.expand_dims(axes, axis=0) # Garantizar 2D axes[row, col]
 
+    fig_3d = plt.figure(figsize=(16, 4.2 * n_rows), constrained_layout=True)
+    gs_3d = fig_3d.add_gridspec(n_rows, 3)
+
     fig.patch.set_facecolor(DARK_BG)
+    fig_3d.patch.set_facecolor(DARK_BG)
     titles = ["1) Original (PCA 2D)", "2) Espacio Latente (PCA 2D)", "3) Reconstrucción (PCA 2D)"]
+    titles_3d = ["1) Original (PCA 3D)", "2) Espacio Latente (PCA 3D)", "3) Reconstrucción (PCA 3D)"]
     
     # Color único para todos los puntos (sin codificación por cluster)
     POINT_COLOR = "#A8EDEA"
@@ -158,11 +164,17 @@ def ae_reconstruction(split: str = "training"):
         pca_in = PCA(n_components=2, random_state=42)
         p_in = pca_in.fit_transform(X_in)
         p_rec = pca_in.transform(X_rec)
+        pca_in_3d = PCA(n_components=3, random_state=42)
+        p_in_3d = pca_in_3d.fit_transform(X_in)
+        p_rec_3d = pca_in_3d.transform(X_rec)
             
         pca_lat = PCA(n_components=2, random_state=42)
         p_lat = pca_lat.fit_transform(Z_lat)
+        pca_lat_3d = PCA(n_components=3, random_state=42)
+        p_lat_3d = pca_lat_3d.fit_transform(Z_lat)
 
         data_row = [p_in, p_lat, p_rec]
+        data_row_3d = [p_in_3d, p_lat_3d, p_rec_3d]
 
         for j, (d, t) in enumerate(zip(data_row, titles)):
             ax = axes[i, j]
@@ -180,9 +192,36 @@ def ae_reconstruction(split: str = "training"):
             for spine in ax.spines.values():
                 spine.set_color("#2A2D3A")
 
+        for j, (d3, t3) in enumerate(zip(data_row_3d, titles_3d)):
+            ax3 = fig_3d.add_subplot(gs_3d[i, j], projection="3d")
+            ax3.set_facecolor(PANEL_BG)
+            ax3.scatter(d3[:, 0], d3[:, 1], d3[:, 2], s=4, alpha=0.35, color=POINT_COLOR, edgecolors='none')
+
+            if i == 0:
+                ax3.set_title(t3, fontsize=12, fontweight='bold', pad=12, color=TEXT_COLOR)
+
+            if j == 0:
+                ax3.text2D(-0.12, 0.5, f"W{W:02d}", transform=ax3.transAxes,
+                           fontsize=14, fontweight='bold', color=TEXT_COLOR, va='center')
+
+            ax3.xaxis.set_pane_color((0.10, 0.11, 0.15, 1.0))
+            ax3.yaxis.set_pane_color((0.10, 0.11, 0.15, 1.0))
+            ax3.zaxis.set_pane_color((0.10, 0.11, 0.15, 1.0))
+            ax3.xaxis.line.set_color("#2A2D3A")
+            ax3.yaxis.line.set_color("#2A2D3A")
+            ax3.zaxis.line.set_color("#2A2D3A")
+            ax3.tick_params(colors=TEXT_COLOR, labelsize=7)
+            ax3.set_xticks([])
+            ax3.set_yticks([])
+            ax3.set_zticks([])
+            ax3.grid(True, alpha=0.15)
+
     out = AE_REPORTS_DIR / f"ae_reconstruction_multi_row_2D_{split}.png"
-    plt.savefig(out, dpi=180, facecolor=fig.get_facecolor())
-    plt.close()
+    out_3d = AE_REPORTS_DIR / f"ae_reconstruction_multi_row_3D_{split}.png"
+    fig.savefig(out, dpi=180, facecolor=fig.get_facecolor())
+    fig_3d.savefig(out_3d, dpi=180, facecolor=fig_3d.get_facecolor())
+    plt.close(fig)
+    plt.close(fig_3d)
     
     # Reset rcParams to avoid breaking other plots
     plt.rcParams.update(plt.rcParamsDefault)
@@ -191,6 +230,7 @@ def ae_reconstruction(split: str = "training"):
     set_style() # Restaurar el estilo custom del proyecto
     
     logger.success(f"✨ Dashboard 2D ({method_name}) en Dark Mode guardado: {out}")
+    logger.success(f"✨ Dashboard 3D (PCA) en Dark Mode guardado: {out_3d}")
 
 @app.command()
 def latent_space(W: int = W_WINDOWS[0], split: str = "train", method: str = "pca"):
@@ -237,50 +277,6 @@ def latent_space(W: int = W_WINDOWS[0], split: str = "train", method: str = "pca
     out = AE_REPORTS_DIR / f"latent_space_w{W:02d}_{split}.png"
     plt.savefig(out, dpi=180); plt.close()
     logger.success(f"✨ Guardado: {out}")
-
-@app.command()
-def compare_pca_vs_ae(split: str = "train", method: str = "pca"):
-    """Compara PCA vs AE para todas las ventanas."""
-    Ws = sorted(W_WINDOWS)
-    nrows = len(Ws); ncols = 2
-    fig, axes = plt.subplots(nrows, ncols, figsize=(10, 4 * nrows), constrained_layout=True)
-    if nrows == 1: axes = np.expand_dims(axes, axis=0)
-
-    for i, W in enumerate(Ws):
-        for j, etype in enumerate(["pca", "ae"]):
-            ax = axes[i, j]
-            path = _embeddings_path(W, split, etype)
-            df = _safe_read_csv(path)
-            if df.empty: continue
-            
-            Z = PCA(n_components=2, random_state=42).fit_transform(df.values)
-            color = "#3498db" if j==0 else "#e74c3c"
-            ax.scatter(Z[:,0], Z[:,1], s=2, alpha=0.2, color=color)
-            ax.set_title(f"W{W} | {etype.upper()}"); ax.grid(True, alpha=0.1)
-
-    out = AE_REPORTS_DIR / f"compare_pca_vs_ae_{split}.png"
-    plt.savefig(out, dpi=150); plt.close()
-    logger.success(f"🖼️ Guardado: {out}")
-
-@app.command()
-def compare_latent_spaces(split: str = "train", method: str = "pca"):
-    """Compara espacios latentes de AE entre ventanas."""
-    Ws = sorted(W_WINDOWS)
-    fig, axes = plt.subplots(1, len(Ws), figsize=(5 * len(Ws), 4), constrained_layout=True)
-    if len(Ws) == 1: axes = [axes]
-
-    for i, W in enumerate(Ws):
-        ax = axes[i]
-        path = _embeddings_path(W, split, "ae")
-        df = _safe_read_csv(path)
-        if df.empty: continue
-        Z = PCA(n_components=2, random_state=42).fit_transform(df.values)
-        ax.scatter(Z[:,0], Z[:,1], s=2, alpha=0.3, color="#2ecc71")
-        ax.set_title(f"W{W} Latent Space"); ax.grid(True, alpha=0.1)
-
-    out = AE_REPORTS_DIR / f"compare_latent_spaces_{split}.png"
-    plt.savefig(out, dpi=150); plt.close()
-    logger.success(f"🧩 Guardado: {out}")
 
 @app.command()
 def clean():

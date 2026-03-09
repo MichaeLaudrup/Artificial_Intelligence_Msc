@@ -12,6 +12,7 @@ from sklearn.metrics import balanced_accuracy_score, f1_score, precision_score, 
 
 try:
 	from .hyperparams import TRANSFORMER_PARAMS
+	from .report_paths import migrate_legacy_transformer_reports, normalize_binary_mode as normalize_binary_mode_shared, resolve_report_dir
 	from .train_transformer import (
 		_available_transformer_weeks,
 		_normalize_binary_mode,
@@ -23,6 +24,7 @@ try:
 	from .utils.training_config import build_runtime_config_from_cli
 except ImportError:
 	from hyperparams import TRANSFORMER_PARAMS
+	from report_paths import migrate_legacy_transformer_reports, normalize_binary_mode as normalize_binary_mode_shared, resolve_report_dir
 	from train_transformer import (
 		_available_transformer_weeks,
 		_normalize_binary_mode,
@@ -40,7 +42,7 @@ app = typer.Typer(help="Evaluación standalone del transformer sobre test.")
 
 def _resolve_target_tag(num_classes: int, paper_baseline: bool, binary_mode: Optional[str]) -> tuple[str, Optional[str]]:
 	if int(num_classes) == 2:
-		resolved_mode = _normalize_binary_mode(paper_baseline=paper_baseline, binary_mode=binary_mode)
+		resolved_mode = normalize_binary_mode_shared(paper_baseline=paper_baseline, binary_mode=binary_mode)
 		return f"{num_classes}clases_{resolved_mode}", resolved_mode
 	return f"{num_classes}clases", None
 
@@ -256,7 +258,13 @@ def evaluate(
 		binary_mode=runtime_cfg.binary_mode,
 	)
 
-	reports_dir = Path(f"/workspace/TFM_education_ai_analytics/reports/transformer_training/week_{runtime_cfg.upto_week}")
+	migrate_legacy_transformer_reports(Path("/workspace/TFM_education_ai_analytics/reports/transformer_training"))
+	reports_dir = resolve_report_dir(
+		Path("/workspace/TFM_education_ai_analytics/reports/transformer_training"),
+		num_classes=runtime_cfg.num_classes,
+		paper_baseline=runtime_cfg.paper_baseline,
+		binary_mode=runtime_cfg.binary_mode,
+	) / f"week_{runtime_cfg.upto_week}"
 	history_file = runtime_cfg.history_filename or f"experiments_history_{target_tag}.json"
 	history_path = reports_dir / history_file
 	model_path = Path(f"/workspace/TFM_education_ai_analytics/models/transformers/transformer_uptoW{runtime_cfg.upto_week}_{target_tag}.keras")

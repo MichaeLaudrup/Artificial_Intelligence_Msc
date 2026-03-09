@@ -1,5 +1,15 @@
+import importlib
 import json
 from pathlib import Path
+
+TRANSFORMER_PARAMS = getattr(
+    importlib.import_module("educational_ai_analytics.2_modeling.transformers.hyperparams"),
+    "TRANSFORMER_PARAMS",
+)
+resolve_report_dir = getattr(
+    importlib.import_module("educational_ai_analytics.2_modeling.transformers.report_paths"),
+    "resolve_report_dir",
+)
 
 
 def _preferred_metric_order(num_classes: int) -> list[str]:
@@ -151,14 +161,19 @@ def compare_experiments(history_path: Path = Path("reports/transformer_training/
 if __name__ == "__main__":
     import sys
     
-    reports_dir = Path("reports/transformer_training")
+    reports_dir = resolve_report_dir(
+        Path("reports/transformer_training"),
+        num_classes=TRANSFORMER_PARAMS.num_classes,
+        paper_baseline=TRANSFORMER_PARAMS.paper_baseline,
+        binary_mode=TRANSFORMER_PARAMS.binary_mode,
+    )
     
     if len(sys.argv) > 1:
         # If user provides a specific file path
         compare_experiments(Path(sys.argv[1]))
     else:
         # Search for all metric files in week_* folders
-        history_files = sorted(list(reports_dir.glob("week_*/experiments_history.json")))
+        history_files = sorted(list(reports_dir.glob("week_*/experiments_history*.json")))
         
         if not history_files:
             print(f"No se encontraron historiales en {reports_dir}/week_*/")

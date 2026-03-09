@@ -1,8 +1,11 @@
 import importlib
 import json
 import os
+import shutil
 from pathlib import Path
 from typing import Iterable, Optional
+
+XAI_PARAMS = getattr(importlib.import_module("educational_ai_analytics.2_modeling.xai.hyperparams"), "XAI_PARAMS")
 
 from loguru import logger
 import matplotlib.pyplot as plt
@@ -11,16 +14,80 @@ import pandas as pd
 import seaborn as sns
 import shap
 
-if os.environ.get("XAI_DISABLE_GPU", "1") == "1":
+
+def _resolve_xai_device() -> str:
+	configured_device = str(getattr(XAI_PARAMS, "device", "cpu")).strip().lower()
+	if configured_device not in {"cpu", "gpu"}:
+		configured_device = "cpu"
+	env_override = os.environ.get("XAI_DISABLE_GPU")
+	if env_override is not None:
+		return "cpu" if env_override == "1" else "gpu"
+	return configured_device
+
+
+if _resolve_xai_device() == "cpu":
 	os.environ.setdefault("CUDA_VISIBLE_DEVICES", "-1")
 
 import tensorflow as tf
 import typer
 
 from educational_ai_analytics.config import DATA_DIR, MODELS_DIR, REPORTS_DIR, W_WINDOWS
+OULAD_ACTIVITY_LABELS = {
+	"homepage": "Inicio",
+	"oucontent": "Tema",
+	"forumng": "Foro",
+	"quiz": "Prueba",
+	"subpage": "Sub-pag",
+	"resource": "Recurso",
+	"url": "Enlace",
+	"ouelluminate": "Clase",
+	"externalquiz": "TestExt",
+	"questionnaire": "Sondeo",
+	"oucollaborate": "Equipo",
+	"ouwiki": "Wiki",
+	"page": "Hoja",
+	"dualpane": "Panel",
+	"htmlactivity": "Web",
+	"sharedsubpage": "Hoj-Com",
+	"repeatactivity": "Repaso",
+	"dataplus": "Datos",
+	"glossary": "Lexico",
+	"folder": "Carpeta",
+}
+
+STATIC_FEATURE_LABELS = {
+	"highest_education": "Estud",
+	"studied_credits": "Creds",
+	"prestart_intensity": "Preint",
+	"imd_band": "Socio",
+	"clicks_subpage": "Subpag",
+	"top1_share": "Top1",
+	"prestart_active_days": "Predias",
+	"prestart_clicks_total": "Preclk",
+	"api_index": "IndAPI",
+	"avg_score": "NotaM",
+	"weeks_since_last_submission": "SemEnt",
+	"score_slope": "PendNot",
+	"last_week_clicks_weighted": "ClkUlt",
+	"clicks_dualpane": "Panel",
+	"streak_final": "RachaF",
+	"late_ratio": "Tardio",
+	"early_weeks_ratio": "Tempr",
+	"weeks_since_last_activity": "SemAct",
+	"active_ratio_uptoW": "ActRat",
+	"submission_count": "NumEnt",
+	"curiosity_index": "Curios",
+	"pass_ratio": "Aprob",
+	"active_weeks": "SemUso",
+}
+
+_report_paths = importlib.import_module("educational_ai_analytics.2_modeling.transformers.report_paths")
+migrate_legacy_transformer_reports = getattr(_report_paths, "migrate_legacy_transformer_reports")
+normalize_binary_mode_shared = getattr(_report_paths, "normalize_binary_mode")
+resolve_report_dir = getattr(_report_paths, "resolve_report_dir")
+infer_report_scope_from_name = getattr(_report_paths, "infer_report_scope_from_name")
 
 app = typer.Typer(help="Explicabilidad SHAP productiva para Transformers.")
-XAI_PARAMS = getattr(importlib.import_module("educational_ai_analytics.2_modeling.xai.hyperparams"), "XAI_PARAMS")
 set_style = getattr(importlib.import_module("educational_ai_analytics.3_plots.style"), "set_style")
 set_style()
 
@@ -44,24 +111,57 @@ def _load_active_transformer_params():
 		return None
 
 
-def _normalize_binary_mode(paper_baseline: bool, binary_mode: Optional[str]) -> str:
-	if binary_mode is None:
-		return "paper" if paper_baseline else "original"
+def _map_oulad_activity_label(name: str) -> str:
+	raw_name = str(name).strip()
+	return OULAD_ACTIVITY_LABELS.get(raw_name, raw_name)
 
-	mode = str(binary_mode).strip().lower()
-	aliases = {
-		"paper": "paper",
-		"baseline": "paper",
-		"original": "original",
-		"success_vs_risk": "success_vs_risk",
-		"risk": "success_vs_risk",
-		"passdist_vs_failwithdraw": "success_vs_risk",
-	}
-	if mode not in aliases:
-		raise ValueError(
-			f"binary_mode inválido: {binary_mode}. Usa uno de: paper|baseline|original|success_vs_risk"
-		)
-	return aliases[mode]
+
+def _map_static_feature_label(name: str) -> str:
+	raw_name = str(name).strip()
+	return STATIC_FEATURE_LABELS.get(raw_name, raw_name)
+
+
+def _migrate_legacy_xai_reports(report_root: Path) -> list[str]:
+	report_root = Path(report_root)
+	if not report_root.exists():
+		return []
+
+	moved_paths: list[str] = []
+
+	for path in [child for child in report_root.iterdir() if child.is_file()]:
+		scope_name = infer_report_scope_from_name(path.name)
+		if scope_name is None:
+			continue
+		dst_dir = report_root / scope_name
+		dst_dir.mkdir(parents=True, exist_ok=True)
+		dst_path = dst_dir / path.name
+		if dst_path.exists():
+			path.unlink()
+		else:
+			shutil.move(str(path), str(dst_path))
+		moved_paths.append(str(dst_path.relative_to(report_root)))
+
+	for week_dir in [child for child in report_root.glob("week_*") if child.is_dir()]:
+		for path in [child for child in week_dir.iterdir() if child.is_file()]:
+			scope_name = infer_report_scope_from_name(path.name)
+			if scope_name is None:
+				continue
+			dst_dir = report_root / scope_name / week_dir.name
+			dst_dir.mkdir(parents=True, exist_ok=True)
+			dst_path = dst_dir / path.name
+			if dst_path.exists():
+				path.unlink()
+			else:
+				shutil.move(str(path), str(dst_path))
+			moved_paths.append(str(dst_path.relative_to(report_root)))
+		if not any(week_dir.iterdir()):
+			week_dir.rmdir()
+
+	return moved_paths
+
+
+def _normalize_binary_mode(paper_baseline: bool, binary_mode: Optional[str]) -> str:
+	return normalize_binary_mode_shared(paper_baseline=paper_baseline, binary_mode=binary_mode)
 
 
 def _resolve_target_tag(num_classes: int, paper_baseline: bool, binary_mode: Optional[str]) -> tuple[str, Optional[str]]:
@@ -386,22 +486,38 @@ def _save_attention_outputs(matrix: np.ndarray, output_dir: Path, base_name: str
 
 
 def _render_temporal_attention_heatmap_png(df: pd.DataFrame, output_path: Path, title: str) -> Path:
-	fig_width = max(8, 0.75 * len(df.columns) + 4)
-	fig_height = max(6, 0.42 * len(df.index) + 3)
+	fig_width = max(14, 1.25 * len(df.columns) + 8)
+	fig_height = max(6, 0.24 * len(df.index) + 2)
 	fig, ax = plt.subplots(figsize=(fig_width, fig_height), dpi=180)
 	fig.patch.set_facecolor("#111111")
 	ax.set_facecolor("#111111")
 
+	display_df = df.copy()
+	for column in display_df.columns:
+		valid = display_df[column].notna()
+		if not valid.any():
+			continue
+		column_values = display_df.loc[valid, column].astype(float)
+		column_min = float(column_values.min())
+		column_max = float(column_values.max())
+		if column_max > column_min:
+			display_df.loc[valid, column] = (column_values - column_min) / (column_max - column_min)
+		else:
+			display_df.loc[valid, column] = 1.0 if column_max > 0 else 0.0
+
 	mask = df.isna()
 	sns.heatmap(
-		df,
+		display_df,
 		mask=mask,
 		cmap="magma",
-		annot=True,
+		vmin=0.0,
+		vmax=1.0,
+		annot=df,
 		fmt=".3f",
 		linewidths=0.5,
 		linecolor="#1f1f1f",
 		cbar=True,
+		cbar_kws={"label": "intensidad relativa dentro de cada semana"},
 		ax=ax,
 	)
 
@@ -416,6 +532,7 @@ def _render_temporal_attention_heatmap_png(df: pd.DataFrame, output_path: Path, 
 		colorbar = ax.collections[0].colorbar
 		colorbar.ax.yaxis.set_tick_params(color="#f0f0f0")
 		plt.setp(colorbar.ax.get_yticklabels(), color="#f0f0f0")
+		colorbar.set_label("intensidad relativa dentro de cada semana", color="#f0f0f0")
 
 	output_path.parent.mkdir(parents=True, exist_ok=True)
 	plt.savefig(output_path, dpi=220, bbox_inches="tight", facecolor=fig.get_facecolor())
@@ -538,10 +655,11 @@ def _build_week_cell_summary(df: pd.DataFrame, week_order: list[int]) -> pd.Data
 		lambda row: f"{row['feature']}\n{float(row['mean_abs_shap']):.6f}",
 		axis=1,
 	)
-	wide = summary_df.pivot(index="rank", columns="week_label", values="cell")
-	ordered_columns = [f"W{int(week):02d}" for week in week_order if f"W{int(week):02d}" in wide.columns]
-	wide = wide.reindex(columns=ordered_columns)
-	wide = wide.reset_index().rename(columns={"rank": "top_rank"})
+	wide = summary_df.pivot(index="week_label", columns="rank", values="cell")
+	ordered_index = [f"W{int(week):02d}" for week in week_order if f"W{int(week):02d}" in wide.index]
+	wide = wide.reindex(index=ordered_index)
+	wide = wide.reset_index().rename(columns={"week_label": "week"})
+	wide.columns = ["week" if column == "week" else f"top_{int(column)}" for column in wide.columns]
 	return wide
 
 
@@ -728,7 +846,7 @@ def _compute_weekly_shap_importance(
 	seq_cols = seq_len * seq_feat_dim
 	seq_shap = shap_array[:, :seq_cols].reshape(-1, seq_len, seq_feat_dim)
 	seq_importance = np.abs(seq_shap).mean(axis=0).mean(axis=0)
-	seq_feature_names = [str(name) for name in activities] if len(activities) == seq_feat_dim else [f"seq_f{i}" for i in range(seq_feat_dim)]
+	seq_feature_names = [_map_oulad_activity_label(name) for name in activities] if len(activities) == seq_feat_dim else [f"seq_f{i}" for i in range(seq_feat_dim)]
 	seq_df = pd.DataFrame(
 		{
 			"upto_week": int(upto_week),
@@ -740,7 +858,7 @@ def _compute_weekly_shap_importance(
 	seq_df["rank"] = np.arange(1, len(seq_df) + 1)
 
 	if static_dim > 0:
-		static_feature_names = [str(name) for name in static_names] if len(static_names) == static_dim else [f"static_f{i}" for i in range(static_dim)]
+		static_feature_names = [_map_static_feature_label(name) for name in static_names] if len(static_names) == static_dim else [f"static_f{i}" for i in range(static_dim)]
 		static_importance = np.abs(shap_array[:, seq_cols:]).mean(axis=0)
 		static_df = pd.DataFrame(
 			{
@@ -801,11 +919,26 @@ def generate_xai_reports(
 		paper_baseline=resolved_paper_baseline,
 		binary_mode=resolved_binary_mode,
 	)
+	reports_root.mkdir(parents=True, exist_ok=True)
+	_migrate_legacy_xai_reports(reports_root)
+	resolved_xai_reports_root = resolve_report_dir(
+		reports_root,
+		num_classes=resolved_num_classes,
+		paper_baseline=resolved_paper_baseline,
+		binary_mode=resolved_binary_mode,
+	)
+	migrate_legacy_transformer_reports(transformer_reports_root)
+	resolved_transformer_reports_root = resolve_report_dir(
+		transformer_reports_root,
+		num_classes=resolved_num_classes,
+		paper_baseline=resolved_paper_baseline,
+		binary_mode=resolved_binary_mode,
+	)
 
 	weeks = _resolve_weeks(weeks_csv=weeks_csv, split=split, data_root=data_root)
 	rng = np.random.default_rng(int(seed))
-	reports_root.mkdir(parents=True, exist_ok=True)
-	_cleanup_residual_xai_files(report_root=reports_root, legacy_root=TRANSFORMER_REPORTS_ROOT)
+	resolved_xai_reports_root.mkdir(parents=True, exist_ok=True)
+	_cleanup_residual_xai_files(report_root=resolved_xai_reports_root, legacy_root=reports_root)
 
 	seq_frames = []
 	static_frames = []
@@ -827,12 +960,12 @@ def generate_xai_reports(
 			rng=rng,
 			data_root=data_root,
 			models_root=models_root,
-			transformer_reports_root=transformer_reports_root,
+			transformer_reports_root=resolved_transformer_reports_root,
 		)
 		if week_result is None:
 			continue
 
-		week_dir = reports_root / f"week_{int(upto_week)}"
+		week_dir = resolved_xai_reports_root / f"week_{int(upto_week)}"
 		week_dir.mkdir(parents=True, exist_ok=True)
 		seq_df = week_result["seq_df"]
 		static_df = week_result["static_df"]
@@ -870,14 +1003,14 @@ def generate_xai_reports(
 
 	seq_outputs = _save_global_outputs(
 		seq_global,
-		reports_root,
+		resolved_xai_reports_root,
 		f"xai_global_top_sequential_long_{target_tag}",
 		f"xai_global_top_sequential_wide_{target_tag}",
 		f"Top SHAP Secuenciales por Semana | {target_tag}",
 	)
 	static_outputs = _save_global_outputs(
 		static_global,
-		reports_root,
+		resolved_xai_reports_root,
 		f"xai_global_top_static_long_{target_tag}",
 		f"xai_global_top_static_wide_{target_tag}",
 		f"Top SHAP Estáticas por Semana | {target_tag}",
@@ -890,7 +1023,7 @@ def generate_xai_reports(
 			global_attention_outputs.extend(
 				_save_temporal_attention_outputs(
 					temporal_attention_heatmap,
-					reports_root,
+					resolved_xai_reports_root,
 					f"attention_temporal_heatmap_{target_tag}",
 					f"Atención media recibida por semana relativa y ventana | {target_tag}",
 				)
@@ -898,7 +1031,7 @@ def generate_xai_reports(
 
 		attention_grid_output = _save_attention_grid_output(
 			attention_maps,
-			reports_root,
+			resolved_xai_reports_root,
 			f"attention_last_layer_grid_{target_tag}",
 			f"Rejilla de mapas de atención por ventana | {target_tag}",
 			ncols=4,
@@ -910,7 +1043,7 @@ def generate_xai_reports(
 		global_attention_outputs.extend(
 			_save_attention_outputs(
 				aggregated_attention_map,
-				reports_root,
+				resolved_xai_reports_root,
 				f"attention_global_mean_{target_tag}",
 				f"Mapa de Atención Global Medio | {target_tag}",
 			)
@@ -925,7 +1058,7 @@ def generate_xai_reports(
 		global_attention_outputs.extend(
 			_save_week_outputs(
 				attention_summary,
-				reports_root,
+				resolved_xai_reports_root,
 				f"attention_global_summary_{target_tag}",
 				f"Resumen Global de Atención | {target_tag}",
 			)

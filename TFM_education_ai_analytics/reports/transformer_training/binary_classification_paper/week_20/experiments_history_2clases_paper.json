@@ -1,0 +1,78 @@
+[
+    {
+        "timestamp": "2026-03-09 18:34:34",
+        "hyperparameters": {
+            "upto_week": 20,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "binary_mode": "paper",
+            "batch_size": 64,
+            "epochs": 80,
+            "execution_device": "gpu",
+            "use_mixed_precision": false,
+            "with_static": true,
+            "use_clustering_features": true,
+            "accumulated_uptow": true,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128,
+                64,
+                32
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.5,
+            "focal_alpha": [
+                0.27,
+                0.73
+            ],
+            "eval_test": false,
+            "history_filename": null,
+            "seed": null,
+            "tune_threshold": false,
+            "threshold_acc_min": 0.7,
+            "threshold_prec_min": 0.55,
+            "threshold_objective": "balanced_accuracy",
+            "threshold_min": 0.15,
+            "threshold_max": 0.75,
+            "threshold_points": 601,
+            "threshold_fallback": 0.5,
+            "run_compare": true,
+            "fast_search": false
+        },
+        "validation_metrics": {
+            "loss": 0.018035003915429115,
+            "accuracy": 0.9305850267410278,
+            "balanced_accuracy": 0.9179891257068291,
+            "auc_ovr": 0.9637181383210092,
+            "precision": 0.8851148851148851,
+            "recall": 0.886,
+            "f1_score": 0.8855572213893054
+        },
+        "test_metrics": {
+            "accuracy": 0.9257040143798682,
+            "balanced_accuracy": 0.915428408706026,
+            "precision": 0.8623402163225172,
+            "recall": 0.8903553299492386,
+            "f1_score": 0.8761238761238761,
+            "auc_ovr": 0.9581422139573414
+        },
+        "test_evaluation": {
+            "timestamp": "2026-03-09 18:39:26",
+            "selected_threshold": null
+        }
+    }
+]

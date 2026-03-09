@@ -7,6 +7,9 @@
   // Extensiones útiles para Python y Jupyter dentro del contenedor
   "customizations": {
     "vscode": {
+      "settings": {
+        "python.defaultInterpreterPath": "/opt/tfm-venv/bin/python"
+      },
       "extensions": [
         "ms-python.python",
         "ms-toolsai.jupyter",

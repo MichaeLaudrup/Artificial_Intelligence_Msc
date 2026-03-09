@@ -1,4 +1,5 @@
 import os
+import shutil
 import warnings
 
 # Silenciar warnings de Protobuf y logs de TensorFlow
@@ -27,6 +28,36 @@ from .style import set_style
 
 app = typer.Typer(help="Visualizaciones para Clustering.")
 set_style()
+
+
+def _cleanup_week_dirs(root: Path, allowed_weeks: list[int]) -> None:
+    allowed = {int(week) for week in allowed_weeks}
+    removed: list[str] = []
+
+    if not root.exists():
+        return
+
+    for item in root.iterdir():
+        if not item.is_dir() or not item.name.startswith("w"):
+            continue
+
+        suffix = item.name.removeprefix("w")
+        if not suffix.isdigit():
+            continue
+
+        week = int(suffix)
+        if week in allowed:
+            continue
+
+        shutil.rmtree(item)
+        removed.append(item.name)
+
+    if removed:
+        logger.info(
+            "🧹 Limpieza {}: eliminadas semanas fuera de W_WINDOWS -> {}",
+            root,
+            ", ".join(sorted(removed, key=lambda name: int(name.removeprefix("w")))),
+        )
 
 
 def _get_ae_n_clusters(default: int = 5) -> int:
@@ -137,6 +168,8 @@ def weekly_reports(
     interm_root = out_dir / "_intermediate"
     weekly_root.mkdir(parents=True, exist_ok=True)
     interm_root.mkdir(parents=True, exist_ok=True)
+    _cleanup_week_dirs(weekly_root, [int(x) for x in W_WINDOWS])
+    _cleanup_week_dirs(interm_root, [int(x) for x in W_WINDOWS])
 
     for w in sorted([int(x) for x in W_WINDOWS]):
         w_dir = weekly_root / f"w{w:02d}"

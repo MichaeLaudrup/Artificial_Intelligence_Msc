@@ -7,7 +7,7 @@ from educational_ai_analytics.config import N_CLUSTERS
 class AutoencoderParams:
     """Configuración para el modelo StudentProfileAutoencoder (Arquitectura Pro)."""
     input_dim: int = 60
-    latent_dim: int = 16   # ✅ cuello de botella real (era 32 → mismo tamaño que último hidden)
+    latent_dim: int = 24   # ✅ cuello de botella real (era 32 → mismo tamaño que último hidden)
     hidden_dims: List[int] = field(default_factory=lambda: [128, 64, 32])  # ✅ encoder más profundo
     dropout_rate: float = 0.01
     denoise_std: float = 0.01
@@ -17,8 +17,8 @@ class AutoencoderParams:
     activation: str = "leaky_relu"
     
     # Entrenamiento por fases
-    pretrain_epochs: int = 60
-    joint_epochs: int = 40
+    pretrain_epochs: int = 100
+    joint_epochs: int = 100
     batch_size: int = 254
     execution_device: str = "cpu"
     use_mixed_precision: bool = False

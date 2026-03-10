@@ -165,9 +165,6 @@ class GLUTransformerClassifier(tf.keras.Model):
             #   x_fused_t = (1 - gate_t) * x_seq_t + gate_t * x_static
             self.fusion_gate = layers.Dense(latent_d, activation="sigmoid", name="fusion_gate")
 
-            # Bypass de estáticas crudas: NO re-normalizar (ya llegan pre-normalizadas)
-            self.static_raw_norm = layers.Activation("linear", name="static_raw_identity")
-
         # ----- Head (MLP para Clasificación Final) -----
         head_layers = []
         for h in head_hidden:
@@ -256,14 +253,10 @@ class GLUTransformerClassifier(tf.keras.Model):
         pooled = tf.concat([avg_pooled, max_pooled], axis=-1)
         z = self.pooled_norm(pooled)
 
-        # ----- LATE FUSION (Triple Path) -----
+        # ----- LATE FUSION -----
         if self.with_static_features:
-            # Path 1: z = pooled temporal (ya incluye info estática vía early fusion)
-            # Path 2: x_static_emb = embedding estático procesado
-            # Path 3: x_static RAW (sin re-normalizar) = bypass directo sin bottleneck
-            #          para que el head vea las 19 features demográficas sin pérdida
-            x_static_raw_normed = self.static_raw_norm(x_static)
-            z = tf.concat([z, x_static_emb, x_static_raw_normed], axis=1)
+            # z contiene la rama temporal y x_static_emb la rama estática procesada.
+            z = tf.concat([z, x_static_emb], axis=1)
 
         # Clasificación final
         return self.head(z, training=training)

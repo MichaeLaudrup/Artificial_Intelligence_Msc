@@ -80,24 +80,49 @@ class ReduceLRWithRestore(tf.keras.callbacks.Callback):
                 )
 
 
+class SparseValidationEarlyStopping(tf.keras.callbacks.EarlyStopping):
+    """Early stopping compatible with sparse validation schedules.
+
+    When validation is not run on every epoch, Keras does not populate
+    `val_loss` in `logs`. The base callback warns on those epochs; here we
+    simply skip them and wait for the next epoch that actually has validation.
+    """
+
+    def on_epoch_end(self, epoch, logs=None):
+        logs = logs or {}
+        if self.monitor not in logs:
+            return
+        super().on_epoch_end(epoch, logs)
+
+
 class KeepBestValBalancedAcc(tf.keras.callbacks.Callback):
-    def __init__(self, val_inputs, val_targets, restore_on_train_end=True, verbose=1):
+    def __init__(self, val_inputs, val_targets, eval_every_n_epochs=5, restore_on_train_end=True, verbose=1):
         super().__init__()
         self.val_inputs = val_inputs
         self.val_targets = np.asarray(val_targets).astype(int)
+        self.eval_every_n_epochs = max(1, int(eval_every_n_epochs))
         self.restore_on_train_end = restore_on_train_end
         self.verbose = verbose
 
         self.best_score = -float("inf")
         self.best_epoch = -1
         self.best_weights = None
+        self.last_score = None
 
     def on_epoch_end(self, epoch, logs=None):
         logs = logs or {}
+
+        should_evaluate = epoch == 0 or ((epoch + 1) % self.eval_every_n_epochs == 0)
+        if not should_evaluate:
+            if self.last_score is not None:
+                logs["val_balanced_acc"] = self.last_score
+            return
+
         probs = self.model.predict(self.val_inputs, verbose=0)
         y_pred = np.argmax(probs, axis=1)
         score = float(balanced_accuracy_score(self.val_targets, y_pred))
         logs["val_balanced_acc"] = score
+        self.last_score = score
 
         if score > self.best_score:
             self.best_score = score

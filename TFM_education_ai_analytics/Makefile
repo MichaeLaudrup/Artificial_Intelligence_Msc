@@ -263,6 +263,13 @@ from_data_to_transformer: data features train_ae encode train_clustering predict
 .PHONY: from_ae_train_to_transformer
 from_ae_train_to_transformer: train_ae encode train_clustering predict_clustering all_plots transformer_features train_transformer_windows test_transformer_windows plot_transformer_summary xai_transformer
 
+## Grouped: from transformer features to evaluation, summary and XAI
+.PHONY: from_transformer_feat_to_xai from_transfor_feat_to_xai
+from_transformer_feat_to_xai: transformer_features train_transformer_windows test_transformer_windows plot_transformer_summary xai_transformer
+
+## Alias kept for convenience with abbreviated spelling
+from_transfor_feat_to_xai: from_transformer_feat_to_xai
+
 ## Menú interactivo con opciones numeradas
 .PHONY: menu
 menu:
@@ -275,9 +282,10 @@ menu:
 	@echo "  5) plot_clustering"
 	@echo "  6) from_data_to_transformer"
 	@echo "  7) from_ae_train_to_transformer"
-	@echo "  8) help"
+	@echo "  8) from_transformer_feat_to_xai"
+	@echo "  9) help"
 	@echo "====================================================="
-	@read -p "Elige una opción [1-8]: " opt; \
+	@read -p "Elige una opción [1-9]: " opt; \
 	case $$opt in \
 		1) $(MAKE) full_pipeline ;; \
 		2) $(MAKE) all_plots ;; \
@@ -286,7 +294,8 @@ menu:
 		5) $(MAKE) plot_clustering ;; \
 		6) $(MAKE) from_data_to_transformer ;; \
 		7) $(MAKE) from_ae_train_to_transformer ;; \
-		8) $(MAKE) help ;; \
+		8) $(MAKE) from_transformer_feat_to_xai ;; \
+		9) $(MAKE) help ;; \
 		*) echo "❌ Opción inválida. Ejecuta 'make menu' de nuevo." ;; \
 	esac
 

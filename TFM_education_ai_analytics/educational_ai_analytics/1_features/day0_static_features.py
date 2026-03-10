@@ -1,8 +1,8 @@
+import logging
+from typing import Optional
+
 import numpy as np
 import pandas as pd
-import logging
-import re
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -293,13 +293,13 @@ class DayZeroFeaturesBuilder:
 
         base_cols = [
             "imd_band", "age_band", "highest_education",
-            "num_of_prev_attempts", "studied_credits", "region_encoded",
+            "num_of_prev_attempts", "studied_credits", "date_registration", "region_encoded",
             "prestart_clicks_total", "prestart_active_days", "prestart_active_weeks",
             "prestart_earliest_day", "investigated_platform",
             "prestart_intensity", "prestart_anticipation",
         ]
 
-        for c in ["num_of_prev_attempts", "studied_credits"]:
+        for c in ["num_of_prev_attempts", "studied_credits", "date_registration"]:
             if c not in df.columns:
                 df[c] = 0.0
 
@@ -308,7 +308,7 @@ class DayZeroFeaturesBuilder:
         # columnas a normalizar por curso (todas las numéricas para evitar sesgos de escala)
         norm_cols = [
             "imd_band", "age_band", "highest_education", 
-            "num_of_prev_attempts", "studied_credits", "region_encoded",
+            "num_of_prev_attempts", "studied_credits", "date_registration", "region_encoded",
             "prestart_clicks_total", "prestart_active_days", "prestart_active_weeks", 
             "prestart_intensity", "prestart_anticipation", "prestart_earliest_day"
         ]

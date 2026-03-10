@@ -1,10 +1,13 @@
 import json
+import inspect
+import sys
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
 import numpy as np
+import pandas as pd
 import tensorflow as tf
 import typer
 from loguru import logger
@@ -12,7 +15,7 @@ from sklearn.metrics import balanced_accuracy_score, f1_score, precision_score, 
 
 try:
 	from .hyperparams import TRANSFORMER_PARAMS
-	from .report_paths import migrate_legacy_transformer_reports, normalize_binary_mode as normalize_binary_mode_shared, resolve_report_dir
+	from .report_paths import migrate_legacy_transformer_reports, normalize_binary_mode as normalize_binary_mode_shared, resolve_report_dir, resolve_report_scope_name
 	from .train_transformer import (
 		_available_transformer_weeks,
 		_normalize_binary_mode,
@@ -24,7 +27,7 @@ try:
 	from .utils.training_config import build_runtime_config_from_cli
 except ImportError:
 	from hyperparams import TRANSFORMER_PARAMS
-	from report_paths import migrate_legacy_transformer_reports, normalize_binary_mode as normalize_binary_mode_shared, resolve_report_dir
+	from report_paths import migrate_legacy_transformer_reports, normalize_binary_mode as normalize_binary_mode_shared, resolve_report_dir, resolve_report_scope_name
 	from train_transformer import (
 		_available_transformer_weeks,
 		_normalize_binary_mode,
@@ -45,6 +48,12 @@ def _resolve_target_tag(num_classes: int, paper_baseline: bool, binary_mode: Opt
 		resolved_mode = normalize_binary_mode_shared(paper_baseline=paper_baseline, binary_mode=binary_mode)
 		return f"{num_classes}clases_{resolved_mode}", resolved_mode
 	return f"{num_classes}clases", None
+
+
+def _hyperparams_module_path() -> str:
+	module = sys.modules.get(TRANSFORMER_PARAMS.__class__.__module__)
+	module_file = getattr(module, "__file__", None)
+	return str(module_file) if module_file else inspect.getfile(TRANSFORMER_PARAMS.__class__)
 
 
 def _resolve_eval_week(base_npz: Path, requested_week: Optional[int], default_week: int) -> int:
@@ -257,6 +266,15 @@ def evaluate(
 		paper_baseline=runtime_cfg.paper_baseline,
 		binary_mode=runtime_cfg.binary_mode,
 	)
+	logger.info("🧭 Hyperparams cargados desde: {}", _hyperparams_module_path())
+	logger.info(
+		"🧭 Config efectiva evaluación -> upto_week={} | num_classes={} | target_tag={} | binary_mode={} | paper_baseline={}",
+		runtime_cfg.upto_week,
+		runtime_cfg.num_classes,
+		target_tag,
+		selected_binary_mode if selected_binary_mode is not None else "ignored",
+		runtime_cfg.paper_baseline,
+	)
 
 	migrate_legacy_transformer_reports(Path("/workspace/TFM_education_ai_analytics/reports/transformer_training"))
 	reports_dir = resolve_report_dir(
@@ -273,7 +291,7 @@ def evaluate(
 	if not history_path.exists():
 		raise FileNotFoundError(f"No se encuentra el history asociado al modelo: {history_path}")
 
-	X_val_seq, val_mask_pad, val_mask_activity, X_val_stat, y_val, _, val_cluster_dim, val_static_names, val_static_sources = load_and_prepare_split(
+	X_val_seq, val_mask_pad, val_mask_activity, X_val_stat, y_val, val_ids, val_cluster_dim, val_static_names, val_static_sources = load_and_prepare_split(
 		base_npz,
 		"validation",
 		runtime_cfg.upto_week,
@@ -282,7 +300,7 @@ def evaluate(
 		runtime_cfg.with_static,
 		runtime_cfg.binary_mode,
 	)
-	X_test_seq, test_mask_pad, test_mask_activity, X_test_stat, y_test, _, test_cluster_dim, test_static_names, test_static_sources = load_and_prepare_split(
+	X_test_seq, test_mask_pad, test_mask_activity, X_test_stat, y_test, test_ids, test_cluster_dim, test_static_names, test_static_sources = load_and_prepare_split(
 		base_npz,
 		"test",
 		runtime_cfg.upto_week,
@@ -368,13 +386,16 @@ def evaluate(
 			)
 
 	if runtime_cfg.num_classes == 2:
-		y_pred_test = (y_probs_test[:, 1] >= (selected_threshold if selected_threshold is not None else 0.5)).astype(int)
+		thr_to_use = selected_threshold if selected_threshold is not None else 0.5
+		y_pred_val = (y_probs_val[:, 1] >= thr_to_use).astype(int)
+		y_pred_test = (y_probs_test[:, 1] >= thr_to_use).astype(int)
 		test_auc = float(roc_auc_score(y_test, y_probs_test[:, 1]))
 		test_precision = float(precision_score(y_test, y_pred_test, pos_label=1, average="binary"))
 		test_recall = float(recall_score(y_test, y_pred_test, pos_label=1, average="binary"))
 		test_f1 = float(f1_score(y_test, y_pred_test, pos_label=1, average="binary"))
 		test_top2_acc = None
 	else:
+		y_pred_val = np.argmax(y_probs_val, axis=1)
 		y_pred_test = np.argmax(y_probs_test, axis=1)
 		test_auc = float(roc_auc_score(y_test, y_probs_test, multi_class="ovr"))
 		test_precision = float(precision_score(y_test, y_pred_test, average="macro"))
@@ -384,6 +405,69 @@ def evaluate(
 		if runtime_cfg.num_classes == 4:
 			top2_idx_test = np.argsort(y_probs_test, axis=1)[:, -2:]
 			test_top2_acc = float(np.mean(np.any(top2_idx_test == y_test.reshape(-1, 1), axis=1)))
+
+	# === Guardar Predicciones para Stacking ===
+	preds_root_dir = Path("/workspace/TFM_education_ai_analytics/data/7_model_predictions")
+	preds_scope_name = resolve_report_scope_name(
+		num_classes=runtime_cfg.num_classes,
+		paper_baseline=runtime_cfg.paper_baseline,
+		binary_mode=runtime_cfg.binary_mode,
+	)
+	preds_out_dir = preds_root_dir / preds_scope_name
+	
+	# Mapeo de nombres de clases para que el CSV sea más legible
+	class_names = []
+	if runtime_cfg.num_classes == 2:
+		if runtime_cfg.paper_baseline:
+			class_names = ["Pass/Dist", "Withdrawn"]
+		elif runtime_cfg.binary_mode == "original":
+			class_names = ["Pass/Dist", "Fail"]
+		else:
+			class_names = ["Pass/Dist", "Fail/Withdrawn"]
+	elif runtime_cfg.num_classes == 3:
+		class_names = ["Fail", "Withdrawn", "Pass/Dist"]
+	elif runtime_cfg.num_classes == 4:
+		class_names = ["Fail", "Withdrawn", "Pass", "Distinction"]
+	else:
+		class_names = [f"Class_{i}" for i in range(runtime_cfg.num_classes)]
+
+	# validation
+	val_out_dir = preds_out_dir / "validation"
+	val_out_dir.mkdir(parents=True, exist_ok=True)
+	
+	val_df = pd.DataFrame({
+		"id_student": val_ids.astype(str),
+		"classification_scope": preds_scope_name,
+		"target_tag": target_tag,
+	})
+	for c, name in enumerate(class_names):
+		clean_name = name.replace("/", "_").replace(" ", "_").lower()
+		val_df[f"prob_{clean_name}"] = y_probs_val[:, c]
+	val_df["pred_class_id"] = y_pred_val
+	val_df["pred_class_name"] = [class_names[p] for p in y_pred_val]
+	val_df["true_class_id"] = y_val
+	val_df["true_class_name"] = [class_names[t] for t in y_val]
+	val_df.to_csv(val_out_dir / f"transformer_preds_uptW{runtime_cfg.upto_week}.csv", index=False)
+	
+	# test
+	test_out_dir = preds_out_dir / "test"
+	test_out_dir.mkdir(parents=True, exist_ok=True)
+	
+	test_df = pd.DataFrame({
+		"id_student": test_ids.astype(str),
+		"classification_scope": preds_scope_name,
+		"target_tag": target_tag,
+	})
+	for c, name in enumerate(class_names):
+		clean_name = name.replace("/", "_").replace(" ", "_").lower()
+		test_df[f"prob_{clean_name}"] = y_probs_test[:, c]
+	test_df["pred_class_id"] = y_pred_test
+	test_df["pred_class_name"] = [class_names[p] for p in y_pred_test]
+	test_df["true_class_id"] = y_test
+	test_df["true_class_name"] = [class_names[t] for t in y_test]
+	test_df.to_csv(test_out_dir / f"transformer_preds_uptW{runtime_cfg.upto_week}.csv", index=False)
+	
+	logger.info(f"💾 Predicciones de Transformer guardadas en: {preds_out_dir}")
 
 	test_metrics = {
 		"accuracy": float(np.mean(y_pred_test == y_test)),

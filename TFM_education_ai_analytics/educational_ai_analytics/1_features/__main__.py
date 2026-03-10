@@ -24,7 +24,7 @@ from ae_uptow_features import AEUptoWFeaturesBuilder
 # Importamos las constantes de config
 # Para que funcione el import de config fuera de la carpeta, aseguramos que la raíz esté en el path
 sys.path.append(str(current_dir.parents[1]))
-from educational_ai_analytics.config import PROCESSED_DATA_DIR, FEATURES_DATA_DIR, W_WINDOWS
+from educational_ai_analytics.config import FEATURES_DATA_DIR, PROCESSED_DATA_DIR, W_WINDOWS
 
 TARGET_MAP = {"Withdrawn": 0, "Fail": 1, "Pass": 2, "Distinction": 3}
 

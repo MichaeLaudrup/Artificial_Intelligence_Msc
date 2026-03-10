@@ -88,7 +88,7 @@ def compare_experiments(history_path: Path = Path("reports/transformer_training/
         _print_metrics_snapshot(history[-1], index_label=str(len(history)))
         return
 
-    print(f"\n📊 Análisis de Último Experimento ({len(history)} corridas totales en el historial)\n" + "="*80)
+    print(f"\n📊 Análisis del Último Experimento ({len(history)} ejecuciones registradas en el historial)\n" + "="*80)
 
     # Mostrar solo la comparativa más reciente (el último contra el penúltimo)
     for i in range(len(history) - 1, len(history) - 2, -1):

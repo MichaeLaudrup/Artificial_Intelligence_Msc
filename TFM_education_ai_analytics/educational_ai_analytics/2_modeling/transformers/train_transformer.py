@@ -1,7 +1,9 @@
 import copy
+import inspect
 import importlib
 import json
 import os
+import random
 import shutil
 import sys
 from contextlib import contextmanager
@@ -70,13 +72,13 @@ try:
     from .report_paths import migrate_legacy_transformer_reports, normalize_binary_mode as normalize_binary_mode_shared, resolve_report_dir
     from .utils.training_config import build_runtime_config_from_cli
     from .utils.thresholding import select_binary_threshold_with_constraints
-    from .utils.training_callbacks import ReduceLRWithRestore, KeepBestValBalancedAcc
+    from .utils.training_callbacks import ReduceLRWithRestore, KeepBestValBalancedAcc, SparseValidationEarlyStopping
 except ImportError:
     from transformer_GLU_classifier import GLUTransformerClassifier
     from report_paths import migrate_legacy_transformer_reports, normalize_binary_mode as normalize_binary_mode_shared, resolve_report_dir
     from utils.training_config import build_runtime_config_from_cli
     from utils.thresholding import select_binary_threshold_with_constraints
-    from utils.training_callbacks import ReduceLRWithRestore, KeepBestValBalancedAcc
+    from utils.training_callbacks import ReduceLRWithRestore, KeepBestValBalancedAcc, SparseValidationEarlyStopping
 
 app = typer.Typer()
 
@@ -158,6 +160,44 @@ def _cleanup_transformer_report_weeks(reports_root: Path, allowed_weeks: list[in
 
 def _normalize_binary_mode(paper_baseline: bool, binary_mode: Optional[str]) -> str:
     return normalize_binary_mode_shared(paper_baseline=paper_baseline, binary_mode=binary_mode)
+
+
+def _hyperparams_module_path() -> str:
+    module = sys.modules.get(TRANSFORMER_PARAMS.__class__.__module__)
+    module_file = getattr(module, "__file__", None)
+    return str(module_file) if module_file else inspect.getfile(TRANSFORMER_PARAMS.__class__)
+
+
+def _validate_runtime_configuration(cfg, hp) -> list[float]:
+    alpha_candidate = [float(a) for a in hp.focal_alpha] if hp.focal_alpha is not None else []
+    if len(alpha_candidate) != int(cfg.num_classes):
+        raise ValueError(
+            "Configuración inválida: hp.focal_alpha debe tener exactamente num_classes valores "
+            f"(num_classes={cfg.num_classes}, len={len(alpha_candidate)}, valor={hp.focal_alpha})."
+        )
+
+    if int(cfg.num_classes) != 2:
+        logger.info(
+            "ℹ️ Configuración multiclase detectada: binary_mode='{}' y paper_baseline={} no afectan al remapeo de clases.",
+            cfg.binary_mode,
+            cfg.paper_baseline,
+        )
+
+    return alpha_candidate
+
+
+def _log_effective_training_config(cfg, hp, selected_binary_mode: Optional[str], target_tag: str) -> None:
+    logger.info("🧭 Hyperparams cargados desde: {}", _hyperparams_module_path())
+    logger.info(
+        "🧭 Config efectiva entrenamiento -> upto_week={} | num_classes={} | target_tag={} | binary_mode={} | paper_baseline={} | focal_alpha={} | gamma={}",
+        cfg.upto_week,
+        cfg.num_classes,
+        target_tag,
+        selected_binary_mode if selected_binary_mode is not None else "ignored",
+        cfg.paper_baseline,
+        hp.focal_alpha,
+        hp.focal_gamma,
+    )
 
 
 def filter_classes(
@@ -282,9 +322,12 @@ def train(
     # Usar copia local de hyperparams en lugar de transmutar la base
     hp = copy.deepcopy(TRANSFORMER_PARAMS)
     if cfg.seed is not None:
+        random.seed(cfg.seed)
         np.random.seed(cfg.seed)
         tf.keras.utils.set_random_seed(cfg.seed)
         logger.info(f"🌱 Seed fijada a {cfg.seed}")
+    else:
+        logger.warning("⚠️ Seed no fijada: los resultados pueden variar entre entrenamientos")
 
     overrides = {
         "latent_d": cfg.latent_d,
@@ -310,6 +353,7 @@ def train(
             raise ValueError("focal_alpha_pos debe estar en (0, 1)")
         hp.focal_alpha = [1.0 - float(cfg.focal_alpha_pos), float(cfg.focal_alpha_pos)]
     hp.batch_size = cfg.batch_size
+    focal_alpha_val = _validate_runtime_configuration(cfg, hp)
     base_npz = Path("/workspace/TFM_education_ai_analytics/data/6_transformer_features")
     cfg.upto_week = _resolve_upto_week(
         base_npz,
@@ -329,6 +373,7 @@ def train(
     scoped_reports_root.mkdir(parents=True, exist_ok=True)
     _cleanup_transformer_report_weeks(scoped_reports_root, W_WINDOWS)
     save_dir = scoped_reports_root / f"week_{cfg.upto_week}"
+    _log_effective_training_config(cfg, hp, selected_binary_mode, target_tag)
     
     logger.info(f"Cargando datos pre-normalizados desde: {base_npz}")
     
@@ -480,13 +525,6 @@ def train(
         logger.info(f"  Clase {c}: {n} ({n/len(y_train)*100:.2f}%)")
     
     focal_gamma_val = hp.focal_gamma
-    alpha_candidate = [float(a) for a in hp.focal_alpha] if hp.focal_alpha is not None else []
-    if len(alpha_candidate) != int(cfg.num_classes):
-        raise ValueError(
-            "Configuración inválida: hp.focal_alpha debe tener exactamente num_classes valores "
-            f"(num_classes={cfg.num_classes}, len={len(alpha_candidate)}, valor={hp.focal_alpha})."
-        )
-    focal_alpha_val = alpha_candidate
     
     def sparse_focal_loss(y_true, y_pred):
         y_true = tf.cast(tf.reshape(y_true, [-1]), tf.int32)
@@ -568,21 +606,23 @@ def train(
             min_lr=hp.reduce_lr_min_lr,
             verbose=1
         ),
-        tf.keras.callbacks.EarlyStopping(
-            monitor="val_loss", 
+        KeepBestValBalancedAcc(
+            val_inputs=final_validation_set,
+            val_targets=y_val,
+            eval_every_n_epochs=1,
+            restore_on_train_end=True,
+            verbose=1,
+        ),
+        SparseValidationEarlyStopping(
+            monitor="val_balanced_acc",
+            mode="max",
             patience=hp.early_stopping_patience, 
             restore_best_weights=False,
             verbose=1
         ),
-        KeepBestValBalancedAcc(
-            val_inputs=final_validation_set,
-            val_targets=y_val,
-            restore_on_train_end=True,
-            verbose=1,
-        ),
     ]
     
-    logger.info("Comenzando entrenamiento...")
+    logger.info("Comenzando entrenamiento... validación en todas las épocas")
     with _suppress_low_level_cuda_noise():
         history = model.fit(
             x=final_training_set,

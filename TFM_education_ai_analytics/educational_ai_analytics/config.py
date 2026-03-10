@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -30,6 +31,20 @@ TRANSFORMERS_REPORTS_DIR = REPORTS_DIR / "transformers"
 
 
 OULAD_DATASET_URL = "https://analyse.kmi.open.ac.uk/open-dataset/download"
+
+# Transformer profile used by the project by default.
+# Valid values:
+# - "binary": 2 classes | success_vs_risk
+# - "binary_paper": 2 classes | paper baseline
+# - "trinary": 3 classes
+# - "quaternary": 4 classes
+# Environment variable TFM_TRANSFORMER_PROFILE can still override this value.
+TRANSFORMER_PROFILE = os.getenv("TFM_TRANSFORMER_PROFILE", "binary_paper").strip().lower()
+
+# Dataset augmentation toggle.
+# When enabled, the training split is expanded by duplicating Withdrawn students
+# until that class matches the largest training class. Validation and test stay untouched.
+WITH_SYNTHETIC = os.getenv("TFM_WITH_SYNTHETIC", "0").strip().lower() in {"1", "true", "yes", "on"}
 
 # Feature Engineering Config
 W_WINDOWS = [1,3,5,8,10,12,15,18,20,24,28]

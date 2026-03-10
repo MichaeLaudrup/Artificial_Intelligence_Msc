@@ -38,8 +38,31 @@ def _hide_gpus(tf):
         pass
 
 
+def _enable_deterministic_ops(tf, logger):
+    deterministic_env = os.getenv("TFM_TF_DETERMINISTIC", "0").strip().lower()
+    if deterministic_env not in {"1", "true", "yes", "on"}:
+        logger.info("🎲 TensorFlow deterministic ops: DESACTIVADO por entorno")
+        return False
+
+    try:
+        enable_fn = getattr(tf.config.experimental, "enable_op_determinism", None)
+        if enable_fn is None:
+            enable_fn = getattr(tf.config, "enable_op_determinism", None)
+        if enable_fn is None:
+            logger.warning("⚠️ TensorFlow no expone enable_op_determinism(); no se puede forzar determinismo")
+            return False
+
+        enable_fn()
+        logger.info("🎲 TensorFlow deterministic ops: ACTIVADO")
+        return True
+    except Exception as exc:
+        logger.warning(f"⚠️ No se pudo activar TensorFlow deterministic ops: {exc}")
+        return False
+
+
 def configure_tensorflow_runtime(tf, requested_device, logger):
     tf.config.optimizer.set_jit(False)
+    _enable_deterministic_ops(tf, logger)
 
     if requested_device == "cpu":
         _hide_gpus(tf)

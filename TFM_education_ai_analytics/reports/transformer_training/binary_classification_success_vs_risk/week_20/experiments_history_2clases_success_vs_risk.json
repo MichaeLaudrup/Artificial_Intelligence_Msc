@@ -1,0 +1,78 @@
+[
+    {
+        "timestamp": "2026-03-11 09:24:06",
+        "hyperparameters": {
+            "upto_week": 20,
+            "num_classes": 2,
+            "paper_baseline": false,
+            "binary_mode": "success_vs_risk",
+            "batch_size": 64,
+            "epochs": 80,
+            "execution_device": "gpu",
+            "use_mixed_precision": true,
+            "with_static": true,
+            "use_clustering_features": true,
+            "accumulated_uptow": true,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128,
+                64,
+                32
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.75,
+            "focal_alpha": [
+                0.46,
+                0.54
+            ],
+            "eval_test": false,
+            "history_filename": null,
+            "seed": 42,
+            "tune_threshold": false,
+            "threshold_acc_min": 0.7,
+            "threshold_prec_min": 0.55,
+            "threshold_objective": "balanced_accuracy",
+            "threshold_min": 0.15,
+            "threshold_max": 0.75,
+            "threshold_points": 601,
+            "threshold_fallback": 0.5,
+            "run_compare": true,
+            "fast_search": false
+        },
+        "validation_metrics": {
+            "loss": 0.02485063299536705,
+            "accuracy": 0.8728674650192261,
+            "balanced_accuracy": 0.8699845343386013,
+            "auc_ovr": 0.9374919266611306,
+            "precision": 0.8868534482758621,
+            "recall": 0.8313131313131313,
+            "f1_score": 0.8581856100104275
+        },
+        "test_metrics": {
+            "accuracy": 0.8594182825484764,
+            "balanced_accuracy": 0.8550896826366607,
+            "precision": 0.8772026431718062,
+            "recall": 0.8049519959575543,
+            "f1_score": 0.8395256916996048,
+            "auc_ovr": 0.9249800336598457
+        },
+        "test_evaluation": {
+            "timestamp": "2026-03-11 09:28:14",
+            "selected_threshold": null
+        }
+    }
+]

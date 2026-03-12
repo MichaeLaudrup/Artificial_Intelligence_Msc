@@ -41,11 +41,6 @@ OULAD_DATASET_URL = "https://analyse.kmi.open.ac.uk/open-dataset/download"
 # Environment variable TFM_TRANSFORMER_PROFILE can still override this value.
 TRANSFORMER_PROFILE = os.getenv("TFM_TRANSFORMER_PROFILE", "binary_paper").strip().lower()
 
-# Dataset augmentation toggle.
-# When enabled, the training split is expanded by duplicating Withdrawn students
-# until that class matches the largest training class. Validation and test stay untouched.
-WITH_SYNTHETIC = os.getenv("TFM_WITH_SYNTHETIC", "0").strip().lower() in {"1", "true", "yes", "on"}
-
 # Feature Engineering Config
 W_WINDOWS = [1,3,5,8,10,12,15,18,20,24,28]
 

@@ -22,7 +22,6 @@ from educational_ai_analytics.config import (
     RAW_DATA_DIR,
     INTERIM_DATA_DIR,
     OULAD_DATASET_URL,
-    WITH_SYNTHETIC,
 )
 
 app = typer.Typer()
@@ -172,67 +171,6 @@ def impute_statistical_data(df_students, registration_medians=None):
     return df_students, registration_medians
 
 
-def augment_training_withdrawn(split_payload):
-    """
-    Duplica estudiantes Withdrawn SOLO en training hasta igualar la clase mayoritaria.
-    No es síntesis generativa real; es oversampling bootstrap con nuevos id_student.
-    """
-    students = split_payload['students']
-    assessments = split_payload['assessments']
-    interactions = split_payload['interactions']
-
-    student_labels = students.groupby('id_student')['final_result'].first()
-    class_counts = student_labels.value_counts()
-    withdrawn_count = int(class_counts.get('Withdrawn', 0))
-    target_count = int(class_counts.max()) if not class_counts.empty else 0
-
-    if withdrawn_count == 0 or target_count <= withdrawn_count:
-        logger.info(
-            "WITH_SYNTHETIC activado, pero no hace falta oversampling de Withdrawn (current={} target={}).",
-            withdrawn_count,
-            target_count,
-        )
-        return split_payload
-
-    needed = target_count - withdrawn_count
-    withdrawn_ids = student_labels[student_labels == 'Withdrawn'].index.to_numpy()
-    sampled_ids = pd.Series(withdrawn_ids).sample(n=needed, replace=True, random_state=42).tolist()
-
-    numeric_ids = pd.to_numeric(students['id_student'], errors='coerce')
-    next_id = int(numeric_ids.max()) + 1 if numeric_ids.notna().any() else int(len(student_labels) + 1)
-
-    synthetic_students = []
-    synthetic_assessments = []
-    synthetic_interactions = []
-
-    for offset, source_id in enumerate(sampled_ids):
-        synthetic_id = next_id + offset
-
-        student_rows = students[students['id_student'] == source_id].copy()
-        assessment_rows = assessments[assessments['id_student'] == source_id].copy()
-        interaction_rows = interactions[interactions['id_student'] == source_id].copy()
-
-        student_rows['id_student'] = synthetic_id
-        assessment_rows['id_student'] = synthetic_id
-        interaction_rows['id_student'] = synthetic_id
-
-        synthetic_students.append(student_rows)
-        synthetic_assessments.append(assessment_rows)
-        synthetic_interactions.append(interaction_rows)
-
-    split_payload['students'] = pd.concat([students] + synthetic_students, ignore_index=True)
-    split_payload['assessments'] = pd.concat([assessments] + synthetic_assessments, ignore_index=True)
-    split_payload['interactions'] = pd.concat([interactions] + synthetic_interactions, ignore_index=True)
-
-    logger.info(
-        "🧪 WITH_SYNTHETIC=True -> añadidos {} estudiantes Withdrawn al training ({} -> {}).",
-        needed,
-        withdrawn_count,
-        target_count,
-    )
-    return split_payload
-
-
 def process_data(input_dir: Path, output_file: Path):
     """
     Pipeline completo:
@@ -325,9 +263,6 @@ def process_data(input_dir: Path, output_file: Path):
         df_stud = splits[split_name]['students']
         df_stud, _ = impute_statistical_data(df_stud, registration_medians=registration_stats)
         splits[split_name]['students'] = df_stud
-
-    if WITH_SYNTHETIC:
-        splits['training'] = augment_training_withdrawn(splits['training'])
 
     # =========================================================
     # FASE 6: GUARDADO FINAL

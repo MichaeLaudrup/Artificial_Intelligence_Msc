@@ -1,6 +1,5 @@
 import copy
 import inspect
-import importlib
 import json
 import os
 import random
@@ -513,47 +512,7 @@ def train(
             X_val_stat = None
             if cfg.eval_test:
                 X_test_stat = None
-    
-    logger.info(f"Train set pre-normalizado -> Seq: {X_train_seq.shape}, Static: {X_train_stat.shape if X_train_stat is not None else 'N/A'}, Y: {y_train.shape}")
-    logger.info(f"Val set pre-normalizado   -> Seq: {X_val_seq.shape}, Static: {X_val_stat.shape if X_val_stat is not None else 'N/A'}, Y: {y_val.shape}")
-    if cfg.eval_test:
-        logger.info(f"Test set pre-normalizado  -> Seq: {X_test_seq.shape}, Static: {X_test_stat.shape if X_test_stat is not None else 'N/A'}, Y: {y_test.shape}")
-    
-    logger.info("\n📊 BALANCEO DE CLASES (Training)")
-    train_classes, train_counts = np.unique(y_train, return_counts=True)
-    for c, n in zip(train_classes, train_counts):
-        logger.info(f"  Clase {c}: {n} ({n/len(y_train)*100:.2f}%)")
-    
-    focal_gamma_val = hp.focal_gamma
-    
-    def sparse_focal_loss(y_true, y_pred):
-        y_true = tf.cast(tf.reshape(y_true, [-1]), tf.int32)
-        y_pred = tf.cast(y_pred, tf.float32)
-        y_pred = tf.clip_by_value(y_pred, tf.keras.backend.epsilon(), 1.0 - tf.keras.backend.epsilon())
-        y_one_hot = tf.one_hot(y_true, depth=cfg.num_classes)
-        p_t = tf.reduce_sum(y_one_hot * y_pred, axis=-1)
-        p_t = tf.clip_by_value(p_t, tf.keras.backend.epsilon(), 1.0 - tf.keras.backend.epsilon())
-        focal_weight = tf.pow(1.0 - p_t, focal_gamma_val)
-        alpha_t = tf.reduce_sum(y_one_hot * tf.constant(focal_alpha_val, dtype=tf.float32), axis=-1)
-        ce = -tf.math.log(p_t)
-        return tf.reduce_mean(alpha_t * focal_weight * ce)
-    
-    logger.info(f"🎯 Focal Loss: gamma={focal_gamma_val}, alpha={focal_alpha_val}")
-        
-    final_training_set = [
-        X_train_seq.astype(np.float32),
-        train_mask_pad.astype(np.int32),
-        train_mask_activity.astype(np.int32),
-    ]
-    final_validation_set = [
-        X_val_seq.astype(np.float32),
-        val_mask_pad.astype(np.int32),
-        val_mask_activity.astype(np.int32),
-    ]
-    if use_static_in_model:
-        final_training_set.append(X_train_stat.astype(np.float32))
-        final_validation_set.append(X_val_stat.astype(np.float32))
-        
+
     print(f"[{EXECUTION_DEVICE.upper()}] Initializing runtime environment...")
     runtime_device = configure_tensorflow_runtime(tf, EXECUTION_DEVICE, logger)
 
@@ -571,6 +530,46 @@ def train(
         logger.info("⚡ GPU activa con precisión float32 estable (mixed precision DESACTIVADO)")
     else:
         logger.info("🖥️ Modo de ejecución efectivo: CPU (mixed precision DESACTIVADO)")
+
+    logger.info(f"Train set pre-normalizado -> Seq: {X_train_seq.shape}, Static: {X_train_stat.shape if X_train_stat is not None else 'N/A'}, Y: {y_train.shape}")
+    logger.info(f"Val set pre-normalizado   -> Seq: {X_val_seq.shape}, Static: {X_val_stat.shape if X_val_stat is not None else 'N/A'}, Y: {y_val.shape}")
+    if cfg.eval_test:
+        logger.info(f"Test set pre-normalizado  -> Seq: {X_test_seq.shape}, Static: {X_test_stat.shape if X_test_stat is not None else 'N/A'}, Y: {y_test.shape}")
+
+    logger.info("\n📊 BALANCEO DE CLASES (Training)")
+    train_classes, train_counts = np.unique(y_train, return_counts=True)
+    for c, n in zip(train_classes, train_counts):
+        logger.info(f"  Clase {c}: {n} ({n/len(y_train)*100:.2f}%)")
+
+    focal_gamma_val = hp.focal_gamma
+
+    def sparse_focal_loss(y_true, y_pred):
+        y_true = tf.cast(tf.reshape(y_true, [-1]), tf.int32)
+        y_pred = tf.cast(y_pred, tf.float32)
+        y_pred = tf.clip_by_value(y_pred, tf.keras.backend.epsilon(), 1.0 - tf.keras.backend.epsilon())
+        y_one_hot = tf.one_hot(y_true, depth=cfg.num_classes)
+        p_t = tf.reduce_sum(y_one_hot * y_pred, axis=-1)
+        p_t = tf.clip_by_value(p_t, tf.keras.backend.epsilon(), 1.0 - tf.keras.backend.epsilon())
+        focal_weight = tf.pow(1.0 - p_t, focal_gamma_val)
+        alpha_t = tf.reduce_sum(y_one_hot * tf.constant(focal_alpha_val, dtype=tf.float32), axis=-1)
+        ce = -tf.math.log(p_t)
+        return tf.reduce_mean(alpha_t * focal_weight * ce)
+
+    logger.info(f"🎯 Focal Loss: gamma={focal_gamma_val}, alpha={focal_alpha_val}")
+
+    final_training_set = [
+        X_train_seq.astype(np.float32),
+        train_mask_pad.astype(np.int32),
+        train_mask_activity.astype(np.int32),
+    ]
+    final_validation_set = [
+        X_val_seq.astype(np.float32),
+        val_mask_pad.astype(np.int32),
+        val_mask_activity.astype(np.int32),
+    ]
+    if use_static_in_model:
+        final_training_set.append(X_train_stat.astype(np.float32))
+        final_validation_set.append(X_val_stat.astype(np.float32))
 
     logger.info("Construyendo modelo...")
     model = GLUTransformerClassifier(

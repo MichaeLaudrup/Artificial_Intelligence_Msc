@@ -133,7 +133,7 @@ class TrainingMetricsCollector:
     def selected_epoch(self) -> Optional[int]:
         """
         Época final seleccionada por compromiso estructural:
-          1) Restringe a épocas con val_recon <= min(val_recon) * (1 + 1%).
+                    1) Restringe a épocas con val_recon <= min(val_recon) * (1 + 5%).
           2) Dentro de ese subconjunto, maximiza score combinado de Silhouette↑ y DB↓.
           3) En empate, elige la época más tardía.
         """
@@ -149,7 +149,7 @@ class TrainingMetricsCollector:
         if not np.any(recon_ok):
             return self.best_epoch_val_recon or self.best_epoch
 
-        recon_tol = 0.025  # 2.5% de tolerancia sobre el mínimo de reconstrucción válido
+        recon_tol = 0.05  # 5% de tolerancia sobre el mínimo de reconstrucción válido
         recon_min = float(np.min(recon[recon_ok]))
         candidates = recon_ok & (recon <= recon_min * (1.0 + recon_tol))
         if not np.any(candidates):

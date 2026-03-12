@@ -5,7 +5,10 @@ from typing import Optional
 @dataclass
 class XAIHyperparams:
 	split: str = "test"
-	top_k: int = 8
+	top_k: int = 6
+	num_classes: int = 2
+	paper_baseline: bool = True
+	binary_mode: str = "paper"
 	device: str = "gpu"  # gpu | cpu
 	# Presets SHAP recomendados:
 	# - Opcion moderada: shap_bg_size=80, shap_explain_size=20, shap_nsamples=768

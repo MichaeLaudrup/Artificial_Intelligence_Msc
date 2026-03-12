@@ -290,5 +290,233 @@
             "timestamp": "2026-03-10 21:01:00",
             "selected_threshold": null
         }
+    },
+    {
+        "timestamp": "2026-03-11 08:50:43",
+        "hyperparameters": {
+            "upto_week": 18,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "binary_mode": "paper",
+            "batch_size": 64,
+            "epochs": 80,
+            "execution_device": "gpu",
+            "use_mixed_precision": true,
+            "with_static": true,
+            "use_clustering_features": true,
+            "accumulated_uptow": true,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128,
+                64,
+                32
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.75,
+            "focal_alpha": [
+                0.3,
+                0.7
+            ],
+            "eval_test": false,
+            "history_filename": null,
+            "seed": 42,
+            "tune_threshold": true,
+            "threshold_acc_min": 0.7,
+            "threshold_prec_min": 0.55,
+            "threshold_objective": "balanced_accuracy",
+            "threshold_min": 0.15,
+            "threshold_max": 0.75,
+            "threshold_points": 601,
+            "threshold_fallback": 0.5,
+            "run_compare": true,
+            "fast_search": false
+        },
+        "validation_metrics": {
+            "loss": 0.017604993656277657,
+            "accuracy": 0.9175007343292236,
+            "balanced_accuracy": 0.8980254680017414,
+            "auc_ovr": 0.9551419242490204,
+            "precision": 0.8595787362086259,
+            "recall": 0.857,
+            "f1_score": 0.8582874311467201
+        },
+        "test_metrics": {
+            "accuracy": 0.9163919688342823,
+            "balanced_accuracy": 0.8979095445284713,
+            "precision": 0.8624229979466119,
+            "recall": 0.8527918781725888,
+            "f1_score": 0.8575803981623277,
+            "auc_ovr": 0.947300277979212
+        },
+        "test_evaluation": {
+            "timestamp": "2026-03-11 08:56:28",
+            "selected_threshold": 0.498
+        }
+    },
+    {
+        "timestamp": "2026-03-11 20:08:54",
+        "hyperparameters": {
+            "upto_week": 18,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "binary_mode": "paper",
+            "batch_size": 64,
+            "epochs": 80,
+            "execution_device": "gpu",
+            "use_mixed_precision": true,
+            "with_static": true,
+            "use_clustering_features": true,
+            "accumulated_uptow": true,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128,
+                64,
+                32
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.75,
+            "focal_alpha": [
+                0.3,
+                0.7
+            ],
+            "eval_test": false,
+            "history_filename": null,
+            "seed": 42,
+            "tune_threshold": true,
+            "threshold_acc_min": 0.7,
+            "threshold_prec_min": 0.55,
+            "threshold_objective": "balanced_accuracy",
+            "threshold_min": 0.15,
+            "threshold_max": 0.75,
+            "threshold_points": 601,
+            "threshold_fallback": 0.5,
+            "run_compare": true,
+            "fast_search": false
+        },
+        "validation_metrics": {
+            "loss": 0.01757482998073101,
+            "accuracy": 0.9171974658966064,
+            "balanced_accuracy": 0.8957734000870701,
+            "auc_ovr": 0.9528363082281236,
+            "precision": 0.8850210970464135,
+            "recall": 0.839,
+            "f1_score": 0.8613963039014374
+        },
+        "test_metrics": {
+            "accuracy": 0.9211866946359005,
+            "balanced_accuracy": 0.8983606132808453,
+            "precision": 0.8848614072494669,
+            "recall": 0.8426395939086294,
+            "f1_score": 0.8632345293811753,
+            "auc_ovr": 0.9485772989398804
+        },
+        "test_evaluation": {
+            "timestamp": "2026-03-11 20:13:32",
+            "selected_threshold": 0.503
+        }
+    },
+    {
+        "timestamp": "2026-03-12 08:30:30",
+        "hyperparameters": {
+            "upto_week": 18,
+            "num_classes": 2,
+            "paper_baseline": true,
+            "binary_mode": "paper",
+            "batch_size": 64,
+            "epochs": 80,
+            "execution_device": "gpu",
+            "use_mixed_precision": true,
+            "with_static": true,
+            "use_clustering_features": true,
+            "accumulated_uptow": true,
+            "latent_d": 256,
+            "num_heads": 8,
+            "ff_dim": 128,
+            "dropout": 0.3,
+            "num_layers": 2,
+            "static_hidden": [
+                64,
+                32
+            ],
+            "head_hidden": [
+                256,
+                128,
+                64,
+                32
+            ],
+            "learning_rate": 0.001,
+            "clipnorm": 1.0,
+            "reduce_lr_factor": 0.2,
+            "reduce_lr_patience": 7,
+            "reduce_lr_min_lr": 1e-06,
+            "early_stopping_patience": 10,
+            "focal_gamma": 2.75,
+            "focal_alpha": [
+                0.3,
+                0.7
+            ],
+            "eval_test": false,
+            "history_filename": null,
+            "seed": 42,
+            "tune_threshold": true,
+            "threshold_acc_min": 0.7,
+            "threshold_prec_min": 0.55,
+            "threshold_objective": "balanced_accuracy",
+            "threshold_min": 0.15,
+            "threshold_max": 0.75,
+            "threshold_points": 601,
+            "threshold_fallback": 0.5,
+            "run_compare": true,
+            "fast_search": false
+        },
+        "validation_metrics": {
+            "loss": 0.018083326518535614,
+            "accuracy": 0.9165908694267273,
+            "balanced_accuracy": 0.8972259468872442,
+            "auc_ovr": 0.9547392250761861,
+            "precision": 0.8733264675592173,
+            "recall": 0.848,
+            "f1_score": 0.8604769152714358
+        },
+        "test_metrics": {
+            "accuracy": 0.9163919688342823,
+            "balanced_accuracy": 0.8993846904243932,
+            "precision": 0.858739837398374,
+            "recall": 0.8578680203045685,
+            "f1_score": 0.8583037074657186,
+            "auc_ovr": 0.9508512034255325
+        },
+        "test_evaluation": {
+            "timestamp": "2026-03-12 08:36:33",
+            "selected_threshold": 0.499
+        }
     }
 ]

@@ -409,13 +409,51 @@ def _normalize_shap_array(shap_values_obj, num_classes: int) -> np.ndarray:
 	return sv
 
 
+def _resolve_binary_class_labels(paper_baseline: bool, binary_mode: Optional[str]) -> tuple[str, str]:
+	mode = _normalize_binary_mode(paper_baseline=paper_baseline, binary_mode=binary_mode)
+	if mode == "paper":
+		return "Pass/Dist", "Withdrawn"
+	if mode == "original":
+		return "Pass/Dist", "Fail"
+	if mode == "pass_vs_withdraw":
+		return "Pass", "Withdrawn"
+	return "Pass/Dist", "Fail/Withdrawn"
+
+
+def _direction_target_label(mean_shap_signed: float, negative_label: str, positive_label: str) -> str:
+	if not np.isfinite(mean_shap_signed) or abs(float(mean_shap_signed)) <= 1e-12:
+		return "Neutral"
+	return positive_label if float(mean_shap_signed) > 0 else negative_label
+
+
+def _compact_class_label(label: str) -> str:
+	compact = {
+		"Pass/Dist": "P/D",
+		"Withdrawn": "W",
+		"Fail": "F",
+		"Pass": "P",
+		"Fail/Withdrawn": "F/W",
+		"Neutral": "0",
+	}
+	return compact.get(str(label), str(label))
+
+
+def _is_wide_top_summary(df: pd.DataFrame) -> bool:
+	columns = list(df.columns)
+	return bool(columns) and columns[0] == "week" and all(str(column).startswith("top_") for column in columns[1:])
+
+
 def _render_table_png(df: pd.DataFrame, output_path: Path, title: str) -> Path:
 	printable = df.copy()
 	if "mean_abs_shap" in printable.columns:
 		printable["mean_abs_shap"] = printable["mean_abs_shap"].map(lambda value: f"{float(value):.6f}")
+	if "mean_shap_signed" in printable.columns:
+		printable["mean_shap_signed"] = printable["mean_shap_signed"].map(lambda value: f"{float(value):+.6f}")
 
-	fig_width = max(9, 1.5 * max(len(printable.columns), 4))
-	fig_height = max(2.4, 0.55 * (len(printable) + 2))
+	is_wide_summary = _is_wide_top_summary(printable)
+
+	fig_width = max(9, 2.0 * max(len(printable.columns), 4)) if is_wide_summary else max(9, 1.5 * max(len(printable.columns), 4))
+	fig_height = max(3.2, 0.82 * (len(printable) + 2)) if is_wide_summary else max(2.4, 0.55 * (len(printable) + 2))
 	fig, ax = plt.subplots(figsize=(fig_width, fig_height), dpi=180)
 	fig.patch.set_facecolor("#111111")
 	ax.set_facecolor("#111111")
@@ -429,7 +467,11 @@ def _render_table_png(df: pd.DataFrame, output_path: Path, title: str) -> Path:
 		bbox=[0.02, 0.02, 0.96, 0.9],
 	)
 	table.auto_set_font_size(False)
-	table.set_fontsize(10)
+	table.set_fontsize(8.5 if is_wide_summary else 10)
+	if is_wide_summary:
+		table.scale(1.08, 1.85)
+	else:
+		table.scale(1.0, 1.18)
 
 	for (row, col), cell in table.get_celld().items():
 		cell.set_edgecolor("#2c2c2c")
@@ -439,7 +481,15 @@ def _render_table_png(df: pd.DataFrame, output_path: Path, title: str) -> Path:
 			cell.set_text_props(color="#f0f0f0", weight="bold")
 		else:
 			cell.set_facecolor("#1a1a1a" if row % 2 else "#232323")
-			cell.set_text_props(color="#f0f0f0")
+			if is_wide_summary and col > 0:
+				text = cell.get_text()
+				text.set_color("#f0f0f0")
+				text.set_fontfamily("DejaVu Sans Mono")
+				text.set_multialignment("left")
+				text.set_ha("left")
+				text.set_va("center")
+			else:
+				cell.set_text_props(color="#f0f0f0")
 
 	ax.set_title(title, fontsize=13, fontweight="bold", color="#f5f5f5", pad=10)
 	output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -651,16 +701,166 @@ def _build_week_cell_summary(df: pd.DataFrame, week_order: list[int]) -> pd.Data
 
 	summary_df = df.copy()
 	summary_df["week_label"] = summary_df["upto_week"].map(lambda value: f"W{int(value):02d}")
-	summary_df["cell"] = summary_df.apply(
-		lambda row: f"{row['feature']}\n{float(row['mean_abs_shap']):.6f}",
-		axis=1,
-	)
+	if {"mean_shap_signed", "towards_class"}.issubset(summary_df.columns):
+		summary_df["cell"] = summary_df.apply(
+			lambda row: (
+				f"{row['feature']}\n"
+				f"{float(row['mean_shap_signed']):+.4f} ({float(row['mean_abs_shap']):.4f}) {_compact_class_label(row['towards_class'])}"
+			),
+			axis=1,
+		)
+	else:
+		summary_df["cell"] = summary_df.apply(
+			lambda row: f"{row['feature']}\n{float(row['mean_abs_shap']):.6f}",
+			axis=1,
+		)
 	wide = summary_df.pivot(index="week_label", columns="rank", values="cell")
 	ordered_index = [f"W{int(week):02d}" for week in week_order if f"W{int(week):02d}" in wide.index]
 	wide = wide.reindex(index=ordered_index)
 	wide = wide.reset_index().rename(columns={"week_label": "week"})
 	wide.columns = ["week" if column == "week" else f"top_{int(column)}" for column in wide.columns]
 	return wide
+
+
+def _select_heatmap_features(df: pd.DataFrame, max_features: int = 15) -> list[str]:
+	if df.empty:
+		return []
+
+	feature_stats = (
+		df.groupby("feature", dropna=False)
+		.agg(
+			weeks_present=("upto_week", "nunique"),
+			mean_abs_shap=("mean_abs_shap", "mean"),
+			rank_strength=("rank", lambda values: -float(np.mean(values))),
+		)
+		.reset_index()
+		.sort_values(["weeks_present", "mean_abs_shap", "rank_strength", "feature"], ascending=[False, False, False, True])
+	)
+	return feature_stats["feature"].head(int(max_features)).tolist()
+
+
+def _build_signed_shap_heatmap(df: pd.DataFrame, max_features: int = 15) -> pd.DataFrame:
+	if df.empty or "mean_shap_signed" not in df.columns:
+		return pd.DataFrame()
+
+	selected_features = _select_heatmap_features(df, max_features=max_features)
+	if not selected_features:
+		return pd.DataFrame()
+
+	heat_df = df[df["feature"].isin(selected_features)].copy()
+	week_order = sorted(heat_df["upto_week"].unique().tolist())
+	feature_order = selected_features
+	pivot = heat_df.pivot_table(index="upto_week", columns="feature", values="mean_shap_signed", aggfunc="mean")
+	pivot = pivot.reindex(index=week_order, columns=feature_order)
+	pivot.index = [f"W{int(week):02d}" for week in pivot.index]
+	pivot.index.name = "week"
+	return pivot
+
+
+def _resolve_heatmap_display_scale(df: pd.DataFrame) -> tuple[float, str, str]:
+	values = df.to_numpy(dtype=float)
+	finite_values = values[np.isfinite(values)]
+	if finite_values.size == 0:
+		return 1.0, "", "+.3f"
+
+	max_abs = float(np.max(np.abs(finite_values)))
+	if max_abs <= 0.0:
+		return 1.0, "", "+.3f"
+
+	if max_abs < 1e-4:
+		return 1e5, "x1e5", "+.2f"
+	if max_abs < 1e-3:
+		return 1e4, "x1e4", "+.2f"
+	if max_abs < 1e-2:
+		return 1e3, "x1e3", "+.2f"
+	if max_abs < 1e-1:
+		return 1e2, "x1e2", "+.2f"
+	return 1.0, "", "+.3f"
+
+
+def _render_signed_shap_heatmap_png(df: pd.DataFrame, output_path: Path, title: str) -> Path:
+	if df.empty:
+		return output_path
+
+	fig_width = max(12, 0.95 * len(df.columns) + 4)
+	fig_height = max(5.5, 0.5 * len(df.index) + 2.5)
+	fig, ax = plt.subplots(figsize=(fig_width, fig_height), dpi=180)
+	fig.patch.set_facecolor("#111111")
+	ax.set_facecolor("#111111")
+
+	scale_factor, scale_suffix, annot_fmt = _resolve_heatmap_display_scale(df)
+	display_df = df.astype(float) * float(scale_factor)
+
+	valid_values = display_df.to_numpy(dtype=float)
+	finite_values = valid_values[np.isfinite(valid_values)]
+	vmax = float(np.max(np.abs(finite_values))) if finite_values.size else 1.0
+	vmax = max(vmax, 1e-6)
+
+	sns.heatmap(
+		display_df,
+		mask=display_df.isna(),
+		cmap="RdBu_r",
+		center=0.0,
+		vmin=-vmax,
+		vmax=vmax,
+		annot=True,
+		fmt=annot_fmt,
+		linewidths=0.6,
+		linecolor="#242424",
+		cbar=True,
+		cbar_kws={"label": f"SHAP medio firmado {scale_suffix}".strip()},
+		ax=ax,
+	)
+
+	ax.set_title(title, fontsize=14, fontweight="bold", color="#f5f5f5", pad=12)
+	ax.set_xlabel("Variable", color="#f5f5f5")
+	ax.set_ylabel("Semana", color="#f5f5f5")
+	ax.tick_params(colors="#f5f5f5")
+	plt.setp(ax.get_xticklabels(), rotation=35, ha="right", color="#f5f5f5")
+	plt.setp(ax.get_yticklabels(), rotation=0, color="#f5f5f5")
+
+	quadmesh = ax.collections[0] if ax.collections else None
+	if quadmesh is not None:
+		cmap = quadmesh.cmap
+		norm = quadmesh.norm
+		for text in ax.texts:
+			x_pos, y_pos = text.get_position()
+			col_idx = int(round(x_pos - 0.5))
+			row_idx = int(round(y_pos - 0.5))
+			if row_idx < 0 or col_idx < 0 or row_idx >= display_df.shape[0] or col_idx >= display_df.shape[1]:
+				continue
+			value = display_df.iloc[row_idx, col_idx]
+			if not np.isfinite(value):
+				continue
+			rgba = cmap(norm(float(value)))
+			luminance = 0.2126 * rgba[0] + 0.7152 * rgba[1] + 0.0722 * rgba[2]
+			text.set_color("#111111" if luminance > 0.58 else "#f5f5f5")
+			text.set_fontsize(9)
+			text.set_fontweight("semibold")
+
+	if ax.collections and ax.collections[0].colorbar is not None:
+		colorbar = ax.collections[0].colorbar
+		colorbar.ax.set_facecolor("#111111")
+		colorbar.ax.yaxis.set_tick_params(color="#f5f5f5")
+		plt.setp(colorbar.ax.get_yticklabels(), color="#f5f5f5")
+		colorbar.set_label(f"SHAP medio firmado {scale_suffix}".strip(), color="#f5f5f5")
+
+	output_path.parent.mkdir(parents=True, exist_ok=True)
+	plt.savefig(output_path, dpi=220, bbox_inches="tight", facecolor=fig.get_facecolor())
+	plt.close(fig)
+	return output_path
+
+
+def _save_signed_shap_heatmap_outputs(df: pd.DataFrame, output_dir: Path, base_name: str, title: str, max_features: int = 15) -> list[Path]:
+	heatmap_df = _build_signed_shap_heatmap(df, max_features=max_features)
+	if heatmap_df.empty:
+		return []
+
+	csv_path = output_dir / f"{base_name}.csv"
+	png_path = output_dir / f"{base_name}.png"
+	heatmap_df.to_csv(csv_path)
+	_render_signed_shap_heatmap_png(heatmap_df, png_path, title)
+	return [csv_path, png_path]
 
 
 def _save_week_outputs(df: pd.DataFrame, output_dir: Path, base_name: str, title: str) -> tuple[Path, Path]:
@@ -688,6 +888,18 @@ def _save_global_outputs(df: pd.DataFrame, report_root: Path, long_name: str, wi
 		wide_df.to_csv(wide_csv, index=False)
 		_render_table_png(wide_df, wide_png, title)
 		outputs.extend([wide_csv, wide_png])
+
+	heatmap_base_name = wide_name.replace("_wide_", "_heatmap_") if "_wide_" in wide_name else f"{wide_name}_heatmap"
+	heatmap_title = title.replace("por Semana", "firmado por Semana")
+	outputs.extend(
+		_save_signed_shap_heatmap_outputs(
+			df,
+			report_root,
+			heatmap_base_name,
+			heatmap_title,
+			max_features=15,
+		)
+	)
 
 	return outputs
 
@@ -842,10 +1054,18 @@ def _compute_weekly_shap_importance(
 	explainer = shap.KernelExplainer(predict_from_flat, x_flat[bg_idx])
 	shap_values = explainer.shap_values(x_flat[explain_idx], nsamples=int(shap_nsamples))
 	shap_array = _normalize_shap_array(shap_values, num_classes=num_classes)
+	if int(num_classes) == 2:
+		negative_label, positive_label = _resolve_binary_class_labels(
+			paper_baseline=paper_baseline,
+			binary_mode=resolved_binary_mode,
+		)
+	else:
+		negative_label, positive_label = "Score negativo", "Score positivo"
 
 	seq_cols = seq_len * seq_feat_dim
 	seq_shap = shap_array[:, :seq_cols].reshape(-1, seq_len, seq_feat_dim)
 	seq_importance = np.abs(seq_shap).mean(axis=0).mean(axis=0)
+	seq_signed = seq_shap.mean(axis=0).mean(axis=0)
 	seq_feature_names = [_map_oulad_activity_label(name) for name in activities] if len(activities) == seq_feat_dim else [f"seq_f{i}" for i in range(seq_feat_dim)]
 	seq_df = pd.DataFrame(
 		{
@@ -853,6 +1073,11 @@ def _compute_weekly_shap_importance(
 			"rank": np.arange(1, len(seq_feature_names) + 1),
 			"feature": seq_feature_names,
 			"mean_abs_shap": seq_importance,
+			"mean_shap_signed": seq_signed,
+			"towards_class": [
+				_direction_target_label(value, negative_label=negative_label, positive_label=positive_label)
+				for value in seq_signed
+			],
 		}
 	).sort_values("mean_abs_shap", ascending=False).head(int(top_k)).reset_index(drop=True)
 	seq_df["rank"] = np.arange(1, len(seq_df) + 1)
@@ -860,17 +1085,23 @@ def _compute_weekly_shap_importance(
 	if static_dim > 0:
 		static_feature_names = [_map_static_feature_label(name) for name in static_names] if len(static_names) == static_dim else [f"static_f{i}" for i in range(static_dim)]
 		static_importance = np.abs(shap_array[:, seq_cols:]).mean(axis=0)
+		static_signed = shap_array[:, seq_cols:].mean(axis=0)
 		static_df = pd.DataFrame(
 			{
 				"upto_week": int(upto_week),
 				"rank": np.arange(1, len(static_feature_names) + 1),
 				"feature": static_feature_names,
 				"mean_abs_shap": static_importance,
+				"mean_shap_signed": static_signed,
+				"towards_class": [
+					_direction_target_label(value, negative_label=negative_label, positive_label=positive_label)
+					for value in static_signed
+				],
 			}
 		).sort_values("mean_abs_shap", ascending=False).head(int(top_k)).reset_index(drop=True)
 		static_df["rank"] = np.arange(1, len(static_df) + 1)
 	else:
-		static_df = pd.DataFrame(columns=["upto_week", "rank", "feature", "mean_abs_shap"])
+		static_df = pd.DataFrame(columns=["upto_week", "rank", "feature", "mean_abs_shap", "mean_shap_signed", "towards_class"])
 
 	attention_size = min(int(shap_explain_size), n_samples)
 	attention_idx = rng.choice(n_samples, size=attention_size, replace=False)
@@ -909,11 +1140,21 @@ def generate_xai_reports(
 	transformer_reports_root: Path = TRANSFORMER_REPORTS_ROOT,
 ) -> dict:
 	transformer_params = _load_active_transformer_params()
-	resolved_num_classes = int(num_classes if num_classes is not None else getattr(transformer_params, "num_classes", 2))
-	resolved_paper_baseline = bool(
-		paper_baseline if paper_baseline is not None else getattr(transformer_params, "paper_baseline", True)
+	resolved_num_classes = int(
+		num_classes
+		if num_classes is not None
+		else getattr(XAI_PARAMS, "num_classes", getattr(transformer_params, "num_classes", 2))
 	)
-	resolved_binary_mode = binary_mode if binary_mode is not None else getattr(transformer_params, "binary_mode", None)
+	resolved_paper_baseline = bool(
+		paper_baseline
+		if paper_baseline is not None
+		else getattr(XAI_PARAMS, "paper_baseline", getattr(transformer_params, "paper_baseline", True))
+	)
+	resolved_binary_mode = (
+		binary_mode
+		if binary_mode is not None
+		else getattr(XAI_PARAMS, "binary_mode", getattr(transformer_params, "binary_mode", None))
+	)
 	target_tag, resolved_binary_mode = _resolve_target_tag(
 		num_classes=resolved_num_classes,
 		paper_baseline=resolved_paper_baseline,
@@ -998,8 +1239,8 @@ def generate_xai_reports(
 		)
 		attention_maps.append({"upto_week": int(upto_week), "matrix": attention_map})
 
-	seq_global = pd.concat(seq_frames, ignore_index=True) if seq_frames else pd.DataFrame(columns=["upto_week", "rank", "feature", "mean_abs_shap"])
-	static_global = pd.concat(static_frames, ignore_index=True) if static_frames else pd.DataFrame(columns=["upto_week", "rank", "feature", "mean_abs_shap"])
+	seq_global = pd.concat(seq_frames, ignore_index=True) if seq_frames else pd.DataFrame(columns=["upto_week", "rank", "feature", "mean_abs_shap", "mean_shap_signed", "towards_class"])
+	static_global = pd.concat(static_frames, ignore_index=True) if static_frames else pd.DataFrame(columns=["upto_week", "rank", "feature", "mean_abs_shap", "mean_shap_signed", "towards_class"])
 
 	seq_outputs = _save_global_outputs(
 		seq_global,

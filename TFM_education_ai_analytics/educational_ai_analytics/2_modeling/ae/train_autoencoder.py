@@ -626,7 +626,7 @@ def main(
             import shutil
             shutil.copy(target_ckpt, best_path)
             logger.success(f"🏆 Modelo Final Seleccionado: Época {final_selected_epoch} -> {best_path.name}")
-            logger.info(f"   Razonamiento: seleccion_híbrida (val_recon dentro del 1% del mínimo + maximiza Silhouette/DB).")
+            logger.info(f"   Razonamiento: seleccion_híbrida (val_recon dentro del 5% del mínimo + maximiza Silhouette/DB).")
         else:
             logger.warning(f"⚠️ Checkpoint para época {final_selected_epoch} no encontrado. Se mantendrá el último como fallback.")
     else:

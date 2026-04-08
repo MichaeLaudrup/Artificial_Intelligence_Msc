@@ -1,7 +1,7 @@
 import os
 import warnings
 
-# Silenciar warnings
+
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 warnings.filterwarnings("ignore", category=UserWarning, module="google.protobuf")
 warnings.filterwarnings("ignore", category=UserWarning, module="tensorflow")
@@ -14,7 +14,7 @@ from loguru import logger
 import typer
 from sklearn.decomposition import PCA
 import tensorflow as tf
-from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
+from mpl_toolkits.mplot3d import Axes3D  
 
 from educational_ai_analytics.config import (
     REPORTS_DIR,
@@ -26,7 +26,7 @@ from educational_ai_analytics.config import (
     W_WINDOWS,
 )
 
-# Import del modelo
+
 import importlib
 _mod_modeling_ae = importlib.import_module("educational_ai_analytics.2_modeling.ae.autoencoder")
 StudentProfileAutoencoder = _mod_modeling_ae.StudentProfileAutoencoder
@@ -66,12 +66,12 @@ def _load_clusters(W: int, split: str) -> pd.Series:
     s = split_map.get(split, split)
     base = EMBEDDINGS_DATA_DIR / s / f"upto_w{int(W):02d}"
     
-    # Prioridad 1: DEC (nuestra nueva estrategia)
+    
     dec_path = base / "segmentation_dec.csv"
     if dec_path.exists():
         return pd.read_csv(dec_path, index_col=0)["cluster_id"]
     
-    # Prioridad 2: GMM
+    
     gmm_path = base / "segmentation_gmm_ae.csv"
     if gmm_path.exists():
         return pd.read_csv(gmm_path, index_col=0)["cluster_id"]
@@ -116,7 +116,7 @@ def ae_reconstruction(split: str = "training"):
     windows = sorted([int(w) for w in W_WINDOWS])
     n_rows = len(windows)
     
-    # ─── Dark Mode Config ───
+    
     DARK_BG = "#0F1117"
     PANEL_BG = "#1A1D27"
     TEXT_COLOR = "#E8EAED"
@@ -133,7 +133,7 @@ def ae_reconstruction(split: str = "training"):
 
     fig, axes = plt.subplots(n_rows, 3, figsize=(15, 3.5 * n_rows), constrained_layout=True)
     if n_rows == 1:
-        axes = np.expand_dims(axes, axis=0) # Garantizar 2D axes[row, col]
+        axes = np.expand_dims(axes, axis=0) 
 
     fig_3d = plt.figure(figsize=(16, 4.2 * n_rows), constrained_layout=True)
     gs_3d = fig_3d.add_gridspec(n_rows, 3)
@@ -143,7 +143,7 @@ def ae_reconstruction(split: str = "training"):
     titles = ["1) Original (PCA 2D)", "2) Espacio Latente (PCA 2D)", "3) Reconstrucción (PCA 2D)"]
     titles_3d = ["1) Original (PCA 3D)", "2) Espacio Latente (PCA 3D)", "3) Reconstrucción (PCA 3D)"]
     
-    # Color único para todos los puntos (sin codificación por cluster)
+    
     POINT_COLOR = "#A8EDEA"
 
     method_name = "PCA"
@@ -156,11 +156,11 @@ def ae_reconstruction(split: str = "training"):
             logger.warning(f"   ⚠️ Error cargando W{W}: {e}")
             continue
 
-        # Pasar por el AE
+        
         Z_lat = ae.encode(X_in, training=False).numpy()
         X_rec = ae.decode(Z_lat, training=False).numpy()
 
-        # Proyecciones 2D para visualización con PCA
+        
         pca_in = PCA(n_components=2, random_state=42)
         p_in = pca_in.fit_transform(X_in)
         p_rec = pca_in.transform(X_rec)
@@ -223,11 +223,11 @@ def ae_reconstruction(split: str = "training"):
     plt.close(fig)
     plt.close(fig_3d)
     
-    # Reset rcParams to avoid breaking other plots
+    
     plt.rcParams.update(plt.rcParamsDefault)
     
     from .style import set_style
-    set_style() # Restaurar el estilo custom del proyecto
+    set_style() 
     
     logger.success(f"✨ Dashboard 2D ({method_name}) en Dark Mode guardado: {out}")
     logger.success(f"✨ Dashboard 3D (PCA) en Dark Mode guardado: {out_3d}")
@@ -243,7 +243,7 @@ def latent_space(W: int = W_WINDOWS[0], split: str = "train", method: str = "pca
     pca = PCA(n_components=2, random_state=42)
     Z = pca.fit_transform(X)
 
-    # Cargar clusters
+    
     clusters = _load_clusters(W, split)
     c_vals = clusters.reindex(df.index).values if not clusters.empty else None
 
@@ -254,7 +254,7 @@ def latent_space(W: int = W_WINDOWS[0], split: str = "train", method: str = "pca
     else:
         plt.scatter(Z[:, 0], Z[:, 1], s=6, alpha=0.3, color="#3498db")
     
-    # Intentar mostrar centros de DEC
+    
     model_path = _ae_model_path()
     if model_path.exists():
         try:
@@ -263,7 +263,7 @@ def latent_space(W: int = W_WINDOWS[0], split: str = "train", method: str = "pca
                 custom_objects={"StudentProfileAutoencoder": StudentProfileAutoencoder}, 
                 compile=False
             )
-            # Centros están en ae.clustering_layer.clusters
+            
             centers = ae.get_layer("clustering_output").get_weights()[0]
             c_2d = pca.transform(centers)
             plt.scatter(c_2d[:, 0], c_2d[:, 1], s=100, c='red', marker='X', edgecolors='white', label='DEC Centers', zorder=10)

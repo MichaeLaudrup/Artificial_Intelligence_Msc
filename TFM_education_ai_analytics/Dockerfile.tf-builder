@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
-# Prefer Python 3.12 for TensorFlow 2.22 custom Blackwell builds.
+
 RUN add-apt-repository -y ppa:deadsnakes/ppa && \
     apt-get update && apt-get install -y --no-install-recommends \
     python3.12 \
@@ -26,11 +26,11 @@ RUN add-apt-repository -y ppa:deadsnakes/ppa && \
     && python -m ensurepip --upgrade \
     && rm -rf /var/lib/apt/lists/*
 
-# Install the newest Clang toolchain readily available in Ubuntu 24.04.
+
 RUN apt-get update && apt-get install -y --no-install-recommends clang-20 lld-20 && \
     rm -rf /var/lib/apt/lists/*
 
-# Bazelisk downloads the exact Bazel version required by the selected TensorFlow commit.
+
 RUN curl -fsSL -o /usr/local/bin/bazel https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-linux-amd64 && \
     chmod +x /usr/local/bin/bazel
 

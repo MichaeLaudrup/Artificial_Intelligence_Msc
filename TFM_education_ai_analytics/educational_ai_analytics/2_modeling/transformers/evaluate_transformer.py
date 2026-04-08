@@ -406,7 +406,7 @@ def evaluate(
 			top2_idx_test = np.argsort(y_probs_test, axis=1)[:, -2:]
 			test_top2_acc = float(np.mean(np.any(top2_idx_test == y_test.reshape(-1, 1), axis=1)))
 
-	# === Guardar Predicciones para Stacking ===
+	
 	preds_root_dir = Path("/workspace/TFM_education_ai_analytics/data/7_model_predictions")
 	preds_scope_name = resolve_report_scope_name(
 		num_classes=runtime_cfg.num_classes,
@@ -415,7 +415,7 @@ def evaluate(
 	)
 	preds_out_dir = preds_root_dir / preds_scope_name
 	
-	# Mapeo de nombres de clases para que el CSV sea más legible
+	
 	class_names = []
 	if runtime_cfg.num_classes == 2:
 		if runtime_cfg.paper_baseline:
@@ -431,7 +431,7 @@ def evaluate(
 	else:
 		class_names = [f"Class_{i}" for i in range(runtime_cfg.num_classes)]
 
-	# validation
+	
 	val_out_dir = preds_out_dir / "validation"
 	val_out_dir.mkdir(parents=True, exist_ok=True)
 	
@@ -449,7 +449,7 @@ def evaluate(
 	val_df["true_class_name"] = [class_names[t] for t in y_val]
 	val_df.to_csv(val_out_dir / f"transformer_preds_uptW{runtime_cfg.upto_week}.csv", index=False)
 	
-	# test
+	
 	test_out_dir = preds_out_dir / "test"
 	test_out_dir.mkdir(parents=True, exist_ok=True)
 	

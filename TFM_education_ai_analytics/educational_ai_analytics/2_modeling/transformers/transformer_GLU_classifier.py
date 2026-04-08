@@ -1,9 +1,9 @@
 import tensorflow as tf
 from tensorflow.keras import layers
 
-# =========================
-# GLU (Gated Linear Unit)
-# =========================
+
+
+
 @tf.keras.utils.register_keras_serializable(package="educational_ai_analytics")
 class GLULayer(layers.Layer):
     """Dense(2*units) -> split -> a * sigmoid(b)"""
@@ -23,9 +23,9 @@ class GLULayer(layers.Layer):
         return config
 
 
-# =========================
-# Encoder Block (Pre-LN + mask (B,W,W) + FFN GLU)
-# =========================
+
+
+
 @tf.keras.utils.register_keras_serializable(package="educational_ai_analytics")
 class TransformerEncoderBlock(layers.Layer):
     def __init__(self, d_model: int, num_heads: int, ff_dim: int, dropout: float, name=None, **kwargs):
@@ -37,8 +37,8 @@ class TransformerEncoderBlock(layers.Layer):
         self.ff_dim = ff_dim
         self.dropout = dropout
 
-        # Esto es como decir varios observadores que observan a la vez
-        # y cada uno fragua sus opiniones (atención) con una parte diferente de la información (subespacios)
+        
+        
         self.mha = layers.MultiHeadAttention(
             num_heads=num_heads,
             key_dim=d_model // num_heads,
@@ -51,7 +51,7 @@ class TransformerEncoderBlock(layers.Layer):
         self.drop_attn = layers.Dropout(dropout)
         self.drop_ffn  = layers.Dropout(dropout)
 
-        # FFN: d_model -> ff_dim (con gating GLU) -> d_model  <---- (Reemplaza a ReLU)
+        
         self.ffn_glu = GLULayer(units=ff_dim)
         self.ffn_out = layers.Dense(d_model)
 
@@ -70,13 +70,13 @@ class TransformerEncoderBlock(layers.Layer):
 
         attn_mask = self.make_attn_mask(seq_mask)
 
-        # --- Self-attention (Pre-LN) ---
+        
         h = self.norm_attn(x)
         attn = self.mha(h, h, h, attention_mask=attn_mask, training=training)
         attn = self.drop_attn(attn, training=training)
         x = x + attn
 
-        # --- FFN GLU (Pre-LN) ---
+        
         h = self.norm_ffn(x)
         ffn = self.ffn_glu(h)
         ffn = self.ffn_out(ffn)
@@ -98,9 +98,9 @@ class TransformerEncoderBlock(layers.Layer):
         return config
 
 
-# =========================
-# Modelo completo: Temporal + Static (Early Fusion via Feature Addition)
-# =========================
+
+
+
 @tf.keras.utils.register_keras_serializable(package="educational_ai_analytics")
 class GLUTransformerClassifier(tf.keras.Model):
     def __init__(
@@ -130,13 +130,13 @@ class GLUTransformerClassifier(tf.keras.Model):
         self.static_hidden = list(static_hidden)
         self.head_hidden = list(head_hidden)
 
-        # Variable para saber usamos variables estaticas o no
+        
         self.with_static_features = with_static_features
 
-        # Esto es para hacer embeddings de las variables temporals
-        # (representaciones latentes de la realidad)
+        
+        
         self.input_proj = layers.Dense(latent_d)
-        # añade robustez apagando neuronas diferentes en cada entrenamiento
+        
         self.in_drop = layers.Dropout(dropout)
 
         
@@ -148,9 +148,9 @@ class GLUTransformerClassifier(tf.keras.Model):
         self.seq_out_norm = layers.LayerNormalization(epsilon=1e-6)
         self.pooled_norm = layers.LayerNormalization(epsilon=1e-6)
 
-        # ----- Static -----
+        
         if self.with_static_features:
-            # Proyectamos la estática al mismo espacio latente D del Transformer
+            
             self.static_block = tf.keras.Sequential(
                 [layers.Dense(h, activation="relu") for h in static_hidden] +
                 [layers.Dropout(dropout),
@@ -159,13 +159,13 @@ class GLUTransformerClassifier(tf.keras.Model):
                 name="static_block"
             )
 
-            # GATED EARLY FUSION (contextual):
-            # gate depende de [x_seq_t, x_static] en cada timestep.
-            # Mezcla explícita:
-            #   x_fused_t = (1 - gate_t) * x_seq_t + gate_t * x_static
+            
+            
+            
+            
             self.fusion_gate = layers.Dense(latent_d, activation="sigmoid", name="fusion_gate")
 
-        # ----- Head (MLP para Clasificación Final) -----
+        
         head_layers = []
         for h in head_hidden:
             head_layers += [
@@ -180,12 +180,12 @@ class GLUTransformerClassifier(tf.keras.Model):
         self.head = tf.keras.Sequential(head_layers, name="head")
 
     def call(self, inputs, training=False):
-        # inputs nuevos:
-        #   with_static=True  -> (x_seq, seq_mask, activity_mask, x_static)
-        #   with_static=False -> (x_seq, seq_mask, activity_mask)
-        # compatibilidad retro:
-        #   with_static=True  -> (x_seq, seq_mask, x_static)
-        #   with_static=False -> (x_seq, seq_mask)
+        
+        
+        
+        
+        
+        
         if not isinstance(inputs, (tuple, list)):
             raise ValueError("inputs debe ser tupla/lista")
 
@@ -212,53 +212,55 @@ class GLUTransformerClassifier(tf.keras.Model):
         if activity_mask is None:
             raise ValueError("activity_mask es obligatorio (B,W).")
 
-        # ----- Temporal projection (B, W, D) -----
+        
         x_seq = self.input_proj(x_seq)   
 
-        # ----- GATED EARLY FUSION -----
+        
         if self.with_static_features:
-            # 1. Embedding estático (B, D)
+            
             x_static_emb = self.static_block(x_static, training=training)
-            # 2. Expandimos estática a todos los timesteps: (B, W, D)
+            
             x_static_t = tf.expand_dims(x_static_emb, axis=1)
             x_static_t = tf.broadcast_to(x_static_t, tf.shape(x_seq))
-            # 3. Puerta contextual por timestep y dimensión usando [temporal, estática]
-            fusion_in = tf.concat([x_seq, x_static_t], axis=-1)  # (B, W, 2D)
-            gate = self.fusion_gate(fusion_in)                   # (B, W, D)
-            # 4. Mezcla explícita: gate→0 manda temporal, gate→1 manda estática
+            
+            fusion_in = tf.concat([x_seq, x_static_t], axis=-1)  
+            gate = self.fusion_gate(fusion_in)                   
+            
             x_seq = (1.0 - gate) * x_seq + gate * x_static_t
 
         x_seq = self.in_drop(x_seq, training=training)
 
-        # Transformer Encoder layers
+        
+        
+        
         for enc in self.encoders:
-            x_seq = enc(x_seq, training=training, seq_mask=seq_mask)
+            x_seq = enc(x_seq, training=training, seq_mask=activity_mask)
 
         x_seq = self.seq_out_norm(x_seq)
 
-        # ----- Pooling Promedio y Maximo con Máscara -----
+        
         m = tf.cast(activity_mask, x_seq.dtype)[:, :, tf.newaxis]
         
-        # 1. Average Pooling
+        
         avg_pooled = tf.reduce_sum(x_seq * m, axis=1) / (tf.reduce_sum(m, axis=1) + 1e-8)
         
-        # 2. Max Pooling con penalización representable en float16/float32
+        
         mask_penalty = tf.cast(-1e4, x_seq.dtype)
         x_seq_masked = tf.where(tf.cast(m, tf.bool), x_seq, tf.fill(tf.shape(x_seq), mask_penalty))
         max_pooled = tf.reduce_max(x_seq_masked, axis=1)
         has_activity = tf.reduce_sum(m, axis=1) > 0
         max_pooled = tf.where(has_activity, max_pooled, tf.zeros_like(max_pooled))
         
-        # Concatenar ambos poolings
+        
         pooled = tf.concat([avg_pooled, max_pooled], axis=-1)
         z = self.pooled_norm(pooled)
 
-        # ----- LATE FUSION -----
+        
         if self.with_static_features:
-            # z contiene la rama temporal y x_static_emb la rama estática procesada.
+            
             z = tf.concat([z, x_static_emb], axis=1)
 
-        # Clasificación final
+        
         return self.head(z, training=training)
 
     def get_config(self):

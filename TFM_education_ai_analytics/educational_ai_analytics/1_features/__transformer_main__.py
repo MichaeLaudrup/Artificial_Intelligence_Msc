@@ -13,7 +13,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)-8s | 
 logger = logging.getLogger(__name__)
 
 
-# Rutas (siguiendo tu convención)
+
 PROCESSED_DATA_DIR = Path("/workspace/TFM_education_ai_analytics/data/2_processed")
 FEATURES_DATA_DIR = Path("/workspace/TFM_education_ai_analytics/data/3_features")
 SEGMENTED_DATA_DIR = Path("/workspace/TFM_education_ai_analytics/data/5_students_segmented")
@@ -40,7 +40,7 @@ def main():
             "Primero ejecuta: make encode && make train_clustering && make predict_clustering"
         )
 
-    # Limpieza dir salida
+    
     if TRANSFORMER_OUT_DIR.exists():
         logger.info(f"🧹 Limpiando directorio: {TRANSFORMER_OUT_DIR}")
         shutil.rmtree(TRANSFORMER_OUT_DIR)
@@ -59,7 +59,7 @@ def main():
 
         dfs = _load_split_tables(split_path)
 
-        # fit sólo en training (para fijar activities_global y guardarla en meta)
+        
         fit = (split == "training")
 
         saved = builder.build_for_split(

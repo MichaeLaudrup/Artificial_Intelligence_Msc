@@ -9,6 +9,7 @@ XAI_PARAMS = getattr(importlib.import_module("educational_ai_analytics.2_modelin
 
 from loguru import logger
 import matplotlib.pyplot as plt
+from matplotlib.colors import BoundaryNorm, ListedColormap
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -206,7 +207,7 @@ def _resolve_weeks(weeks_csv: Optional[str], split: str, data_root: Path) -> lis
 
 
 def _load_transformer_custom_objects():
-	from ..transformers.transformer_GLU_classifier import (  # pylint: disable=import-outside-toplevel
+	from ..transformers.transformer_GLU_classifier import (  
 		GLULayer,
 		GLUTransformerClassifier,
 		TransformerEncoderBlock,
@@ -372,6 +373,60 @@ def filter_payload_classes(payload: dict, num_classes: int, binary_mode: Optiona
 	return result
 
 
+def _sample_stratified_indices(y: np.ndarray, sample_size: int, rng: np.random.Generator) -> np.ndarray:
+	y = np.asarray(y)
+	n_samples = int(y.shape[0])
+	sample_size = max(1, min(int(sample_size), n_samples))
+	if sample_size >= n_samples:
+		return np.arange(n_samples, dtype=int)
+
+	classes, counts = np.unique(y, return_counts=True)
+	if classes.size <= 1:
+		return np.sort(rng.choice(n_samples, size=sample_size, replace=False).astype(int))
+
+	proportions = counts / counts.sum()
+	raw_targets = proportions * sample_size
+	base_targets = np.floor(raw_targets).astype(int)
+	remainder = sample_size - int(base_targets.sum())
+
+	if remainder > 0:
+		order = np.argsort(-(raw_targets - base_targets))
+		for idx in order[:remainder]:
+			base_targets[idx] += 1
+
+	base_targets = np.minimum(base_targets, counts)
+	allocated = int(base_targets.sum())
+	if allocated < sample_size:
+		remaining_capacity = counts - base_targets
+		order = np.argsort(-remaining_capacity)
+		for idx in order:
+			if allocated >= sample_size:
+				break
+			if remaining_capacity[idx] <= 0:
+				continue
+			base_targets[idx] += 1
+			allocated += 1
+
+	selected_parts = []
+	for class_value, target_count in zip(classes, base_targets):
+		if target_count <= 0:
+			continue
+		class_indices = np.flatnonzero(y == class_value)
+		chosen = rng.choice(class_indices, size=int(target_count), replace=False)
+		selected_parts.append(np.asarray(chosen, dtype=int))
+
+	if not selected_parts:
+		return np.sort(rng.choice(n_samples, size=sample_size, replace=False).astype(int))
+
+	selected = np.concatenate(selected_parts)
+	if selected.size < sample_size:
+		remaining = np.setdiff1d(np.arange(n_samples, dtype=int), selected, assume_unique=False)
+		extra = rng.choice(remaining, size=sample_size - selected.size, replace=False)
+		selected = np.concatenate([selected, np.asarray(extra, dtype=int)])
+
+	return np.sort(selected.astype(int))
+
+
 def load_model_from_history(
 	model_path: Path,
 	history_path: Path,
@@ -420,9 +475,22 @@ def _resolve_binary_class_labels(paper_baseline: bool, binary_mode: Optional[str
 	return "Pass/Dist", "Fail/Withdrawn"
 
 
-def _direction_target_label(mean_shap_signed: float, negative_label: str, positive_label: str) -> str:
-	if not np.isfinite(mean_shap_signed) or abs(float(mean_shap_signed)) <= 1e-12:
+def _direction_target_label(mean_shap_signed: float, mean_abs_shap: float, negative_label: str, positive_label: str) -> str:
+	if not np.isfinite(mean_shap_signed) or not np.isfinite(mean_abs_shap):
 		return "Neutral"
+
+	abs_signed = abs(float(mean_shap_signed))
+	abs_mean = abs(float(mean_abs_shap))
+	if abs_signed <= 1e-12 or abs_mean <= 1e-12:
+		return "Neutral"
+
+	
+	
+	
+	strength_ratio = abs_signed / (abs_mean + 1e-12)
+	if abs_signed < 1e-3 or strength_ratio < 0.40:
+		return "Neutral"
+
 	return positive_label if float(mean_shap_signed) > 0 else negative_label
 
 
@@ -524,11 +592,40 @@ def _render_attention_heatmap_png(matrix: np.ndarray, output_path: Path, title: 
 	return output_path
 
 
+def _resolve_csv_staging_dir(output_dir: Path) -> Path:
+	output_dir = Path(output_dir)
+	if output_dir.name.startswith("week_"):
+		return output_dir.parent / "_tmp_csv" / output_dir.name
+	return output_dir / "_tmp_csv"
+
+
+def _resolve_csv_output_path(output_dir: Path, filename: str) -> Path:
+	csv_dir = _resolve_csv_staging_dir(output_dir)
+	csv_dir.mkdir(parents=True, exist_ok=True)
+	return csv_dir / filename
+
+
+def _relocate_existing_csv_outputs(report_root: Path) -> None:
+	report_root = Path(report_root)
+	for csv_path in sorted(report_root.glob("*.csv")):
+		target_path = _resolve_csv_output_path(report_root, csv_path.name)
+		if csv_path.parent == target_path.parent:
+			continue
+		shutil.move(str(csv_path), str(target_path))
+
+	for week_dir in sorted(path for path in report_root.glob("week_*") if path.is_dir()):
+		for csv_path in sorted(week_dir.glob("*.csv")):
+			target_path = _resolve_csv_output_path(week_dir, csv_path.name)
+			if csv_path.parent == target_path.parent:
+				continue
+			shutil.move(str(csv_path), str(target_path))
+
+
 def _save_attention_outputs(matrix: np.ndarray, output_dir: Path, base_name: str, title: str) -> tuple[Path, Path]:
 	columns = [f"W{i+1:02d}" for i in range(matrix.shape[1])]
 	index = [f"W{i+1:02d}" for i in range(matrix.shape[0])]
 	df = pd.DataFrame(matrix, index=index, columns=columns)
-	csv_path = output_dir / f"{base_name}.csv"
+	csv_path = _resolve_csv_output_path(output_dir, f"{base_name}.csv")
 	png_path = output_dir / f"{base_name}.png"
 	df.to_csv(csv_path)
 	_render_attention_heatmap_png(matrix, png_path, title)
@@ -591,7 +688,7 @@ def _render_temporal_attention_heatmap_png(df: pd.DataFrame, output_path: Path, 
 
 
 def _save_temporal_attention_outputs(df: pd.DataFrame, output_dir: Path, base_name: str, title: str) -> tuple[Path, Path]:
-	csv_path = output_dir / f"{base_name}.csv"
+	csv_path = _resolve_csv_output_path(output_dir, f"{base_name}.csv")
 	png_path = output_dir / f"{base_name}.png"
 	df.to_csv(csv_path)
 	_render_temporal_attention_heatmap_png(df, png_path, title)
@@ -856,15 +953,350 @@ def _save_signed_shap_heatmap_outputs(df: pd.DataFrame, output_dir: Path, base_n
 	if heatmap_df.empty:
 		return []
 
-	csv_path = output_dir / f"{base_name}.csv"
+	csv_path = _resolve_csv_output_path(output_dir, f"{base_name}.csv")
 	png_path = output_dir / f"{base_name}.png"
 	heatmap_df.to_csv(csv_path)
 	_render_signed_shap_heatmap_png(heatmap_df, png_path, title)
 	return [csv_path, png_path]
 
 
+def _resolve_dependence_direction_label(
+	feature_df: pd.DataFrame,
+	negative_label: str,
+	positive_label: str,
+	min_unique_values: int = 3,
+	min_samples: int = 6,
+) -> tuple[str, float]:
+	clean_df = feature_df[["feature_value", "shap_signed"]].replace([np.inf, -np.inf], np.nan).dropna().copy()
+	if len(clean_df) < int(min_samples):
+		return "Neutral", np.nan
+	if clean_df["feature_value"].nunique() < int(min_unique_values):
+		return "Neutral", np.nan
+
+	spearman = clean_df["feature_value"].corr(clean_df["shap_signed"], method="spearman")
+	if not np.isfinite(spearman):
+		return "Neutral", np.nan
+
+	try:
+		slope = float(np.polyfit(clean_df["feature_value"].to_numpy(dtype=float), clean_df["shap_signed"].to_numpy(dtype=float), deg=1)[0])
+	except (TypeError, ValueError, np.linalg.LinAlgError):
+		return "Neutral", float(spearman)
+
+	if float(spearman) > 0 or slope > 0:
+		return positive_label, float(spearman)
+	return negative_label, float(spearman)
+
+
+def _build_direction_label_heatmap(
+	summary_df: pd.DataFrame,
+	dependence_df: pd.DataFrame,
+	negative_label: str,
+	positive_label: str,
+	max_features: int = 15,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+	if summary_df.empty:
+		return pd.DataFrame(), pd.DataFrame()
+
+	selected_features = _select_heatmap_features(summary_df, max_features=max_features)
+	if not selected_features:
+		return pd.DataFrame(), pd.DataFrame()
+
+	week_order = sorted(summary_df["upto_week"].unique().tolist())
+	week_labels = [f"W{int(week):02d}" for week in week_order]
+	labels_df = pd.DataFrame(np.nan, index=week_labels, columns=selected_features, dtype=object)
+	stats_df = pd.DataFrame(np.nan, index=week_labels, columns=selected_features, dtype=float)
+
+	for week in week_order:
+		week_label = f"W{int(week):02d}"
+		week_dependence = dependence_df[dependence_df["upto_week"] == int(week)].copy()
+		week_summary = summary_df[summary_df["upto_week"] == int(week)].set_index("feature")
+		for feature in selected_features:
+			feature_dependence = week_dependence[week_dependence["feature"] == feature].copy()
+			if not feature_dependence.empty:
+				label, score = _resolve_dependence_direction_label(
+					feature_dependence,
+					negative_label=negative_label,
+					positive_label=positive_label,
+				)
+				labels_df.loc[week_label, feature] = label
+				stats_df.loc[week_label, feature] = score
+				continue
+
+			if feature not in week_summary.index:
+				continue
+
+			row = week_summary.loc[feature]
+			labels_df.loc[week_label, feature] = row.get("towards_class", "Neutral")
+			stats_df.loc[week_label, feature] = float(row.get("mean_shap_signed", np.nan))
+
+	labels_df.index.name = "week"
+	stats_df.index.name = "week"
+	return labels_df, stats_df
+
+
+def _render_direction_label_heatmap_png(df_labels: pd.DataFrame, df_stats: pd.DataFrame, output_path: Path, title: str) -> Path:
+	if df_labels.empty:
+		return output_path
+
+	label_to_value = {
+		"Pass/Dist": -1.0,
+		"Fail": -1.0,
+		"Pass": -1.0,
+		"Neutral": 0.0,
+		"Withdrawn": 1.0,
+		"Fail/Withdrawn": 1.0,
+	}
+	annot_to_text = {
+		"Pass/Dist": "Fav Pass/Dist",
+		"Fail": "Fav Fail",
+		"Pass": "Fav Pass",
+		"Neutral": "Neutral",
+		"Withdrawn": "Fav Withdrawn",
+		"Fail/Withdrawn": "Fav F/W",
+	}
+
+	display_values = df_labels.replace(label_to_value).astype(float)
+	annot_df = pd.DataFrame("", index=df_labels.index, columns=df_labels.columns)
+	for row in df_labels.index:
+		for col in df_labels.columns:
+			label = df_labels.loc[row, col]
+			if pd.isna(label):
+				continue
+			stat_value = df_stats.loc[row, col] if (row in df_stats.index and col in df_stats.columns) else np.nan
+			base_text = annot_to_text.get(str(label), str(label))
+			annot_df.loc[row, col] = base_text if not np.isfinite(stat_value) else f"{base_text}\nrho {float(stat_value):+.2f}"
+
+	fig_width = max(12, 1.05 * len(df_labels.columns) + 4)
+	fig_height = max(5.5, 0.58 * len(df_labels.index) + 2.5)
+	fig, ax = plt.subplots(figsize=(fig_width, fig_height), dpi=180)
+	fig.patch.set_facecolor("#111111")
+	ax.set_facecolor("#111111")
+
+	cmap = ListedColormap(["#1a9850", "#7f7f7f", "#d73027"])
+	norm = BoundaryNorm([-1.5, -0.5, 0.5, 1.5], cmap.N)
+
+	sns.heatmap(
+		display_values,
+		mask=df_labels.isna(),
+		cmap=cmap,
+		norm=norm,
+		cbar=False,
+		annot=annot_df,
+		fmt="",
+		linewidths=0.6,
+		linecolor="#242424",
+		ax=ax,
+	)
+
+	ax.set_title(title, fontsize=14, fontweight="bold", color="#f5f5f5", pad=12)
+	ax.set_xlabel("Variable", color="#f5f5f5")
+	ax.set_ylabel("Semana", color="#f5f5f5")
+	ax.tick_params(colors="#f5f5f5")
+	plt.setp(ax.get_xticklabels(), rotation=35, ha="right", color="#f5f5f5")
+	plt.setp(ax.get_yticklabels(), rotation=0, color="#f5f5f5")
+
+	for text in ax.texts:
+		text.set_color("#f5f5f5")
+		text.set_fontsize(8.5)
+		text.set_fontweight("semibold")
+
+	legend_handles = [
+		plt.Line2D([0], [0], color="#d73027", lw=8, label="Mayor valor favorece Withdrawn"),
+		plt.Line2D([0], [0], color="#1a9850", lw=8, label="Mayor valor favorece Pass/Dist"),
+		plt.Line2D([0], [0], color="#7f7f7f", lw=8, label="Neutro / ambiguo"),
+	]
+	ax.legend(handles=legend_handles, loc="upper left", bbox_to_anchor=(1.01, 1.0), frameon=False, labelcolor="#f5f5f5")
+
+	output_path.parent.mkdir(parents=True, exist_ok=True)
+	plt.savefig(output_path, dpi=220, bbox_inches="tight", facecolor=fig.get_facecolor())
+	plt.close(fig)
+	return output_path
+
+
+def _save_direction_label_outputs(
+	summary_df: pd.DataFrame,
+	dependence_df: pd.DataFrame,
+	output_dir: Path,
+	base_name: str,
+	title: str,
+	negative_label: str,
+	positive_label: str,
+	max_features: int = 15,
+) -> list[Path]:
+	df_labels, df_stats = _build_direction_label_heatmap(
+		summary_df,
+		dependence_df,
+		negative_label=negative_label,
+		positive_label=positive_label,
+		max_features=max_features,
+	)
+	if df_labels.empty:
+		return []
+
+	csv_path = _resolve_csv_output_path(output_dir, f"{base_name}.csv")
+	png_path = output_dir / f"{base_name}.png"
+	df_labels.to_csv(csv_path)
+	_render_direction_label_heatmap_png(df_labels, df_stats, png_path, title)
+	return [csv_path, png_path]
+
+
+def _build_binned_dependence_summary(feature_df: pd.DataFrame, max_bins: int = 6) -> pd.DataFrame:
+	plot_df = feature_df[["feature_value", "shap_signed"]].replace([np.inf, -np.inf], np.nan).dropna().copy()
+	if plot_df.empty:
+		return pd.DataFrame(columns=["feature_bin", "feature_value_mean", "shap_signed_mean", "count"])
+
+	unique_values = np.unique(plot_df["feature_value"].to_numpy(dtype=float))
+	if unique_values.size <= max_bins:
+		grouped = (
+			plot_df.groupby("feature_value", dropna=False)
+			.agg(feature_value_mean=("feature_value", "mean"), shap_signed_mean=("shap_signed", "mean"), count=("shap_signed", "size"))
+			.reset_index(drop=True)
+		)
+		grouped["feature_bin"] = [str(round(v, 4)) for v in grouped["feature_value_mean"]]
+		return grouped[["feature_bin", "feature_value_mean", "shap_signed_mean", "count"]]
+
+	try:
+		plot_df["feature_bin"] = pd.qcut(plot_df["feature_value"], q=max_bins, duplicates="drop")
+	except ValueError:
+		plot_df["feature_bin"] = pd.cut(plot_df["feature_value"], bins=max_bins, duplicates="drop")
+
+	grouped = (
+		plot_df.groupby("feature_bin", dropna=False, observed=False)
+		.agg(feature_value_mean=("feature_value", "mean"), shap_signed_mean=("shap_signed", "mean"), count=("shap_signed", "size"))
+		.reset_index()
+	)
+	grouped["feature_bin"] = grouped["feature_bin"].astype(str)
+	return grouped[["feature_bin", "feature_value_mean", "shap_signed_mean", "count"]]
+
+
+def _render_static_dependence_grid_png(df: pd.DataFrame, output_path: Path, title: str, feature_order: list[str]) -> Path:
+	plot_df = df.replace([np.inf, -np.inf], np.nan).dropna(subset=["feature", "feature_value", "shap_signed"]).copy()
+	plot_df = plot_df[plot_df["feature"].isin(feature_order)]
+	if plot_df.empty or not feature_order:
+		return output_path
+
+	n_panels = len(feature_order)
+	ncols = min(3, max(1, n_panels))
+	nrows = int(np.ceil(n_panels / ncols))
+	fig, axes = plt.subplots(nrows, ncols, figsize=(5.2 * ncols, 4.2 * nrows), dpi=180)
+	fig.patch.set_facecolor("#111111")
+	axes_array = np.atleast_1d(axes).ravel()
+
+	for ax, feature in zip(axes_array, feature_order):
+		feature_df = plot_df[plot_df["feature"] == feature].copy()
+		ax.set_facecolor("#111111")
+		if feature_df.empty:
+			ax.set_visible(False)
+			continue
+
+		values = feature_df["feature_value"].to_numpy(dtype=float)
+		shap_vals = feature_df["shap_signed"].to_numpy(dtype=float)
+		ax.scatter(values, shap_vals, s=18, alpha=0.28, color="#9ecae1", edgecolors="none")
+		ax.axhline(0.0, color="#f5f5f5", linestyle="--", linewidth=1.0, alpha=0.55)
+
+		binned = _build_binned_dependence_summary(feature_df, max_bins=6)
+		if not binned.empty:
+			ax.plot(
+				binned["feature_value_mean"].to_numpy(dtype=float),
+				binned["shap_signed_mean"].to_numpy(dtype=float),
+				color="#ff8c42",
+				linewidth=2.2,
+				marker="o",
+				markersize=4,
+			)
+
+		ax.set_title(feature, color="#f5f5f5", fontsize=12, pad=8)
+		ax.set_xlabel("Valor feature", color="#f5f5f5")
+		ax.set_ylabel("SHAP firmado", color="#f5f5f5")
+		ax.tick_params(colors="#f5f5f5")
+		for spine in ax.spines.values():
+			spine.set_color("#444444")
+
+	for ax in axes_array[n_panels:]:
+		ax.set_visible(False)
+
+	fig.suptitle(title, color="#f5f5f5", fontsize=15, fontweight="bold", y=0.995)
+	output_path.parent.mkdir(parents=True, exist_ok=True)
+	fig.subplots_adjust(left=0.07, right=0.97, bottom=0.08, top=0.90, wspace=0.28, hspace=0.34)
+	plt.savefig(output_path, dpi=220, bbox_inches="tight", facecolor=fig.get_facecolor())
+	plt.close(fig)
+	return output_path
+
+
+def _save_static_dependence_outputs(df: pd.DataFrame, output_dir: Path, base_name: str, title: str, feature_order: list[str]) -> list[Path]:
+	plot_df = df.replace([np.inf, -np.inf], np.nan).dropna(subset=["feature", "feature_value", "shap_signed"]).copy()
+	plot_df = plot_df[plot_df["feature"].isin(feature_order)]
+	if plot_df.empty:
+		return []
+
+	csv_path = _resolve_csv_output_path(output_dir, f"{base_name}.csv")
+	png_path = output_dir / f"{base_name}.png"
+	plot_df.to_csv(csv_path, index=False)
+	_render_static_dependence_grid_png(plot_df, png_path, title, feature_order=feature_order)
+	return [csv_path, png_path]
+
+
+def _build_top_positive_case_table(
+	dependence_df: pd.DataFrame,
+	positive_label: str,
+	top_n: int = 24,
+) -> pd.DataFrame:
+	if dependence_df.empty:
+		return pd.DataFrame()
+
+	positive_df = dependence_df.replace([np.inf, -np.inf], np.nan).dropna(subset=["feature", "unique_id", "feature_value", "shap_signed"]).copy()
+	positive_df = positive_df[positive_df["shap_signed"] > 0].copy()
+	if positive_df.empty:
+		return pd.DataFrame()
+
+	if "pred_score" in positive_df.columns:
+		positive_df["pred_score"] = positive_df["pred_score"].astype(float)
+
+	positive_df = positive_df.sort_values(
+		["shap_signed", "pred_score", "upto_week", "feature_value"],
+		ascending=[False, False, False, False],
+	)
+	top_df = positive_df.head(int(top_n)).copy()
+	top_df.insert(0, "case_rank", np.arange(1, len(top_df) + 1))
+	top_df["week"] = top_df["upto_week"].map(lambda value: f"W{int(value):02d}")
+	top_df["supports_class"] = positive_label
+
+	columns = [
+		"case_rank",
+		"week",
+		"feature",
+		"unique_id",
+		"feature_value",
+		"shap_signed",
+		"pred_score",
+		"target_class",
+		"supports_class",
+	]
+	existing_columns = [column for column in columns if column in top_df.columns]
+	return top_df[existing_columns].reset_index(drop=True)
+
+
+def _save_top_positive_case_outputs(
+	dependence_df: pd.DataFrame,
+	output_dir: Path,
+	base_name: str,
+	title: str,
+	positive_label: str,
+	top_n: int = 24,
+) -> list[Path]:
+	top_df = _build_top_positive_case_table(dependence_df, positive_label=positive_label, top_n=top_n)
+	if top_df.empty:
+		return []
+
+	csv_path = _resolve_csv_output_path(output_dir, f"{base_name}.csv")
+	png_path = output_dir / f"{base_name}.png"
+	top_df.to_csv(csv_path, index=False)
+	_render_table_png(top_df, png_path, title)
+	return [csv_path, png_path]
+
+
 def _save_week_outputs(df: pd.DataFrame, output_dir: Path, base_name: str, title: str) -> tuple[Path, Path]:
-	csv_path = output_dir / f"{base_name}.csv"
+	csv_path = _resolve_csv_output_path(output_dir, f"{base_name}.csv")
 	png_path = output_dir / f"{base_name}.png"
 	df.to_csv(csv_path, index=False)
 	_render_table_png(df, png_path, title)
@@ -876,14 +1308,14 @@ def _save_global_outputs(df: pd.DataFrame, report_root: Path, long_name: str, wi
 	if df.empty:
 		return outputs
 
-	long_csv = report_root / f"{long_name}.csv"
+	long_csv = _resolve_csv_output_path(report_root, f"{long_name}.csv")
 	df.to_csv(long_csv, index=False)
 	outputs.append(long_csv)
 
 	week_order = sorted(df["upto_week"].unique().tolist())
 	wide_df = _build_week_cell_summary(df, week_order)
 	if not wide_df.empty:
-		wide_csv = report_root / f"{wide_name}.csv"
+		wide_csv = _resolve_csv_output_path(report_root, f"{wide_name}.csv")
 		wide_png = report_root / f"{wide_name}.png"
 		wide_df.to_csv(wide_csv, index=False)
 		_render_table_png(wide_df, wide_png, title)
@@ -1048,8 +1480,8 @@ def _compute_weekly_shap_importance(
 	x_flat = pack_flat(x_seq, x_static)
 	bg_size = min(int(shap_bg_size), n_samples)
 	explain_size = min(int(shap_explain_size), n_samples)
-	bg_idx = rng.choice(n_samples, size=bg_size, replace=False)
-	explain_idx = rng.choice(n_samples, size=explain_size, replace=False)
+	bg_idx = _sample_stratified_indices(payload["y"], sample_size=bg_size, rng=rng)
+	explain_idx = _sample_stratified_indices(payload["y"], sample_size=explain_size, rng=rng)
 
 	explainer = shap.KernelExplainer(predict_from_flat, x_flat[bg_idx])
 	shap_values = explainer.shap_values(x_flat[explain_idx], nsamples=int(shap_nsamples))
@@ -1061,6 +1493,9 @@ def _compute_weekly_shap_importance(
 		)
 	else:
 		negative_label, positive_label = "Score negativo", "Score positivo"
+	explain_ids = payload["ids"][explain_idx].astype(str)
+	explain_targets = np.where(payload["y"][explain_idx] == 1, positive_label, negative_label).astype(str)
+	explain_pred_scores = predict_from_flat(x_flat[explain_idx]).astype(np.float32)
 
 	seq_cols = seq_len * seq_feat_dim
 	seq_shap = shap_array[:, :seq_cols].reshape(-1, seq_len, seq_feat_dim)
@@ -1075,12 +1510,33 @@ def _compute_weekly_shap_importance(
 			"mean_abs_shap": seq_importance,
 			"mean_shap_signed": seq_signed,
 			"towards_class": [
-				_direction_target_label(value, negative_label=negative_label, positive_label=positive_label)
-				for value in seq_signed
+				_direction_target_label(
+					value,
+					mean_abs,
+					negative_label=negative_label,
+					positive_label=positive_label,
+				)
+				for value, mean_abs in zip(seq_signed, seq_importance)
 			],
 		}
 	).sort_values("mean_abs_shap", ascending=False).head(int(top_k)).reset_index(drop=True)
 	seq_df["rank"] = np.arange(1, len(seq_df) + 1)
+	seq_feature_to_idx = {name: idx for idx, name in enumerate(seq_feature_names)}
+	selected_seq_indices = [seq_feature_to_idx[name] for name in seq_df["feature"].tolist() if name in seq_feature_to_idx]
+	if selected_seq_indices:
+		seq_dependence_df = pd.DataFrame(
+			{
+				"upto_week": int(upto_week),
+				"feature": np.repeat(seq_df["feature"].tolist(), len(explain_idx)),
+				"unique_id": np.tile(explain_ids, len(selected_seq_indices)),
+				"target_class": np.tile(explain_targets, len(selected_seq_indices)),
+				"pred_score": np.tile(explain_pred_scores, len(selected_seq_indices)),
+				"feature_value": np.concatenate([x_seq[explain_idx, :, idx].sum(axis=1) for idx in selected_seq_indices]).astype(np.float32),
+				"shap_signed": np.concatenate([seq_shap[:, :, idx].sum(axis=1) for idx in selected_seq_indices]).astype(np.float32),
+			}
+		)
+	else:
+		seq_dependence_df = pd.DataFrame(columns=["upto_week", "feature", "unique_id", "target_class", "pred_score", "feature_value", "shap_signed"])
 
 	if static_dim > 0:
 		static_feature_names = [_map_static_feature_label(name) for name in static_names] if len(static_names) == static_dim else [f"static_f{i}" for i in range(static_dim)]
@@ -1094,17 +1550,39 @@ def _compute_weekly_shap_importance(
 				"mean_abs_shap": static_importance,
 				"mean_shap_signed": static_signed,
 				"towards_class": [
-					_direction_target_label(value, negative_label=negative_label, positive_label=positive_label)
-					for value in static_signed
+					_direction_target_label(
+						value,
+						mean_abs,
+						negative_label=negative_label,
+						positive_label=positive_label,
+					)
+					for value, mean_abs in zip(static_signed, static_importance)
 				],
 			}
 		).sort_values("mean_abs_shap", ascending=False).head(int(top_k)).reset_index(drop=True)
 		static_df["rank"] = np.arange(1, len(static_df) + 1)
+		feature_to_idx = {name: idx for idx, name in enumerate(static_feature_names)}
+		selected_static_indices = [feature_to_idx[name] for name in static_df["feature"].tolist() if name in feature_to_idx]
+		if selected_static_indices:
+			static_dependence_df = pd.DataFrame(
+				{
+					"upto_week": int(upto_week),
+					"feature": np.repeat(static_df["feature"].tolist(), len(explain_idx)),
+					"unique_id": np.tile(explain_ids, len(selected_static_indices)),
+					"target_class": np.tile(explain_targets, len(selected_static_indices)),
+					"pred_score": np.tile(explain_pred_scores, len(selected_static_indices)),
+					"feature_value": np.concatenate([x_static[explain_idx, idx] for idx in selected_static_indices]).astype(np.float32),
+					"shap_signed": np.concatenate([shap_array[:, seq_cols + idx] for idx in selected_static_indices]).astype(np.float32),
+				}
+			)
+		else:
+			static_dependence_df = pd.DataFrame(columns=["upto_week", "feature", "unique_id", "target_class", "pred_score", "feature_value", "shap_signed"])
 	else:
 		static_df = pd.DataFrame(columns=["upto_week", "rank", "feature", "mean_abs_shap", "mean_shap_signed", "towards_class"])
+		static_dependence_df = pd.DataFrame(columns=["upto_week", "feature", "unique_id", "target_class", "pred_score", "feature_value", "shap_signed"])
 
 	attention_size = min(int(shap_explain_size), n_samples)
-	attention_idx = rng.choice(n_samples, size=attention_size, replace=False)
+	attention_idx = _sample_stratified_indices(payload["y"], sample_size=attention_size, rng=rng)
 	attention_map = _compute_attention_map(
 		model,
 		x_seq=x_seq[attention_idx],
@@ -1117,7 +1595,9 @@ def _compute_weekly_shap_importance(
 		"upto_week": int(upto_week),
 		"target_tag": target_tag,
 		"seq_df": seq_df,
+		"seq_dependence_df": seq_dependence_df,
 		"static_df": static_df,
+		"static_dependence_df": static_dependence_df,
 		"attention_map": attention_map,
 	}
 
@@ -1180,9 +1660,12 @@ def generate_xai_reports(
 	rng = np.random.default_rng(int(seed))
 	resolved_xai_reports_root.mkdir(parents=True, exist_ok=True)
 	_cleanup_residual_xai_files(report_root=resolved_xai_reports_root, legacy_root=reports_root)
+	_relocate_existing_csv_outputs(resolved_xai_reports_root)
 
 	seq_frames = []
+	seq_dependence_frames = []
 	static_frames = []
+	static_dependence_frames = []
 	attention_outputs = []
 	attention_maps = []
 
@@ -1209,7 +1692,9 @@ def generate_xai_reports(
 		week_dir = resolved_xai_reports_root / f"week_{int(upto_week)}"
 		week_dir.mkdir(parents=True, exist_ok=True)
 		seq_df = week_result["seq_df"]
+		seq_dependence_df = week_result["seq_dependence_df"]
 		static_df = week_result["static_df"]
+		static_dependence_df = week_result["static_dependence_df"]
 		attention_map = week_result["attention_map"]
 
 		_save_week_outputs(
@@ -1219,6 +1704,8 @@ def generate_xai_reports(
 			f"Top SHAP Secuenciales | W{int(upto_week):02d} | {target_tag}",
 		)
 		seq_frames.append(seq_df)
+		if not seq_dependence_df.empty:
+			seq_dependence_frames.append(seq_dependence_df)
 
 		if not static_df.empty:
 			_save_week_outputs(
@@ -1228,6 +1715,8 @@ def generate_xai_reports(
 				f"Top SHAP Estáticas | W{int(upto_week):02d} | {target_tag}",
 			)
 			static_frames.append(static_df)
+			if not static_dependence_df.empty:
+				static_dependence_frames.append(static_dependence_df)
 
 		attention_outputs.extend(
 			_save_attention_outputs(
@@ -1240,7 +1729,16 @@ def generate_xai_reports(
 		attention_maps.append({"upto_week": int(upto_week), "matrix": attention_map})
 
 	seq_global = pd.concat(seq_frames, ignore_index=True) if seq_frames else pd.DataFrame(columns=["upto_week", "rank", "feature", "mean_abs_shap", "mean_shap_signed", "towards_class"])
+	seq_dependence_global = pd.concat(seq_dependence_frames, ignore_index=True) if seq_dependence_frames else pd.DataFrame(columns=["upto_week", "feature", "unique_id", "target_class", "pred_score", "feature_value", "shap_signed"])
 	static_global = pd.concat(static_frames, ignore_index=True) if static_frames else pd.DataFrame(columns=["upto_week", "rank", "feature", "mean_abs_shap", "mean_shap_signed", "towards_class"])
+	static_dependence_global = pd.concat(static_dependence_frames, ignore_index=True) if static_dependence_frames else pd.DataFrame(columns=["upto_week", "feature", "unique_id", "target_class", "pred_score", "feature_value", "shap_signed"])
+	if int(resolved_num_classes) == 2:
+		negative_label, positive_label = _resolve_binary_class_labels(
+			paper_baseline=resolved_paper_baseline,
+			binary_mode=resolved_binary_mode,
+		)
+	else:
+		negative_label, positive_label = "Score negativo", "Score positivo"
 
 	seq_outputs = _save_global_outputs(
 		seq_global,
@@ -1249,12 +1747,56 @@ def generate_xai_reports(
 		f"xai_global_top_sequential_wide_{target_tag}",
 		f"Top SHAP Secuenciales por Semana | {target_tag}",
 	)
+	seq_direction_outputs = _save_direction_label_outputs(
+		seq_global,
+		seq_dependence_global,
+		resolved_xai_reports_root,
+		f"xai_global_top_sequential_direction_{target_tag}",
+		f"Direccion explicativa clara | Secuenciales | {target_tag}",
+		negative_label=negative_label,
+		positive_label=positive_label,
+		max_features=15,
+	)
+	seq_withdraw_case_outputs = _save_top_positive_case_outputs(
+		seq_dependence_global,
+		resolved_xai_reports_root,
+		f"xai_global_top_sequential_withdraw_cases_{target_tag}",
+		f"Casos que mas favorecen {positive_label} | Secuenciales | {target_tag}",
+		positive_label=positive_label,
+		top_n=24,
+	)
 	static_outputs = _save_global_outputs(
 		static_global,
 		resolved_xai_reports_root,
 		f"xai_global_top_static_long_{target_tag}",
 		f"xai_global_top_static_wide_{target_tag}",
 		f"Top SHAP Estáticas por Semana | {target_tag}",
+	)
+	static_direction_outputs = _save_direction_label_outputs(
+		static_global,
+		static_dependence_global,
+		resolved_xai_reports_root,
+		f"xai_global_top_static_direction_{target_tag}",
+		f"Direccion explicativa clara | Estáticas | {target_tag}",
+		negative_label=negative_label,
+		positive_label=positive_label,
+		max_features=15,
+	)
+	static_withdraw_case_outputs = _save_top_positive_case_outputs(
+		static_dependence_global,
+		resolved_xai_reports_root,
+		f"xai_global_top_static_withdraw_cases_{target_tag}",
+		f"Casos que mas favorecen {positive_label} | Estáticas | {target_tag}",
+		positive_label=positive_label,
+		top_n=24,
+	)
+	static_feature_order = _select_heatmap_features(static_global, max_features=min(6, int(top_k))) if not static_global.empty else []
+	static_dependence_outputs = _save_static_dependence_outputs(
+		static_dependence_global,
+		resolved_xai_reports_root,
+		f"xai_global_top_static_dependence_{target_tag}",
+		f"Dependencia valor->SHAP | Estáticas | {target_tag}",
+		feature_order=static_feature_order,
 	)
 
 	global_attention_outputs = []
@@ -1305,13 +1847,14 @@ def generate_xai_reports(
 			)
 		)
 
+	_relocate_existing_csv_outputs(resolved_xai_reports_root)
 	logger.info(f"✅ XAI SHAP completado para {target_tag} | semanas procesadas: {sorted(seq_global['upto_week'].unique().tolist()) if not seq_global.empty else []}")
 	return {
 		"target_tag": target_tag,
 		"weeks": weeks,
 		"seq_global": seq_global,
 		"static_global": static_global,
-		"outputs": seq_outputs + static_outputs + attention_outputs + global_attention_outputs,
+		"outputs": seq_outputs + seq_direction_outputs + seq_withdraw_case_outputs + static_outputs + static_direction_outputs + static_withdraw_case_outputs + static_dependence_outputs + attention_outputs + global_attention_outputs,
 	}
 
 

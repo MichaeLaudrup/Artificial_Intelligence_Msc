@@ -99,7 +99,7 @@ def cfg_id(cfg: dict) -> str:
     return hashlib.md5(s).hexdigest()[:10]
 
 
-# ── helpers para leer / purgar resultados ──────────────────────────────
+
 def load_results():
     """Carga el fichero JSONL y devuelve lista de records válidos."""
     if not RESULTS.exists():
@@ -122,7 +122,7 @@ def purge_failed_results():
     records = load_results()
     good = [r for r in records if r.get("returncode") == 0 and r.get("metrics") is not None]
     removed = len(records) - len(good)
-    # Reescribir el fichero solo con los buenos
+    
     with RESULTS.open("w", encoding="utf-8") as f:
         for r in good:
             f.write(json.dumps(r) + "\n")
@@ -141,7 +141,7 @@ def seen_ids():
     return ids
 
 
-# ── helpers ────────────────────────────────────────────────────────────
+
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
 
@@ -174,13 +174,13 @@ def export_history():
         cfg = rec["cfg"]
         m = rec["metrics"]
         
-        # Parse timestamp from stdout if possible, otherwise use current time
+        
         rec_tstamp = tstamp
         for ln in rec.get("stdout_tail", []):
             clean = strip_ansi(ln)
-            # loguru logs usually start with timestamp like "2026-02-21 23:44:52.606 | "
+            
             if "|" in clean and len(clean) > 20 and clean[0:4] == "2026":
-                rec_tstamp = clean.split("|")[0].strip()[:19] # up to seconds
+                rec_tstamp = clean.split("|")[0].strip()[:19] 
                 break
 
         out_list.append({
@@ -220,7 +220,7 @@ def export_history():
         json.dump(out_list, f, indent=4)
 
 
-# ── ejecución de un trial (streaming) ──────────────────────────────────
+
 def run_trial(cfg: dict, upto_week=5):
     cid = cfg_id(cfg)
     config_json = TRIAL_CONFIGS_DIR / f"trial_{cid}.json"
@@ -254,7 +254,7 @@ def run_trial(cfg: dict, upto_week=5):
         metrics_json.unlink()
 
     cmd = [
-        sys.executable, "-u",  # unbuffered para streaming
+        sys.executable, "-u",  
         "educational_ai_analytics/2_modeling/transformers/train_transformer.py",
         "--config-json", str(config_json),
         "--metrics-out", str(metrics_json),
@@ -262,11 +262,11 @@ def run_trial(cfg: dict, upto_week=5):
 
     start = time.time()
 
-    # Usamos Popen para streaming de output
+    
     proc = subprocess.Popen(
         cmd, cwd=PROJECT,
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-        text=True, bufsize=1,  # line-buffered
+        text=True, bufsize=1,  
     )
 
     all_lines = []
@@ -277,14 +277,14 @@ def run_trial(cfg: dict, upto_week=5):
         all_lines.append(raw_line)
         clean = strip_ansi(raw_line)
 
-        # Parsear VAL_METRICS
+        
         if "VAL_METRICS:" in clean:
             try:
                 metrics = json.loads(clean.split("VAL_METRICS:", 1)[1].strip())
             except Exception:
                 pass
 
-        # Imprimir líneas interesantes (no ruido)
+        
         if not _is_noise(clean):
             print(f"   │ {clean}", flush=True)
 
@@ -316,11 +316,11 @@ def run_trial(cfg: dict, upto_week=5):
     return record
 
 
-# ── main ───────────────────────────────────────────────────────────────
+
 def main(max_trials: int = MAX_TRIALS):
     random.seed(42)
 
-    # 1) Purge de resultados fallidos previos
+    
     print("=" * 70)
     print("🧹 Purgando resultados fallidos del historial...")
     n_good, n_removed = purge_failed_results()
@@ -351,7 +351,7 @@ def main(max_trials: int = MAX_TRIALS):
             continue
         seen.add(cid)
 
-        # Header del trial
+        
         cfg_short = (
             f"d={cfg['latent_d']} h={cfg['num_heads']} ff={cfg['ff_dim']} "
             f"L={cfg['num_layers']} dr={cfg['dropout']} lr={cfg['learning_rate']} "
@@ -371,7 +371,7 @@ def main(max_trials: int = MAX_TRIALS):
         dur_mins, dur_secs = divmod(int(rec["seconds"]), 60)
 
         if rec["returncode"] != 0 or rec["metrics"] is None:
-            # Extraer la última línea real de error
+            
             err_msg = ""
             for errline in reversed(rec.get("stdout_tail", [])):
                 clean = strip_ansi(errline)
@@ -423,7 +423,7 @@ def main(max_trials: int = MAX_TRIALS):
         print(f"   Todas las métricas: {json.dumps(best['metrics'], indent=2)}")
     print("=" * 70)
     
-    # Exportar resultados en json normal
+    
     export_history()
     print(f"💾 Resultados exportados (formato history) a: {HISTORY_JSON}")
 

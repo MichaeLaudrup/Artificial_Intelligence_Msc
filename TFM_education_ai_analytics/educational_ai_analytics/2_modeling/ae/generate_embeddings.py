@@ -13,7 +13,7 @@ EXECUTION_DEVICE = resolve_execution_device(AE_PARAMS.execution_device)
 if EXECUTION_DEVICE == "cpu":
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
-# Silence Protobuf and TF warnings
+
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 warnings.filterwarnings("ignore", category=UserWarning, module="google.protobuf")
 warnings.filterwarnings("ignore", category=UserWarning, module="tensorflow")
@@ -57,7 +57,7 @@ def load_features(path: Path, W: int):
     df0 = pd.read_csv(X0_path, index_col=0)
     dfdyn = pd.read_csv(Xdyn_path, index_col=0)
 
-    # Concat y alineación
+    
     df = pd.concat([df0, dfdyn.reindex(df0.index)], axis=1).fillna(0.0)
     X = df.replace([np.inf, -np.inf], 0.0).fillna(0.0).values.astype(np.float32)
     return X, df.index
@@ -84,7 +84,7 @@ def main(
     windows = sorted([int(w) for w in W_WINDOWS])
     logger.info(f"🧬 Generando embeddings (PCA + AE) de forma GLOBAL para windows: {windows}")
 
-    # 1) Carga de todos los datos en memoria para el PCA Global
+    
     logger.info("📂 Cargando datos de todas las ventanas para inicializar PCA Global...")
     data_all_windows = {}
     train_stacks = []
@@ -106,14 +106,14 @@ def main(
         logger.error("❌ No se encontraron datos de entrenamiento para inicializar el PCA.")
         return
 
-    # 2) Ajuste de PCA Global (con todas las semanas apiladas)
+    
     logger.info("📉 Ajustando PCA GLOBAL (apilando todas las semanas)...")
     X_train_full = np.vstack(train_stacks)
     pca_global = PCA(n_components=AE_PARAMS.latent_dim, random_state=seed)
     pca_global.fit(X_train_full)
     logger.success(f"✅ PCA Global ajustado con {X_train_full.shape} registros.")
 
-    # 3) Carga del Modelo Autoencoder Único (Global)
+    
     global_model_path = AE_MODELS_DIR / "ae_best_global.keras"
     if not global_model_path.exists():
         global_model_path = MODELS_DIR / "ae_best_global.keras"
@@ -129,24 +129,24 @@ def main(
         else:
             logger.warning(f"⚠️ No se encontró modelo AE global en {global_model_path}. Se buscarán modelos específicos.")
 
-    # 4) Transformación y Guardado
+    
     for W in windows:
         logger.info(f"\n🚀 PROCESANDO VENTANA: upto_w{W:02d}")
         
         if not data_all_windows[W]:
             continue
 
-        # PCA Latent (usando el global ajustado arriba)
+        
         logger.info(f"   📉 Aplicando PCA Global...")
         for split_name, (X, idx) in data_all_windows[W].items():
             out_dir = EMBEDDINGS_DATA_DIR / split_name / f"upto_w{W:02d}"
             Z_pca = pca_global.transform(X)
             save_csv(Z_pca, idx, out_dir / "pca_latent.csv", "pca")
 
-        # Autoencoder Latent
+        
         ae_to_use = ae_global
         if ae_to_use is None:
-            # Fallback a modelo específico de W si no hay global
+            
             model_w_path = AE_MODELS_DIR / f"ae_best_w{W:02d}.keras"
             if not model_w_path.exists():
                 model_w_path = MODELS_DIR / f"ae_best_w{W:02d}.keras"
@@ -162,16 +162,16 @@ def main(
             logger.info(f"   🧠 Generando AE Latent y DEC Clusters...")
             for split_name, (X, idx) in data_all_windows[W].items():
                 out_dir = EMBEDDINGS_DATA_DIR / split_name / f"upto_w{W:02d}"
-                # Get both embeddings and cluster assignments
-                # StudentProfileAutoencoder.call returns (x_recon, q)
-                # But we want z too. We can use model(X) or encode(X) + clustering_layer(z)
+                
+                
+                
                 z = ae_to_use.get_embeddings(X, batch_size=batch_size).numpy()
                 q = ae_to_use.clustering_layer(z).numpy()
                 
-                # Save embeddings
+                
                 save_csv(z, idx, out_dir / "ae_latent.csv", "z")
                 
-                # Save DEC Segmentation
+                
                 cluster_id = q.argmax(axis=1)
                 seg_df = pd.DataFrame(index=idx)
                 seg_df["cluster_id"] = cluster_id

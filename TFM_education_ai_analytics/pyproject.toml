@@ -24,7 +24,7 @@ dependencies = [
     "tqdm",
     "typer",
     "pandas",
-    # Mantener la pila científica alineada con la imagen TensorFlow CUDA.
+    
     "numpy<2",
     "matplotlib",
     "requests",
@@ -36,10 +36,10 @@ dependencies = [
     "scikit-learn",
     "tensorboard",
     "ipykernel",
-    # --- Serialización y utilidades ---
+    
     "joblib",
     "h5py",
-    # --- Clustering Avanzado ---
+    
     "umap-learn",
 ]
 requires-python = ">=3.10"
@@ -56,7 +56,7 @@ src = ["educational_ai_analytics"]
 include = ["pyproject.toml", "educational_ai_analytics/**/*.py"]
 
 [tool.ruff.lint]
-extend-select = ["I"]  # Add import sorting
+extend-select = ["I"]  
 
 [tool.ruff.lint.isort]
 known-first-party = ["educational_ai_analytics"]

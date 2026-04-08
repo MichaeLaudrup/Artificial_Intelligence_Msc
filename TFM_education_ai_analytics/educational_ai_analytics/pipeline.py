@@ -7,9 +7,9 @@ Ejecuta los pasos del pipeline en orden:
   3. Train:    Entrenamiento del Modelo (Futuro)
 
 Uso:
-  python -m educational_ai_analytics.pipeline          # Pipeline completo
-  python -m educational_ai_analytics.pipeline --step dataset   # Solo dataset
-  python -m educational_ai_analytics.pipeline --step features  # Solo features
+  python -m educational_ai_analytics.pipeline          
+  python -m educational_ai_analytics.pipeline --step dataset   
+  python -m educational_ai_analytics.pipeline --step features  
 """
 
 import importlib
@@ -52,8 +52,8 @@ def step_train():
     logger.info("PASO 3: ENTRENAMIENTO DEL MODELO")
     logger.info("=" * 60)
     logger.warning("Todavía no implementado. Próximamente...")
-    # from educational_ai_analytics.modeling.train import run_training
-    # run_training()
+    
+    
 
 
 STEPS = {
@@ -81,13 +81,13 @@ def main(
     logger.info("🚀 Iniciando Pipeline de Educational AI Analytics")
     
     if step:
-        # Ejecutar solo un paso específico
+        
         if step not in STEPS:
             logger.error(f"Paso '{step}' no reconocido. Opciones: {list(STEPS.keys())}")
             raise typer.Exit(1)
         STEPS[step]()
     else:
-        # Pipeline completo
+        
         if not skip_dataset:
             step_dataset()
         else:

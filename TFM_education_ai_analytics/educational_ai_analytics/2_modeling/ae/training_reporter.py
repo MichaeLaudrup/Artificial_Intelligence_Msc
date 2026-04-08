@@ -26,20 +26,20 @@ import matplotlib.cm as cm
 import numpy as np
 from loguru import logger
 
-# ─── Paleta ─────────────────────────────────────────────────────────────────────
+
 DARK_BG       = "#0F1117"
 PANEL_BG      = "#1A1D27"
-ACCENT_RECON  = "#7C83FD"   # azul-violeta  — reconstrucción
-ACCENT_KL     = "#FC5C7D"   # rosa-coral    — clustering / KL
-ACCENT_VAL    = "#43E97B"   # verde-menta   — validación
-ACCENT_OBJ    = "#F8D800"   # amarillo      — objetivo
-ACCENT_SMOOTH = "#FFFFFF"   # blanco        — curva suavizada
+ACCENT_RECON  = "#7C83FD"   
+ACCENT_KL     = "#FC5C7D"   
+ACCENT_VAL    = "#43E97B"   
+ACCENT_OBJ    = "#F8D800"   
+ACCENT_SMOOTH = "#FFFFFF"   
 GRID_COLOR    = "#2A2D3A"
 TEXT_COLOR    = "#E8EAED"
-MUTED_ALPHA   = 0.20        # opacidad de la curva ruidosa de fondo
+MUTED_ALPHA   = 0.20        
 
 
-# ─── Colector de métricas ────────────────────────────────────────────────────────
+
 
 @dataclass
 class TrainingMetricsCollector:
@@ -149,7 +149,7 @@ class TrainingMetricsCollector:
         if not np.any(recon_ok):
             return self.best_epoch_val_recon or self.best_epoch
 
-        recon_tol = 0.05  # 5% de tolerancia sobre el mínimo de reconstrucción válido
+        recon_tol = 0.05  
         recon_min = float(np.min(recon[recon_ok]))
         candidates = recon_ok & (recon <= recon_min * (1.0 + recon_tol))
         if not np.any(candidates):
@@ -186,7 +186,7 @@ class TrainingMetricsCollector:
         return int(epochs[tied[-1]]) if tied.size else (self.best_epoch_val_recon or self.best_epoch)
 
 
-# ─── Utilidades de suavizado ─────────────────────────────────────────────────────
+
 
 def _ema(values: list[float], alpha: float = 0.3) -> np.ndarray:
     """Exponential Moving Average de una serie."""
@@ -240,7 +240,7 @@ def _plot_with_ema(
             marker=marker, markersize=3, markevery=max(1, len(x_plot) // 12))
 
 
-# ─── Helpers de estilo ───────────────────────────────────────────────────────────
+
 
 def _style_ax(
     ax: plt.Axes,
@@ -286,7 +286,7 @@ def _annotate_epoch(ax: plt.Axes, epoch: int, label: str, color: str, yrel: floa
             fontsize=7, va="top", ha="left", alpha=0.9)
 
 
-# ─── Paneles individuales ────────────────────────────────────────────────────────
+
 
 def _panel_pretrain(ax: plt.Axes, pretrain_history: dict) -> None:
     """Panel 1 — Fase 1: pérdida de reconstrucción train/val con EMA."""
@@ -315,7 +315,7 @@ def _panel_joint_losses(ax: plt.Axes, collector: TrainingMetricsCollector) -> No
     j = collector
     eps = j.epochs
 
-    # ── Eje izquierdo: reconstrucción ──────────────────────────────────────
+    
     _plot_with_ema(ax, eps, j.train_recon, ACCENT_RECON,
                    "Train Reconstruc.", marker="o")
     if any(v > 0 for v in j.val_recon):
@@ -325,7 +325,7 @@ def _panel_joint_losses(ax: plt.Axes, collector: TrainingMetricsCollector) -> No
               "Fase 3 — Entrenamiento Conjunto\n(Reconstrucción vs Objetivo)",
               ylabel="Pérdida reconstrucción")
 
-    # ── Eje derecho: objetivo monitoreado ──────────────────────────────────
+    
     ax2 = ax.twinx()
     ax2.set_facecolor("none")
     _plot_with_ema(ax2, eps, j.model_obj, ACCENT_OBJ,
@@ -337,7 +337,7 @@ def _panel_joint_losses(ax: plt.Axes, collector: TrainingMetricsCollector) -> No
     ax2.spines["left"].set_color(GRID_COLOR)
     ax2.spines["bottom"].set_color(GRID_COLOR)
 
-    # ── Anotaciones ────────────────────────────────────────────────────────
+    
     best_recon_epoch = j.best_epoch_val_recon
     if best_recon_epoch is not None:
         _annotate_epoch(ax, best_recon_epoch,
@@ -348,7 +348,7 @@ def _panel_joint_losses(ax: plt.Axes, collector: TrainingMetricsCollector) -> No
         _annotate_epoch(ax, selected_epoch,
                         f"Seleccionada final ({selected_epoch})", ACCENT_SMOOTH, yrel=0.82)
 
-    # ── Leyenda combinada ──────────────────────────────────────────────────
+    
     lines1, labels1 = ax.get_legend_handles_labels()
     lines2, labels2 = ax2.get_legend_handles_labels()
     ax.legend(lines1 + lines2, labels1 + labels2,
@@ -384,7 +384,7 @@ def _panel_kl(
         scale_ratio = train_max / max(val_max, 1e-12)
 
         if scale_ratio > 5.0:
-            # ── Escala muy diferente → eje derecho para val ───────────────
+            
             ax2_kl = ax.twinx()
             ax2_kl.set_facecolor("none")
             _plot_with_ema(ax2_kl, j.epochs, j.val_kl_raw,
@@ -395,7 +395,7 @@ def _panel_kl(
             ax2_kl.spines["right"].set_color(GRID_COLOR)
             ax2_kl.spines["left"].set_color(GRID_COLOR)
             ax2_kl.spines["bottom"].set_color(GRID_COLOR)
-            # Leyenda combinada
+            
             lines1, labels1 = ax.get_legend_handles_labels()
             lines2, labels2 = ax2_kl.get_legend_handles_labels()
             ax.legend(lines1 + lines2, labels1 + labels2,
@@ -412,7 +412,7 @@ def _panel_kl(
                            ACCENT_VAL, "Val KL raw", marker="s", linestyle="--")
             _legend(ax)
 
-        # Aviso tendencia alcista (esperado en DEC)
+        
         epochs_arr = np.asarray(j.epochs, dtype=float)
         val_kl_arr = np.asarray(j.val_kl_raw, dtype=float)
         finite = np.isfinite(epochs_arr) & np.isfinite(val_kl_arr)
@@ -425,7 +425,7 @@ def _panel_kl(
                     bbox=dict(boxstyle="round,pad=0.3", facecolor=PANEL_BG,
                               edgecolor=GRID_COLOR, alpha=0.6))
     else:
-        # val_kl_raw está efectivamente en cero → diagnóstico
+        
         ax.text(0.5, 0.5,
                 "Val KL ≈ 0\n(blend bajo o P≈Q en val)",
                 transform=ax.transAxes, fontsize=8,
@@ -471,7 +471,7 @@ def _panel_convergence(ax: plt.Axes, collector: TrainingMetricsCollector) -> Non
     ax2.spines["left"].set_color(GRID_COLOR)
     ax2.spines["bottom"].set_color(GRID_COLOR)
 
-    # Anotación early stopping
+    
     if j.last_epoch is not None:
         ax.axvline(j.last_epoch, color=ACCENT_KL, linestyle=":",
                    linewidth=1.1, alpha=0.7)
@@ -500,7 +500,7 @@ def _panel_convergence(ax: plt.Axes, collector: TrainingMetricsCollector) -> Non
               facecolor=PANEL_BG, edgecolor=GRID_COLOR, labelcolor=TEXT_COLOR)
 
 
-# ─── API pública ─────────────────────────────────────────────────────────────────
+
 
 def plot_training_evolution(
     pretrain_history: dict,
@@ -537,7 +537,7 @@ def plot_training_evolution(
     fig.suptitle(
         "Evolución del Entrenamiento — Autoencoder (DCN)",
         color=TEXT_COLOR, fontsize=14, fontweight="bold",
-        y=0.98,   # alto para no pisar títulos de paneles
+        y=0.98,   
     )
 
     gs = gridspec.GridSpec(
@@ -568,7 +568,7 @@ def plot_training_evolution(
     logger.success(f"📊 Gráficas guardadas → {save_path}")
 
 
-# ─── PCA de embeddings ─────────────────────────────────────────────────────────
+
 
 def plot_embeddings_pca(
     embeddings: np.ndarray,
@@ -597,14 +597,14 @@ def plot_embeddings_pca(
     """
     save_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # ── Reducción de dimensionalidad ────────────────────────────────
+    
     from sklearn.decomposition import PCA
     method_label = "PCA"
     reducer = PCA(n_components=2, random_state=42)
     coords = reducer.fit_transform(embeddings)
     logger.info("   📉 PCA proyección completada")
 
-    # ── Paleta de colores ───────────────────────────────────────────
+    
     palette = [
         "#7C83FD", "#43E97B", "#FC5C7D", "#F8D800",
         "#A8EDEA", "#FF9A9E", "#a29bfe", "#fd79a8",
@@ -622,7 +622,7 @@ def plot_embeddings_pca(
         color=TEXT_COLOR, fontsize=13, fontweight="bold", y=0.98,
     )
 
-    # ── Panel izquierdo: scatter PCA ─────────────────────────────
+    
     ax_scatter = axes[0]
     ax_scatter.set_facecolor(PANEL_BG)
 
@@ -635,7 +635,7 @@ def plot_embeddings_pca(
             c=cluster_colors[k], label=f"Cluster {k} (n={mask.sum()})",
             s=8, alpha=0.65, edgecolors="none",
         )
-        # Centroide del cluster en el espacio PCA
+        
         cx, cy = coords[mask, 0].mean(), coords[mask, 1].mean()
         ax_scatter.text(
             cx, cy, str(k),
@@ -661,7 +661,7 @@ def plot_embeddings_pca(
         bbox_to_anchor=(0.0, -0.13), loc="upper left", ncol=min(n_clusters, 5),
     )
 
-    # ── Panel derecho: distribución de tamaños de cluster ─────────────
+    
     ax_bar = axes[1]
     ax_bar.set_facecolor(PANEL_BG)
 
@@ -673,7 +673,7 @@ def plot_embeddings_pca(
         color=[cluster_colors[k] for k in ks],
         edgecolor="none", height=0.65, alpha=0.85,
     )
-    # Etiqueta con n y %
+    
     for bar, k, pct, cnt in zip(bars, ks, pcts, counts):
         ax_bar.text(
             pct + 0.5, bar.get_y() + bar.get_height() / 2,
@@ -696,7 +696,7 @@ def plot_embeddings_pca(
     for spine in ax_bar.spines.values():
         spine.set_color(GRID_COLOR)
 
-    # ── Aviso si hay colapso de cluster ─────────────────────────────
+    
     max_frac = counts.max() / max(counts.sum(), 1)
     if max_frac > 0.80:
         fig.text(

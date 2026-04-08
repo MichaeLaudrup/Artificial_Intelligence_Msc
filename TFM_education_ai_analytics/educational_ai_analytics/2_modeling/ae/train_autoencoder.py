@@ -12,20 +12,20 @@ from educational_ai_analytics.tf_runtime import configure_tensorflow_runtime, re
 
 EXECUTION_DEVICE = resolve_execution_device(AE_PARAMS.execution_device)
 
-# Silence Protobuf and TF warnings
+
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-# Force modern Keras and avoid legacy tf_keras mismatches.
+
 os.environ["TF_USE_LEGACY_KERAS"] = "0"
 os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
 os.environ["CUDA_CACHE_DISABLE"] = "1"
 if EXECUTION_DEVICE == "cpu":
-    # Keep this before importing TensorFlow to avoid initializing CUDA in CPU mode.
+    
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 warnings.filterwarnings("ignore", category=UserWarning, module="google.protobuf")
 warnings.filterwarnings("ignore", category=UserWarning, module="tensorflow")
 
-# Render a single in-place progress bar only when stdout/stderr are true TTYs.
+
 IS_TTY = sys.stdout.isatty() and sys.stderr.isatty()
 
 import numpy as np
@@ -187,10 +187,10 @@ def main(
     save_best: bool = True,
     use_clustering_objective: bool = AE_PARAMS.use_clustering_objective,
     clustering_loss_scale: float = AE_PARAMS.clustering_loss_scale,
-    # 🆕 Early stopping diferido: la paciencia no empieza hasta que el warmup termina.
-    # Durante el warmup, ValObj sube por diseño (blend más alto = P más dura).
-    # Monitorizamos val_recon porque es estable y representa el verdadero riesgo
-    # de colapso del espacio latente.
+    
+    
+    
+    
     early_stop_start_epoch: int = AE_PARAMS.target_blend_warmup_epochs,
 ):
     """
@@ -223,9 +223,9 @@ def main(
         f"use_clustering_objective={use_clustering_objective} | λ={AE_PARAMS.clustering_loss_weight} | scale={clustering_loss_scale}"
     )
 
-    # -----------------------
-    # 1) Load data
-    # -----------------------
+    
+    
+    
     X_train_list, X_val_list = [], []
     for W in windows:
         try:
@@ -242,9 +242,9 @@ def main(
 
     logger.info(f"📦 X_train: {X_train.shape} | X_val: {None if X_val is None else X_val.shape}")
 
-    # -----------------------
-    # 2) Phase 1: Pretrain (reconstruction)
-    # -----------------------
+    
+    
+    
     logger.info("🚀 Fase 1: Pre-entrenamiento (Reconstrucción)...")
     model = StudentProfileAutoencoder(
         input_dim=X_train.shape[1],
@@ -276,9 +276,9 @@ def main(
             callbacks=[_ValLossOnlyCallback(pretrain_epochs)],
         )
 
-    # -----------------------
-    # 3) Phase 2: KMeans init
-    # -----------------------
+    
+    
+    
     if use_clustering_objective:
         logger.info("📍 Fase 2: Inicializando centroides con KMeans...")
         z = model.get_embeddings(X_train, batch_size=max(1024, batch_size))
@@ -290,9 +290,9 @@ def main(
         y_pred = np.zeros((len(X_train),), dtype=np.int32)
         logger.warning("⏭️ Clustering objetivo DESACTIVADO: se omiten KMeans init y pérdida KL.")
 
-    # -----------------------
-    # 4) Phase 3: Joint training
-    # -----------------------
+    
+    
+    
     if use_clustering_objective:
         logger.info("🧬 Fase 3: Optimización Conjunta (DCN) [OPTIMIZADA]...")
     else:
@@ -300,9 +300,7 @@ def main(
 
     _base_lr = AE_PARAMS.learning_rate / AE_PARAMS.lr_phase3_divisor
     _base_opt = tf.keras.optimizers.Adam(_base_lr)
-    # ✅ FIX #1 — LossScaleOptimizer previene underflow de gradientes con mixed_float16.
-    # En custom loops sin esto, los gradientes de losses pequeños (Huber ~0.01, KL ~0.001)
-    # se redondean a cero en float16 silenciosamente, degradando el entrenamiento.
+    
     if use_mixed_precision:
         from tensorflow.keras import mixed_precision as mp
         optimizer = mp.LossScaleOptimizer(_base_opt)
@@ -317,7 +315,7 @@ def main(
 
     best_obj = float("inf")
     
-    # Rutas para checkpoints por época
+    
     checkpoint_dir = AE_MODELS_DIR / "checkpoints"
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
     best_path = AE_MODELS_DIR / "ae_best_global.keras"
@@ -325,7 +323,7 @@ def main(
 
     metrics = TrainingMetricsCollector()
 
-    # ─── Bloque de losses compartido (siempre float32) ────────────────────────
+    
     @tf.autograph.experimental.do_not_convert
     def _compute_loss(x_batch, p_batch, is_training: bool):
         x_rec, q_batch = model(x_batch, training=is_training)
@@ -348,18 +346,18 @@ def main(
         total = l_rec + w_cl * l_cl + l_aux
         return total, l_rec, l_cl_raw, l_cl, l_aux
 
-    # ─── Mixed precision: scale_loss() → gradientes escalados → unscale ──────
+    
     @tf.function(jit_compile=False, reduce_retracing=True)
     def _step_mp(x_batch, p_batch):
         with tf.GradientTape() as tape:
             total, l_rec, l_cl_raw, l_cl, l_aux = _compute_loss(
                 x_batch, p_batch, is_training=True
             )
-            # scale_loss multiplica total por el factor de escala actual (tensor TF)
+            
             scaled = optimizer.scale_loss(total)
         raw_grads = tape.gradient(scaled, model.trainable_variables)
-        # Unscale: el factor = scaled / total (ambos son tensores → trazable por autograph)
-        # Usar safe_div para evitar div/0 si total es exactamente 0
+        
+        
         scale_factor = tf.math.divide_no_nan(scaled, total)
         inv = tf.math.reciprocal(tf.maximum(scale_factor, 1e-7))
         grads = [g * inv if g is not None else g for g in raw_grads]
@@ -367,7 +365,7 @@ def main(
         optimizer.apply_gradients(zip(grads, model.trainable_variables))
         return total, l_rec, l_cl_raw, l_cl, l_aux
 
-    # ─── Float32 puro: sin escala ─────────────────────────────────────────────
+    
     @tf.function(jit_compile=False, reduce_retracing=True)
     def _step_fp32(x_batch, p_batch):
         with tf.GradientTape() as tape:
@@ -379,8 +377,8 @@ def main(
         optimizer.apply_gradients(zip(grads, model.trainable_variables))
         return total, l_rec, l_cl_raw, l_cl, l_aux
 
-    # Dispatch Python puro — ningún condicional entra al grafo TF.
-    # En algunas combinaciones TF/Keras, LossScaleOptimizer no expone scale_loss.
+    
+    
     can_scale_loss = bool(use_mixed_precision and hasattr(optimizer, "scale_loss"))
     if use_mixed_precision and not can_scale_loss:
         logger.warning("   ⚠️ mixed_precision activa, pero optimizer.scale_loss no está disponible; se usará paso FP32 estable.")
@@ -400,7 +398,7 @@ def main(
     )
 
     for epoch in range(joint_epochs):
-        # 🔧 FIX #3 — warmup lineal de target_blend: empieza suave y sube gradualmente
+        
         if use_clustering_objective:
             warmup_progress = min(1.0, epoch / max(1, AE_PARAMS.target_blend_warmup_epochs))
             current_blend = AE_PARAMS.target_blend + warmup_progress * (
@@ -408,7 +406,7 @@ def main(
             )
         else:
             current_blend = 0.0
-        # Recompute P every update_interval epochs
+        
         if use_clustering_objective and epoch % update_interval == 0:
             logger.info(f"   🔄 Actualizando distribución objetivo (Epoch {epoch} | blend={current_blend:.3f})...")
 
@@ -417,10 +415,7 @@ def main(
             m = min(m, len(X_train))
             idx = np.random.choice(len(X_train), m, replace=False)
 
-            # ✅ FIX #3 — P se calcula SOLO sobre X_train[idx] (sin leakage de val).
-            # Antes se incluía X_val para que los centroides "vieran" el espacio de val,
-            # pero eso es leakage suave: val influye en el target P que guía el training,
-            # haciendo que la métrica de val sea menos fiable como estimador real.
+            
             _, q_train_p = model.predict(X_train[idx], batch_size=batch_size, verbose=0)
             q_train_p = q_train_p.astype(np.float32)
             p_hard = target_distribution(q_train_p)
@@ -428,7 +423,7 @@ def main(
             p_train_only = np.clip(p_train_only, 1e-12, 1.0)
             p_train_only = p_train_only / p_train_only.sum(axis=1, keepdims=True)
 
-            # label-change diagnostic
+            
             y_curr = q_train_p.argmax(1)
             y_prev_subset = y_pred[idx] if len(y_pred) == len(X_train) else y_pred[:m]
             delta_label = float(np.mean(y_curr != y_prev_subset)) * 100.0
@@ -490,10 +485,10 @@ def main(
             if use_clustering_objective:
                 q_val = np.clip(q_val.astype(np.float32), 1e-12, 1.0)
                 p_val_hard = target_distribution(q_val)
-                # 🐛 FIX #4 — usar current_blend (no target_blend fijo).
-                # Con target_blend=0.05 (inicial), P_val ≈ Q_val → KL(P||Q) ≈ 0
-                # haciendo que val_kl_raw aparezca plano en la gráfica.
-                # Ahora usamos el mismo blend progresivo que en training.
+                
+                
+                
+                
                 p_val = ((1.0 - current_blend) * q_val) + (current_blend * p_val_hard)
                 p_val = np.clip(p_val, 1e-12, 1.0)
                 p_val = p_val / p_val.sum(axis=1, keepdims=True)
@@ -501,14 +496,14 @@ def main(
                     tf.keras.losses.kullback_leibler_divergence(p_val, q_val).numpy()
                 ))
                 val_c = val_c_raw * float(clustering_loss_scale)
-                # Diagnóstico: aviso si val_kl sigue siendo sospechosamente bajo
+                
                 if val_c_raw < 1e-6:
                     logger.warning(
                         f"   ⚠️  Epoch {epoch+1}: val_kl_raw={val_c_raw:.2e} sospechosamente bajo. "
                         f"blend={current_blend:.3f} | q_val min={q_val.min():.4f} max={q_val.max():.4f}"
                     )
 
-                # Métricas de calidad de clustering en espacio latente (validación)
+                
                 try:
                     z_val = model.get_embeddings(X_val, batch_size=max(1024, batch_size)).numpy()
                     labels_val = q_val.argmax(axis=1)
@@ -553,7 +548,7 @@ def main(
             })
         epoch_pbar.update(1)
 
-        # Record metrics for report
+        
         metrics.record(
             epoch=epoch + 1,
             train_recon=train_r_val,
@@ -567,13 +562,13 @@ def main(
             val_davies=val_db,
         )
 
-        # ─── Diagnósticos baratos de clustering ───────────────────────────────
-        # Se calculan sobre q_val ya computada. Costo: O(N·K) en CPU, insignificante.
+        
+        
         if use_clustering_objective and X_val is not None:
-            q_diag = np.clip(q_val, 1e-12, 1.0)     # q_val ya calculado arriba
-            # 1) Entropía media: si baja demasiado rápido → asignaciones se vuelven duras
+            q_diag = np.clip(q_val, 1e-12, 1.0)     
+            
             entropy_mean = float(-np.mean(np.sum(q_diag * np.log(q_diag), axis=1)))
-            # 2) Fracción del cluster más grande: >0.9 → posible colapso a un solo cluster
+            
             cluster_counts = np.bincount(q_diag.argmax(axis=1), minlength=AE_PARAMS.n_clusters)
             max_cluster_frac = float(cluster_counts.max() / len(q_diag))
             logger.info(
@@ -584,25 +579,25 @@ def main(
             if max_cluster_frac > 0.80:
                 logger.warning(f"   ⚠️  Posible colapso de cluster: {max_cluster_frac*100:.1f}% en un solo cluster")
 
-        # ─── Checkpoint y Early Stopping ─────────────────────────────────────
-        # Monitor: val_recon (no ValObj). El KL sube por diseño durante warmup;
-        # usar ValObj lleva a early stopping prematuro. La reconstrucción es la
-        # señal que indica colapso real del espacio latente.
-        # La paciencia solo empieza a contar después del fin del warmup.
-        monitor_val = val_r   # val_recon como criterio de parada
+        
+        
+        
+        
+        
+        monitor_val = val_r   
         in_warmup   = (epoch + 1) <= early_stop_start_epoch
 
-        # Siempre guardamos el checkpoint de la época actual si mejora el val_recon 
-        # para evitar llenar el disco, pero guardamos el history completo
+        
+        
         ckpt_path = checkpoint_dir / f"ae_epoch_{epoch+1:02d}.keras"
         model.save(ckpt_path)
 
-        # Mantenemos val_recon como monitor estricto del Early Stopping (para evitar colapso)
+        
         if save_best and monitor_val < best_obj:
             best_obj = monitor_val
             patience_counter = 0
             logger.info(f"   💾 Nuevo mínimo de val_recon: {best_obj:.6f} (Epoch {epoch+1})")
-        elif not in_warmup:  # solo penalizar paciencia fuera del warmup
+        elif not in_warmup:  
             patience_counter += 1
             if patience_counter >= patience_limit:
                 logger.warning(
@@ -618,7 +613,7 @@ def main(
     model.save(last_path)
     logger.success(f"✨ Entrenamiento terminado. Procediendo a seleccionar el mejor modelo...")
 
-    # --- Selección Híbrida del Mejor Modelo (sincronizada con la gráfica) ---
+    
     final_selected_epoch = metrics.selected_epoch
     if final_selected_epoch is not None:
         target_ckpt = checkpoint_dir / f"ae_epoch_{final_selected_epoch:02d}.keras"
@@ -632,16 +627,16 @@ def main(
     else:
         logger.warning(f"⚠️ No se pudo determinar selected_epoch (falta de datos).")
 
-    # Limpieza de checkpoints intermedios
+    
     logger.info("🧹 Limpiando checkpoints temporales...")
     import shutil
     shutil.rmtree(checkpoint_dir, ignore_errors=True)
     
     logger.success(f"✨ DCN completado. BEST: {best_path.name} | LAST: {last_path.name}")
 
-    # -----------------------
-    # 5) Save training plots
-    # -----------------------
+    
+    
+    
     plot_training_evolution(
         pretrain_history=pretrain_hist.history,
         collector=metrics,
@@ -649,25 +644,25 @@ def main(
         save_path=AE_REPORTS_DIR / "training_evolution.png",
     )
 
-    # -----------------------
-    # 6) PCA de embeddings
-    # -----------------------
+    
+    
+    
     logger.info("📉 Generando visualización PCA del espacio latente...")
     try:
-        # Cargar el mejor modelo guardado
+        
         best_model = tf.keras.models.load_model(
             best_path,
             custom_objects={"StudentProfileAutoencoder": StudentProfileAutoencoder},
             compile=False
         )
 
-        # Concatenar train + val para ver el espacio latente completo
+        
         if X_val is not None:
             X_all = np.vstack([X_train, X_val])
         else:
             X_all = X_train
 
-        # Obtener embeddings y asignaciones de cluster
+        
         z_all = best_model.get_embeddings(X_all, batch_size=max(1024, batch_size)).numpy()
         _, q_all = best_model.predict(X_all, batch_size=max(1024, batch_size), verbose=0)
         cluster_labels_all = q_all.argmax(axis=1)

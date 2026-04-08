@@ -1,11 +1,11 @@
 #!/bin/bash
-# Entrypoint script for the TFM GPU container
-# Includes workaround for Antigravity v1.16.5 devcontainer bug
-# See: https://discuss.ai.google.dev/t/can-no-longer-connect-to-devcontainer-after-updating-to-v1-16-5/121479
 
-# Workaround: Antigravity looks for node at .../bin/{commit}/node
-# but installs to .../bin/{version}-{commit}/node
-# This background loop creates symlinks as soon as the server directory appears
+
+
+
+
+
+
 (
   SERVER_DIR="$HOME/.antigravity-server/bin"
   mkdir -p "$SERVER_DIR"
@@ -24,9 +24,9 @@
   done
 ) &
 
-# Robust bootstrap for portable runs on any host machine.
-# The project source is bind-mounted at /workspace, but the venv is stored in
-# /opt so it is not overwritten by host files.
+
+
+
 PROJECT_DIR="/workspace/TFM_education_ai_analytics"
 VENV_DIR="/opt/tfm-venv"
 VENV_PY="$VENV_DIR/bin/python"
@@ -56,5 +56,5 @@ if [ -d "$PROJECT_DIR" ] && [ -f "$PROJECT_DIR/pyproject.toml" ]; then
   fi
 fi
 
-# Execute the original command
+
 exec "$@"

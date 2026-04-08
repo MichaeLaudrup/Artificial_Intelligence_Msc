@@ -318,7 +318,7 @@ def train(
             f"Usa uno de: {', '.join(sorted(valid_threshold_objectives))}"
         )
 
-    # Usar copia local de hyperparams en lugar de transmutar la base
+    
     hp = copy.deepcopy(TRANSFORMER_PARAMS)
     if cfg.seed is not None:
         random.seed(cfg.seed)

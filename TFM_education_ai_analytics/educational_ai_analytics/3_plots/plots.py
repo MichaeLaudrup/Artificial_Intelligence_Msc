@@ -11,7 +11,7 @@ from educational_ai_analytics.config import FIGURES_DIR, REPORTS_DIR, EMBEDDINGS
 
 app = typer.Typer(help="Herramientas de visualización para el TFM.")
 
-# Configuración estética global (Modern & Academic)
+
 plt.style.use('ggplot') 
 sns.set_palette("viridis")
 plt.rcParams.update({
@@ -58,7 +58,7 @@ def loss_curve(
 def latent_space(
     embeddings_file: Path = EMBEDDINGS_DATA_DIR / "training" / "latent_ae.csv",
     output_name: str = "latent_space.png",
-    method: str = "pca",          # "pca" (recomendado) | "first2"
+    method: str = "pca",          
     max_points: int = 30000,
     seed: int = 42,
     alpha: float = 0.35,
@@ -76,10 +76,10 @@ def latent_space(
     logger.info(f"Cargando embeddings: {embeddings_file}")
     df = pd.read_csv(embeddings_file, index_col=0)
 
-    # Limpieza numérica
+    
     df = df.replace([np.inf, -np.inf], np.nan).fillna(0)
 
-    # Sample fijo (reproducible)
+    
     if len(df) > max_points:
         rng = np.random.RandomState(seed)
         sample_idx = rng.choice(df.index.values, size=max_points, replace=False)
@@ -91,7 +91,7 @@ def latent_space(
 
     X = df.values.astype(np.float32)
 
-    # Proyección a 2D
+    
     if method.lower() == "first2":
         if df.shape[1] < 2:
             logger.error("El embedding tiene menos de 2 columnas. No puedo hacer 'first2'.")
@@ -100,14 +100,14 @@ def latent_space(
         xlab, ylab = df.columns[0], df.columns[1]
         title = f"Espacio Latente (first2) | {embeddings_file.stem}"
     else:
-        # PCA para visualización si dim>2; si dim==2, PCA no hace daño (solo rota)
+        
         pca = PCA(n_components=2, random_state=seed)
         Z = pca.fit_transform(X)
         var = pca.explained_variance_ratio_.sum()
         xlab, ylab = "PC1", "PC2"
         title = f"Espacio Latente (PCA->2D) | {embeddings_file.stem} | var={var:.2%}"
 
-    # Plot
+    
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
     out_file = FIGURES_DIR / output_name
 
@@ -139,7 +139,7 @@ def ae_reconstruction(
     from educational_ai_analytics.modeling import StudentProfileAutoencoder
     from educational_ai_analytics.config import MODELS_DIR, FEATURES_DATA_DIR
 
-    # 1. Cargar Datos
+    
     if not features_file.exists():
         logger.error(f"No existen features en {features_file}")
         return
@@ -150,7 +150,7 @@ def ae_reconstruction(
     
     X_in = df.values.astype(np.float32)
 
-    # 2. Cargar Modelo y Procesar
+    
     model_path = MODELS_DIR / model_name
     if not model_path.exists():
         logger.error(f"No existe el modelo en {model_path}")
@@ -165,13 +165,13 @@ def ae_reconstruction(
     Z_lat = ae.encode(X_in, training=False).numpy()
     X_rec = ae.decode(Z_lat, training=False).numpy()
 
-    # 3. Proyecciones para visualización
+    
     pca_lens = PCA(n_components=2, random_state=seed).fit(X_in)
     p_in = pca_lens.transform(X_in)
     p_rec = pca_lens.transform(X_rec)
     p_lat = PCA(n_components=2, random_state=seed).fit_transform(Z_lat)
 
-    # 4. Plot
+    
     fig, axes = plt.subplots(1, 3, figsize=(20, 6), constrained_layout=True)
     
     axes[0].scatter(p_in[:, 0], p_in[:, 1], s=3, alpha=0.3, color="gray")

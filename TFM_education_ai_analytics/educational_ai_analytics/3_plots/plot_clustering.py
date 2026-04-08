@@ -2,7 +2,7 @@ import os
 import shutil
 import warnings
 
-# Silenciar warnings de Protobuf y logs de TensorFlow
+
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 warnings.filterwarnings("ignore", category=UserWarning, module="google.protobuf")
 warnings.filterwarnings("ignore", category=UserWarning, module="tensorflow")
@@ -186,10 +186,10 @@ def weekly_reports(
     logger.success(f"✅ Informes semanales listos en: {weekly_root}")
 
 def _get_segmentation_path(split: str, name: str, window: int) -> Path:
-    # 1. Mirar en la raíz de embeddings (estilo antiguo)
+    
     p1 = EMBEDDINGS_DATA_DIR / split / name
     if p1.exists(): return p1
-    # 2. Mirar en la subcarpeta de la ventana (estilo nuevo/multi-W)
+    
     p2 = EMBEDDINGS_DATA_DIR / split / f"upto_w{int(window):02d}" / name
     return p2
 
@@ -223,7 +223,7 @@ def _run_profiles(segmentation_name, window, out_dir, dark_mode: bool = True):
     out_dir.mkdir(parents=True, exist_ok=True)
     _apply_plot_theme(dark_mode)
     
-    # Solo trabajamos con training para el perfilado base
+    
     split = "training"
     seg_path = _get_segmentation_path(split, segmentation_name, window)
     day0_path = FEATURES_DATA_DIR / split / "day0_static_features.csv"
@@ -248,29 +248,29 @@ def _run_profiles(segmentation_name, window, out_dir, dark_mode: bool = True):
             df_seg["cluster_name"] = [f"Cluster {int(c)}" for c in df_seg["cluster_id"]]
         df_seg["rank"] = df_seg["cluster_id"]
 
-    # Unimos para tener features y clusters
+    
     df = df_feat.join(df_seg[["cluster_name", "rank"]], how="inner")
 
-    # Seleccionamos variables clave para el heatmap (agrupadas por temática)
-    # Nota: Usamos las ya estandarizadas que vienen en engineered_features para que el heatmap sea comparable
+    
+    
     cols_to_plot = [
-        # Dinámica Temporal y Fatiga
+        
         "early_weeks_ratio", "effort_slope", "score_slope", "score_std",
-        # Engagement General
+        
         "total_weighted_engagement", "active_weeks", "activity_diversity",
-        # Académico
+        
         "avg_score", "pass_ratio", "submission_count", "late_ratio",
-        # Contexto
+        
         "studied_credits", "imd_band"
     ]
-    # Aseguramos que existan
+    
     cols_to_plot = [c for c in cols_to_plot if c in df.columns]
 
-    # Calculamos la media por cluster
+    
     cluster_profiles = df.groupby(["cluster_name", "rank"])[cols_to_plot].mean().reset_index()
     cluster_profiles = cluster_profiles.sort_values("rank").set_index("cluster_name").drop(columns="rank")
 
-    # Mapeo de nombres técnicos a "Human-Friendly"
+    
     friendly_names = {
         "early_weeks_ratio": "Procrastinación (Ratio Inicial)",
         "effort_slope": "Pendiente Esfuerzo (Desaceleración)",
@@ -288,12 +288,12 @@ def _run_profiles(segmentation_name, window, out_dir, dark_mode: bool = True):
     }
     cluster_profiles = cluster_profiles.rename(columns=friendly_names)
 
-    # Graficamos el Heatmap
+    
     import seaborn as sns
     plt.figure(figsize=(12, 8))
     
-    # Usamos una paleta divergente (RdYlGn: Rojo-Amarillo-Verde) 
-    # Como las variables ya están centradas en el preprocesamiento, 0 es la media global.
+    
+    
     cluster_palette = _get_cluster_palette()
     ax_profiles = sns.heatmap(
         cluster_profiles, 
@@ -317,9 +317,9 @@ def _run_profiles(segmentation_name, window, out_dir, dark_mode: bool = True):
     plt.close()
     logger.success(f"📈 Perfiles de clúster guardados en: {out_file}")
 
-    # -------------------------------------------------
-    # Matriz Z-Effect (Top 30 variables) estilo notebook
-    # -------------------------------------------------
+    
+    
+    
     df_z = df_feat.join(df_seg[["cluster_name", "rank"]], how="inner")
     num_cols = df_z.select_dtypes(include=[np.number]).columns.tolist()
     for meta_col in ["final_result", "rank", "cluster_id"]:
@@ -386,8 +386,8 @@ def _run_module_diagnosis(segmentation_name, window, out_dir):
     df_seg = pd.read_csv(seg_path, index_col=0)
     mapping = _get_dynamic_mapping(window)
     
-    # Extraer módulo y presentación del unique_id (formato: id_modulo_presentacion)
-    # Ejemplo: 11391_AAA_2013J
+    
+    
     def parse_uid(uid):
         parts = str(uid).split("_")
         if len(parts) >= 3:
@@ -408,7 +408,7 @@ def _run_module_diagnosis(segmentation_name, window, out_dir):
             df_seg["cluster_name"] = [f"Cluster {int(c)}" for c in df_seg["cluster_id"]]
         df_seg["rank"] = df_seg["cluster_id"]
 
-    # Generar tabla de diagnóstico
+    
     diagnosis_data = []
     clusters = sorted(df_seg["cluster_name"].unique(), key=lambda x: df_seg[df_seg["cluster_name"]==x]["rank"].iloc[0])
 
@@ -418,7 +418,7 @@ def _run_module_diagnosis(segmentation_name, window, out_dir):
         sub = df_seg[df_seg["cluster_name"] == cname]
         n_cluster = len(sub)
         
-        # Top 10 módulos en este clúster
+        
         top_mods = sub["module_presentation"].value_counts().head(10)
         
         for mod, count in top_mods.items():
@@ -436,7 +436,7 @@ def _run_module_diagnosis(segmentation_name, window, out_dir):
     
     logger.success(f"🩺 Diagnóstico guardado en: {out_file}")
     
-    # Mostrar resumen por consola para el usuario
+    
     for cname in clusters:
         print(f"\n--- Clúster: {cname} ---")
         c_diag = df_diag[df_diag["cluster"] == cname].head(3)
@@ -465,36 +465,36 @@ def _run_module_success_verification(out_dir, dark_mode: bool = True):
 
     df_tgt = pd.read_csv(tgt_path, index_col=0)
     
-    # Extraer módulo
+    
     df_tgt["module"] = [str(uid).split("_")[1] for uid in df_tgt.index]
     df_tgt["presentation"] = [str(uid).split("_")[2] for uid in df_tgt.index]
     df_tgt["mod_pres"] = df_tgt["module"] + "_" + df_tgt["presentation"]
 
-    # Calcular tasas
-    # 3: Distinction, 2: Pass
+    
+    
     stats = df_tgt.groupby("mod_pres")["final_result"].value_counts(normalize=True).unstack(fill_value=0) * 100
     
-    # Renombrar columnas si existen
+    
     rename_cols = {3: "Distinction (%)", 2: "Pass (%)", 1: "Fail (%)", 0: "Withdrawn (%)"}
     stats = stats.rename(columns=rename_cols)
     
-    # Asegurar que todas las columnas existan
+    
     for col in rename_cols.values():
         if col not in stats.columns:
             stats[col] = 0.0
 
     stats = stats.sort_values("Distinction (%)", ascending=False)
     
-    # Guardar CSV
+    
     out_csv = out_dir / "module_success_rates.csv"
     stats.to_csv(out_csv)
     logger.success(f"📊 Tasas por módulo guardadas en: {out_csv}")
 
-    # Graficar
+    
     plt.figure(figsize=(14, 7))
     colors = ["#3DDC97", "#64B5F6", "#FFB74D", "#EF5350"]
     
-    # Usar solo las columnas de éxito para el plot
+    
     plot_cols = ["Distinction (%)", "Pass (%)", "Fail (%)", "Withdrawn (%)"]
     stats[plot_cols].plot(kind="bar", stacked=True, color=colors, ax=plt.gca(), width=0.8)
     
@@ -518,7 +518,7 @@ def _run_outcomes(splits, segmentation_name, window, out_dir, seed, dark_mode: b
     if mapping:
         logger.info(f"Cargado mapping dinámico para visualización.")
 
-    # mapping: 0 Withdrawn, 1 Fail, 2 Pass, 3 Distinction
+    
     id2name = {0: "Withdrawn", 1: "Fail", 2: "Pass", 3: "Distinction"}
     categories = ["Distinction", "Pass", "Fail", "Withdrawn"]
 
@@ -542,7 +542,7 @@ def _run_outcomes(splits, segmentation_name, window, out_dir, seed, dark_mode: b
         df_seg = df_seg.loc[common].copy()
         df_tgt = df_tgt.loc[common].copy()
 
-        # Sobrescribo o asigno nombres usando el mapping dinámico del JSON
+        
         if mapping:
             if "cluster_name" not in df_seg.columns:
                 df_seg["cluster_name"] = df_seg["cluster_id"].map(lambda cid: mapping.get(int(cid), {}).get("name", f"Cluster {int(cid)}"))
@@ -558,21 +558,21 @@ def _run_outcomes(splits, segmentation_name, window, out_dir, seed, dark_mode: b
         return df
 
     def _compute_table(df: pd.DataFrame):
-        # % por cluster (usando el nombre dinámico del JSON) y categoría
+        
         tab = pd.crosstab(df["cluster_name"], df["actual_result_name"], normalize="index") * 100.0
         for c in categories:
             if c not in tab.columns:
                 tab[c] = 0.0
         tab = tab[categories]
         
-        # Necesito el n y el rank para ordenar
+        
         stats = df.groupby("cluster_name").agg(
             n=("cluster_id", "size"),
             rank=("cluster_rank", "first")
         )
         tab = tab.join(stats)
         
-        # Ordeno por el ranking pedagógico definido en training_clustering
+        
         tab = tab.sort_values("rank", ascending=True)
         
         global_success = float(df["is_success"].mean() * 100.0)

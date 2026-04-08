@@ -27,17 +27,17 @@ COPY . /workspace/TFM_education_ai_analytics
 
 RUN python -m venv --system-site-packages /opt/tfm-venv
 
-# Activar el entorno virtual automáticamente en el contenedor.
+
 ENV PATH="/opt/tfm-venv/bin:$PATH"
 
 RUN pip install --upgrade pip && \
     pip install --no-cache-dir .
 
-# Registramos el kernel de Jupyter con el nombre del proyecto.
+
 RUN python -m ipykernel install --user --name educational_ai_analytics --display-name "Python (TFM Analytics)"
 
-# Configuramos el entrypoint (ahora está en el directorio actual)
+
 RUN sed -i 's/\r$//' entrypoint.sh && chmod +x entrypoint.sh
 
-# Comando por defecto para mantener el contenedor vivo si se ejecuta solo
+
 CMD ["tail", "-f", "/dev/null"]

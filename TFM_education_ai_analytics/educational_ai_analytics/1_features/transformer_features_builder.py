@@ -13,11 +13,11 @@ logger = logging.getLogger(__name__)
 @dataclass
 class TransformerFeatureArtifacts:
     upto_week: int
-    X_seq: np.ndarray          # (N, T, F)
-    mask: np.ndarray           # (N, T)
-    y: np.ndarray              # (N,)
-    ids: np.ndarray            # (N,) strings
-    X_static: Optional[np.ndarray] = None  # (N, S) si aplica
+    X_seq: np.ndarray          
+    mask: np.ndarray          
+    y: np.ndarray              
+    ids: np.ndarray            
+    X_static: Optional[np.ndarray] = None  
 
 
 class TransformerFeaturesBuilder:
@@ -72,9 +72,6 @@ class TransformerFeaturesBuilder:
         self.activities_global: Optional[List[str]] = None
         self.scalers: Dict[str, Dict[str, list]] = {}
 
-    # ----------------------------
-    # Helpers
-    # ----------------------------
     def _ensure_unique_id(self, df: pd.DataFrame) -> pd.DataFrame:
         if "unique_id" in df.columns:
             return df
@@ -97,7 +94,6 @@ class TransformerFeaturesBuilder:
         )
 
     def _compute_week(self, s: pd.Series) -> pd.Series:
-        # week 0-based a partir de días
         return (pd.to_numeric(s, errors="coerce").fillna(-9999) // 7).astype(int)
 
     def _load_target(self, split: str) -> pd.DataFrame:
@@ -135,9 +131,6 @@ class TransformerFeaturesBuilder:
         self.activities_global = payload["activities_global"]
         self.scalers = payload.get("scalers", {})
 
-    # ----------------------------
-    # Core builders
-    # ----------------------------
     def fit_activities_global(self, interactions_df: pd.DataFrame):
         interactions_df = interactions_df.copy()
         interactions_df[self.inter_activity_col] = (
@@ -171,24 +164,18 @@ class TransformerFeaturesBuilder:
         st_meta = self._ensure_unique_id(students_df).drop_duplicates("unique_id").set_index("unique_id")
         st_meta["course_key"] = st_meta["code_module"].astype(str) + "_" + st_meta["code_presentation"].astype(str)
 
-
-        # target (index = unique_id)
         target_full = self._load_target(split)
 
-        # clicks col robusta
         click_col = self._pick_click_col(interactions_df)
 
-        # limpieza activity_type + week
         interactions_df = interactions_df.copy()
         interactions_df[self.inter_activity_col] = (
             interactions_df[self.inter_activity_col].astype(str).str.strip().str.lower()
         )
         interactions_df["week"] = self._compute_week(interactions_df[self.inter_day_col])
 
-        # base temporal válida
         interactions_base = interactions_df[interactions_df["week"] >= 0].copy()
 
-        # activities global: fit en training, load en el resto
         if fit:
             self.fit_activities_global(interactions_base)
         else:
@@ -198,7 +185,6 @@ class TransformerFeaturesBuilder:
         assert self.activities_global is not None
         activities_global = self.activities_global
 
-        # semanas de abandono
         st = students_df.copy()
         st["week_unregistration"] = (
             pd.to_numeric(st.get(self.students_unreg_col, np.nan), errors="coerce")
@@ -210,7 +196,6 @@ class TransformerFeaturesBuilder:
         for upto_week in self.windows:
             inter_uptoW = interactions_base[interactions_base["week"] < upto_week].copy()
 
-            # Evitar alumnos que abandonaron antes de la semana objeto si está habilitado el filtro
             if self.filter_unregistered:
                 active_students = st[st["week_unregistration"] >= upto_week]
                 valid_ids = active_students["unique_id"].unique()
@@ -222,14 +207,12 @@ class TransformerFeaturesBuilder:
             else:
                 logger.info(f"[{split}] W={upto_week}: no se aplica filtro de abandono temprano (filter_unregistered=False)")
 
-            # agregación
             g = (
                 inter_uptoW.groupby(["unique_id", "week", self.inter_activity_col], as_index=False)[click_col]
                 .sum()
                 .rename(columns={click_col: "sum_click"})
             )
 
-            # pivot wide con columnas completas (weeks x activities_global)
             weeks = list(range(upto_week))
             full_cols = pd.MultiIndex.from_product(
                 [weeks, activities_global], names=["week", self.inter_activity_col]
@@ -247,36 +230,26 @@ class TransformerFeaturesBuilder:
                 .sort_index()
             )
 
-            # orden estable basado en target (trazabilidad y eval)
             common_ids = target_full.index.intersection(wide.index)
-            # Mapeamos los IDs actuales a su curso correspondiente
             course_series = st_meta["course_key"].reindex(common_ids)
             wide_w = wide.loc[common_ids]
             target_w = target_full.loc[common_ids]
 
-            # secuencia (N, T, F)
             X_seq = wide_w.values.reshape(
                 len(wide_w), upto_week, len(activities_global)
             ).astype(np.float32)
 
-            # Máscaras separadas:
-            # - mask_pad: padding real de secuencia (aquí todo válido, sin truncado por alumno)
-            # - mask_activity: señal conductual (semanas con actividad)
             mask_pad = np.ones((X_seq.shape[0], X_seq.shape[1]), dtype=np.int32)
             mask_activity = (X_seq.sum(axis=2) > 0).astype(np.int32)
 
-            # --- NORMALIZACION Log1p + Z-Score (Contextualizada por Curso, solo entradas activas) ---
             X_seq_log = np.log1p(X_seq)
             w_key = str(upto_week)
             F = len(activities_global)
-            active = (X_seq.sum(axis=2) > 0)  # (N, W) bool — misma info que mask_activity
+            active = (X_seq.sum(axis=2) > 0)
 
             if fit:
-                # Calculamos estadísticas por cada curso y una global de respaldo
-                # SOLO sobre semanas con actividad real (evita distorsión por ceros)
                 course_stats = {}
 
-                # 1. Fallback global (por si en test aparece un curso que no vimos en train)
                 X_flat = X_seq_log.reshape(-1, F)
                 active_flat = active.reshape(-1)
                 X_active = X_flat[active_flat]
@@ -291,16 +264,14 @@ class TransformerFeaturesBuilder:
                         "std": np.ones(F).tolist()
                     }
 
-                # 2. Estadísticas por cada curso presente (solo entradas activas)
                 for ckey in course_series.unique():
                     pos = np.where(course_series.values == ckey)[0]
-                    Xc = X_seq_log[pos]           # (Nc, W, F)
-                    active_c = active[pos]         # (Nc, W)
+                    Xc = X_seq_log[pos]           
+                    active_c = active[pos]         
                     Xc_flat = Xc.reshape(-1, F)
                     Xc_active = Xc_flat[active_c.reshape(-1)]
 
                     if len(Xc_active) < 10:
-                        # Muy pocos datos activos → usar global
                         continue
 
                     course_stats[str(ckey)] = {
@@ -312,41 +283,32 @@ class TransformerFeaturesBuilder:
                 if w_key not in self.scalers:
                     raise KeyError(f"Scaler no encontrado para W={upto_week}. Ejecuta training primero.")
 
-            # --- Aplicación de la Normalización ---
             X_seq_norm = np.zeros_like(X_seq_log)
             w_scalers = self.scalers[w_key]
 
-            # Iteramos por los cursos para aplicar sus propias medias/desviaciones
             for ckey in course_series.unique():
                 pos = np.where(course_series.values == ckey)[0]
 
-                # Obtenemos las estadísticas (si no existe el curso, usamos el global)
                 stats = w_scalers.get(str(ckey), w_scalers["__global__"])
                 mu = np.array(stats["mu"], dtype=np.float32)
                 std = np.array(stats["std"], dtype=np.float32)
 
-                # Normalizamos solo el trozo de la matriz que pertenece a este curso
                 X_seq_norm[pos] = (X_seq_log[pos] - mu) / std
 
             X_seq = X_seq_norm.astype(np.float32)
 
-
-            # labels
             y = target_w[self.target_col].astype(np.int64).values
 
-            # static segmented (opcional pero recomendado)
             X_static, static_feature_names, static_feature_sources = self._load_segmented_static(
                 split=split,
                 upto_week=upto_week,
                 uid=common_ids,
             )
 
-            # guardado .npz
             fp = out_dir / f"transformer_uptoW{upto_week}.npz"
             np.savez_compressed(
                 fp,
                 X_seq=X_seq,
-                # Compatibilidad retro: `mask` se mantiene como padding mask.
                 mask=mask_pad,
                 mask_pad=mask_pad,
                 mask_activity=mask_activity,
@@ -367,16 +329,12 @@ class TransformerFeaturesBuilder:
             )
 
         if fit:
-            # Re-guardar meta para incluir los scalers calculados en este split de training
             self._save_meta()
 
         return saved
 
     def _load_segmented_static(self, *, split: str, upto_week: int, uid: pd.Index) -> Tuple[Optional[np.ndarray], List[str], List[str]]:
-        """
-        Lee 5_students_segmented/<split>/students_segmented_uptoW{W}.csv
-        y junta con variables demográficas de day0_static_features.csv
-        """
+        """Loads clustering features and augments them with static day-0 and upto-W features."""
         fp = self.segmented_root_dir / split / f"students_segmented_uptoW{upto_week}.csv"
         if not fp.exists():
             logger.warning(f"[{split}] ⚠️ No existe segmented file: {fp} (saltando X_static)")
@@ -389,8 +347,7 @@ class TransformerFeaturesBuilder:
             return None, [], []
 
         seg = seg.set_index("unique_id")
-        
-        # Añadir demográficos pre-calculados (day0) para multiplicar la fuerza de la red estática
+
         day0_fp = self.features_root_dir / split / "day0_static_features.csv"
         if day0_fp.exists():
             day0_df = pd.read_csv(day0_fp).set_index("unique_id")
@@ -398,8 +355,7 @@ class TransformerFeaturesBuilder:
         else:
             logger.warning(f"[{split}] ⚠️ No existe {day0_fp}, usando sólo clusters.")
             combined_df = seg
-            
-        # Añadir features agregadas/dinámicas calculadas para el AE
+
         ae_fp = self.features_root_dir / split / "ae_uptow_features" / f"ae_uptow_features_w{upto_week:02d}.csv"
         if ae_fp.exists():
             ae_df = pd.read_csv(ae_fp).set_index("unique_id")
@@ -409,7 +365,6 @@ class TransformerFeaturesBuilder:
 
         X_static_df = combined_df.reindex(uid).fillna(0.0)
 
-        # garantizar orden de columnas original + demográficas ordenadas para consistencia
         cluster_cols = [c for c in self.features_cluster if c in X_static_df.columns]
         demo_cols = sorted([c for c in X_static_df.columns if c not in cluster_cols])
         

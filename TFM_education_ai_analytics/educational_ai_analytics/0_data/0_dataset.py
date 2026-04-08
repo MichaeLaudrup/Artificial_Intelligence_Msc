@@ -1,7 +1,7 @@
 import os
 import warnings
 
-# Silenciar warnings de Protobuf y logs de TensorFlow
+
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 warnings.filterwarnings("ignore", category=UserWarning, module="google.protobuf")
 warnings.filterwarnings("ignore", category=UserWarning, module="tensorflow")
@@ -46,17 +46,17 @@ def get_data_splits(df_students, df_assessments, df_interactions):
     para evitar data leakage.
     Distribución: 70% Train, 15% Validation, 15% Test
     
-    Retorna: diccionario con los splits {'training': (dfs...), 'validation': ..., 'test': ...}
+    Retorna: diccionario con los splits {'training': (dfs...), 'validation': , 'test': }
     """
     logger.info("Iniciando división de datos (Splitting)...")
     
-    # Obtener IDs únicos de estudiantes y sus etiquetas para estratificación
-    # Usamos el primer 'final_result' del estudiante como proxy para estratificar por clase
+    
+    
     student_labels = df_students.groupby('id_student')['final_result'].first()
     unique_students = student_labels.index
     labels = student_labels.values
     
-    # Primera división: Train (70%) vs Temp (30%) - ESTRATIFICADO
+    
     train_ids, temp_ids, _, temp_labels = train_test_split(
         unique_students, 
         labels,
@@ -65,7 +65,7 @@ def get_data_splits(df_students, df_assessments, df_interactions):
         stratify=labels
     )
     
-    # Segunda división: Val (15%) vs Test (15%) - ESTRATIFICADO
+    
     val_ids, test_ids = train_test_split(
         temp_ids, 
         test_size=0.5, 
@@ -124,20 +124,20 @@ def apply_structural_cleaning(df_students, df_assessments, df_interactions):
     """
     logger.info("Aplicando limpieza ESTRUCTURAL...")
 
-    # --- ESTUDIANTES ---
-    # 1. Conversión de tipos
-    # date_registration se convierte a numérico, pero NO se imputa aquí todavía (data leakage)
+    
+    
+    
     df_students['date_registration'] = pd.to_numeric(df_students['date_registration'], errors='coerce')
     
     for col in ['date_unregistration', 'module_presentation_length']:
         if col in df_students.columns:
             df_students[col] = pd.to_numeric(df_students[col], errors='coerce')
 
-    # 2. Imputar nulos en IMD Band como 'Unknown' (Categórico constante)
+    
     df_students['imd_band'] = df_students['imd_band'].fillna('Unknown')
 
-    # --- EVALUACIONES ---
-    # Eliminar filas sin nota (Estructural: datos corruptos/incompletos inservibles)
+    
+    
     df_assessments.dropna(subset=['score'], inplace=True)
     df_assessments['score'] = pd.to_numeric(df_assessments['score'])
 
@@ -152,16 +152,16 @@ def impute_statistical_data(df_students, registration_medians=None):
     Si no (None), se calculan (Train) y se devuelven.
     """
     if registration_medians is None:
-        # Modo FIT: Calcular medianas (Solo Train)
+        
         logger.info("Calculando estadísticas de imputación (Fit en Train)...")
         registration_medians = df_students.groupby('code_presentation')['date_registration'].median()
     
-    # Modo TRANSFORM: Aplicar imputación
-    # Mapear la mediana correspondiente a cada presentación
+    
+    
     median_values = df_students['code_presentation'].map(registration_medians)
     
-    # Fallback: Si hay alguna presentación en Val/Test que no estaba en Train (raro), 
-    # usar la mediana global de las medianas de Train.
+    
+    
     if median_values.isna().any():
         global_median = registration_medians.median()
         median_values = median_values.fillna(global_median)
@@ -194,7 +194,7 @@ def process_data(input_dir: Path, output_file: Path):
 
     logger.info("Cargando CSVs...")
     
-    # --- Carga ---
+    
     df_student = pd.read_csv(input_dir / "studentInfo.csv")
     df_courses = pd.read_csv(input_dir / "courses.csv")
     df_registration = pd.read_csv(input_dir / "studentRegistration.csv")
@@ -203,9 +203,7 @@ def process_data(input_dir: Path, output_file: Path):
     df_vle = pd.read_csv(input_dir / "vle.csv")
     df_student_vle = pd.read_csv(input_dir / "studentVle.csv")
     
-    # =========================================================
-    # FASE 1: MERGES
-    # =========================================================
+    
     logger.info("Realizando Merges...")
     df_students_merged = pd.merge(
         df_student, df_registration, 
@@ -229,44 +227,34 @@ def process_data(input_dir: Path, output_file: Path):
     )
     df_interactions_merged.replace('?', pd.NA, inplace=True)
 
-    # =========================================================
-    # FASE 2: INTERIM DATA
-    # =========================================================
+    
     save_interim_data(df_students_merged, df_assessments_merged, df_interactions_merged)
 
-    # =========================================================
-    # FASE 3: LIMPIEZA ESTRUCTURAL (Global)
-    # =========================================================
+    
     df_students_merged, df_assessments_merged, df_interactions_merged = apply_structural_cleaning(
         df_students_merged, df_assessments_merged, df_interactions_merged
     )
 
-    # =========================================================
-    # FASE 4: DIVISIÓN (SPLIT)
-    # =========================================================
+    
     splits = get_data_splits(df_students_merged, df_assessments_merged, df_interactions_merged)
     
-    # =========================================================
-    # FASE 5: LIMPIEZA ESTADÍSTICA (Fit on Train, Transform All)
-    # =========================================================
+    
     logger.info("Aplicando imputación estadística (evitando Data Leakage)...")
     
-    # 1. Fit en Train
+    
     train_students = splits['training']['students']
     train_students, registration_stats = impute_statistical_data(train_students, registration_medians=None)
-    splits['training']['students'] = train_students # Update cleaned version
+    splits['training']['students'] = train_students 
     
     logger.info("Estadísticas aprendidas en Train. Aplicando a Val/Test...")
     
-    # 2. Transform Val & Test
+    
     for split_name in ['validation', 'test']:
         df_stud = splits[split_name]['students']
         df_stud, _ = impute_statistical_data(df_stud, registration_medians=registration_stats)
         splits[split_name]['students'] = df_stud
 
-    # =========================================================
-    # FASE 6: GUARDADO FINAL
-    # =========================================================
+    
     root_output_dir = output_file.parent
     if root_output_dir.exists():
         shutil.rmtree(root_output_dir)
@@ -348,16 +336,16 @@ def main(
     """
     logger.info("Iniciando pipeline de datos...")
 
-    # 0. Limpieza total para empezar de cero
+    
     clean_data_directory()
 
-    # 1. Descarga
+    
     download_dataset(OULAD_DATASET_URL, input_path)
 
-    # 2. Extracción
+    
     extract_dataset(input_path, input_path.parent)
 
-    # 3. Procesamiento
+    
     process_data(input_path.parent, output_path)
     
     logger.success("Pipeline de datos finalizado correctamente.")

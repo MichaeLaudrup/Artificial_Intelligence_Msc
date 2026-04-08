@@ -1,6 +1,6 @@
-# 🐳 Tutorial Docker para el TFM — Guía para Dummies
 
-## ¿Por qué Docker?
+
+#
 
 Tu proyecto de TFM usa **TensorFlow con GPU (CUDA)**. El problema es que CUDA solo funciona
 nativamente en Linux, y tú trabajas en Windows. Docker soluciona esto creando un **contenedor
@@ -28,7 +28,7 @@ Linux** dentro de tu Windows que tiene acceso directo a tu GPU (RTX 3070).
 
 ---
 
-## 📁 Archivos involucrados (4 piezas del puzzle)
+#
 
 El sistema usa **4 archivos** que trabajan juntos. Piensa en ellos como capas:
 
@@ -41,7 +41,7 @@ El sistema usa **4 archivos** que trabajan juntos. Piensa en ellos como capas:
 
 ---
 
-## 🔧 Archivo 1: `Dockerfile` — La Receta
+#
 
 ```dockerfile
 FROM tensorflow/tensorflow:latest-gpu-jupyter
@@ -111,28 +111,28 @@ CMD ["tail", "-f", "/dev/null"]
 
 ---
 
-## 🎼 Archivo 2: `docker-compose.yml` — Las Instrucciones de Servir
+#
 
 ```yaml
 services:
-  tfm-gpu:               # Nombre del servicio
-    build: .              # Construye usando el Dockerfile de esta carpeta
+  tfm-gpu:               
+    build: .              
     volumes:
-      - .:/workspace      # ⭐ CLAVE: monta tu carpeta local dentro del contenedor
+      - .:/workspace      
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
               count: 1
-              capabilities: [gpu]   # ⭐ Reserva tu GPU NVIDIA
-    command: tail -f /dev/null      # Mantener vivo
-    restart: unless-stopped         # Se reinicia si se cae
+              capabilities: [gpu]   
+    command: tail -f /dev/null      
+    restart: unless-stopped         
     ports:
-      - "8888:8888"                 # Puerto de Jupyter
+      - "8888:8888"                 
 ```
 
-### Lo más importante aquí:
+##
 
 **`volumes: - .:/workspace`** — Esto es la MAGIA. Monta tu carpeta del proyecto
 de Windows directamente dentro del contenedor en `/workspace`. Significa que:
@@ -155,7 +155,7 @@ tu RTX 3070 al contenedor Linux.
 
 ---
 
-## 🌉 Archivo 3: `.devcontainer/devcontainer.json` — El Puente VS Code ↔ Contenedor
+#
 
 ```jsonc
 {
@@ -180,7 +180,7 @@ tu RTX 3070 al contenedor Linux.
 }
 ```
 
-### ¿Qué hace cada cosa?
+##
 
 - **`dockerComposeFile`**: Le dice a VS Code "usa docker-compose.yml para levantar el contenedor".
 - **`service: "tfm-gpu"`**: "Conéctate al servicio llamado tfm-gpu".
@@ -194,7 +194,7 @@ tu RTX 3070 al contenedor Linux.
 
 ---
 
-## 🚫 Archivo 4: `.dockerignore` — La Lista de Exclusión
+#
 
 ```
 data
@@ -214,7 +214,7 @@ No las necesitamos porque se montan como volumen después.
 
 ---
 
-## 🔄 Flujo completo: ¿Qué pasa cuando haces "Reopen in Container"?
+#
 
 ```
 Tú pulsas "Reopen in Container"

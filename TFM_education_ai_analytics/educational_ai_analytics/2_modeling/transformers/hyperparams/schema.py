@@ -7,7 +7,7 @@ from typing import List, Optional
 
 @dataclass
 class TransformerHyperparams:
-	# General
+	
 	upto_week: int = 5
 	paper_baseline: bool = True
 	with_static: bool = True
@@ -18,38 +18,38 @@ class TransformerHyperparams:
 	execution_device: str = "gpu"
 	use_mixed_precision: bool = True
 
-	# Arquitectura Temporal (Transformer)
+	
 	latent_d: int = 256
 	ff_dim: int = 128
 	dropout: float = 0.3
 
-	# Cuantos puntos de vista temporales atiende el modelo
+	
 	num_heads: int = 8
 	num_layers: int = 2
 
-	# Arquitectura Estática
+	
 	static_hidden: List[int] = field(default_factory=lambda: [64, 32])
 
-	# Capas de fusión temporal + estática
+	
 	head_hidden: List[int] = field(default_factory=lambda: [256, 128, 64, 32])
 
-	# Optimizador
+	
 	learning_rate: float = 0.001
 	clipnorm: float = 1.0
 
-	# Callbacks
+	
 	reduce_lr_factor: float = 0.2
 	reduce_lr_patience: int = 7
 	reduce_lr_min_lr: float = 1e-6
 	early_stopping_patience: int = 10
 
-	# Focal Loss
+	
 	focal_gamma: float = 2.75
 
-	# Binarización para num_classes == 2
-	# - "paper": Pass/Dist vs Withdrawn (excluye Fail)
-	# - "original": Pass/Dist vs Fail (excluye Withdrawn)
-	# - "success_vs_risk": Pass/Dist vs Fail/Withdrawn
+	
+	
+	
+	
 	binary_mode: str = "paper"
 
 	num_classes: int = 1
@@ -66,10 +66,10 @@ class TransformerHyperparams:
 	threshold_fallback: float = 0.50
 	run_compare: bool = True
 	fast_search: bool = False
-	# PROBLEMA 2 CLASES: [0,1] -> [0.27, 0.73] [Pass , Withdraw]
-	# PROBLEMA 2 CLASES ALTERNATIVO (success_vs_risk): [0,1] -> [0.46, 0.54] [Pass/Distinction vs Fail/Withdraw]
-	# PROBLEMA 3 CLASES: [0,1,2] -> [0.414, 0.413, 0.174] [Fail, Withdraw, Pass]
-	# PROBLEMA 4 CLASES: [0,1,2,3] -> [0.27, 0.35, 0.15, 0.23] [Fail, Withdraw, Pass, Distinction]
+	
+	
+	
+	
 	focal_alpha: List[float] = field(default_factory=lambda: [0.414, 0.413, 0.174])
 
 	def save_experiment(

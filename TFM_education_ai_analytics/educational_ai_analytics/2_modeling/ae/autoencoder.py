@@ -8,14 +8,6 @@ from .hyperparams import AE_PARAMS
 
 @tf.keras.utils.register_keras_serializable(package="edu")
 class ClusteringLayer(layers.Layer):
-    """
-    DEC/IDEC-style clustering layer using Student's t-distribution kernel.
-
-    Given embeddings z (B, D) and trainable cluster centers mu (K, D),
-    returns soft assignments q (B, K).
-
-    q_ij ∝ (1 + ||z_i - mu_j||^2 / alpha)^(-(alpha+1)/2)
-    """
 
     def __init__(self, n_clusters: int, alpha: float = 1.0, **kwargs):
         super().__init__(**kwargs)
@@ -23,10 +15,6 @@ class ClusteringLayer(layers.Layer):
         self.alpha = float(alpha)
 
     def build(self, input_shape):
-        # input_shape: (batch, latent_dim)
-        if len(input_shape) != 2:
-            raise ValueError(f"ClusteringLayer expects rank-2 input (B, D). Got: {input_shape}")
-
         latent_dim = int(input_shape[-1])
         self.clusters = self.add_weight(
             name="clusters",
@@ -37,19 +25,13 @@ class ClusteringLayer(layers.Layer):
         super().build(input_shape)
 
     def call(self, inputs):
-        # inputs: (B, D)
-        z = tf.expand_dims(inputs, axis=1)  # (B, 1, D)
-        mu = tf.expand_dims(self.clusters, axis=0)  # (1, K, D)
-        dist = tf.reduce_sum(tf.square(z - mu), axis=2)  # (B, K)
-
+        z = tf.expand_dims(inputs, axis=1)  
+        mu = tf.expand_dims(self.clusters, axis=0)  
+        dist = tf.reduce_sum(tf.square(z - mu), axis=2)  
         q = 1.0 / (1.0 + dist / self.alpha)
         q = tf.pow(q, (self.alpha + 1.0) / 2.0)
-
-        # Normalize row-wise to get probabilities
-        # Epsilon evita div/0 con float16 cuando q colapsa a ceros (→ NaN)
         den = tf.reduce_sum(q, axis=1, keepdims=True)
         q = q / (den + 1e-12)
-
         return q
 
     def get_config(self):
@@ -103,9 +85,9 @@ class StudentProfileAutoencoder(tf.keras.Model):
         self.normalize_latent = bool(normalize_latent)
         self.alpha = float(alpha)
 
-        # -----------------------
-        # Encoder
-        # -----------------------
+        
+        
+        
         enc = []
         for dims in self.hidden_dims:
             enc.append(layers.Dense(int(dims)))
@@ -115,7 +97,7 @@ class StudentProfileAutoencoder(tf.keras.Model):
                 enc.append(tf.keras.layers.Dropout(self.dropout_rate))
         self.encoder_layers = tf.keras.Sequential(enc, name="encoder")
 
-        # Latent projections
+        
         self.latent_deep = layers.Dense(
             self.latent_dim,
             name="latent_deep",
@@ -135,16 +117,16 @@ class StudentProfileAutoencoder(tf.keras.Model):
             name="latent_gate",
         )
 
-        # Clustering head
+        
         self.clustering_layer = ClusteringLayer(
             n_clusters=self.n_clusters,
             alpha=self.alpha,
             name="clustering_output",
         )
 
-        # -----------------------
-        # Decoder
-        # -----------------------
+        
+        
+        
         dec = []
         for dims in reversed(tuple(self.hidden_dims)):
             dec.append(layers.Dense(int(dims)))
@@ -161,7 +143,7 @@ class StudentProfileAutoencoder(tf.keras.Model):
         )
 
     def encode(self, x, training: bool = False):
-        # Denoising only during training
+        
         if training and self.denoise_std > 0:
             noise = tf.random.normal(tf.shape(x), stddev=self.denoise_std, dtype=x.dtype)
             x = x + noise
@@ -173,12 +155,12 @@ class StudentProfileAutoencoder(tf.keras.Model):
         g = self.gate(x_deep)
         z = g * z_deep + (1.0 - g) * z_linear
 
-        # Soft L2 norm penalty (optional)
+        
         if training and self.z_norm_penalty > 0:
             penalty = self.z_norm_penalty * tf.reduce_mean(tf.reduce_sum(tf.square(z), axis=1))
             self.add_loss(tf.cast(penalty, tf.float32))
 
-        # Optional L2 normalization (unit sphere)
+        
         if self.normalize_latent:
             z = tf.math.l2_normalize(z, axis=1)
 
@@ -195,7 +177,7 @@ class StudentProfileAutoencoder(tf.keras.Model):
         return x_recon, q
 
     def get_embeddings(self, x, batch_size: int = 1024):
-        # Convert to tensor to avoid retracing & improve throughput
+        
         if isinstance(x, np.ndarray):
             x = tf.convert_to_tensor(x, dtype=tf.float32)
 

@@ -13,4 +13,4 @@ services:
     command: [ "tail", "-f", "/dev/null" ]
     restart: unless-stopped
     ports:
-      - "8888:8888" # Expose Jupyter port if needed
+      - "8888:8888" 

@@ -322,7 +322,7 @@ def main(
 
         X = df_lat.values.astype(np.float32)
         
-        # Selección del Scaler
+        
         if CLUSTERING_PARAMS.scaler_type == "robust":
             scaler = RobustScaler()
         elif CLUSTERING_PARAMS.scaler_type == "power":

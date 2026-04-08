@@ -1,6 +1,6 @@
-# TensorFlow en RTX 5080 / Blackwell
 
-## Ruta rápida
+
+#
 
 La wheel custom de TensorFlow no se instala automáticamente al levantar Docker.
 
@@ -18,7 +18,7 @@ Interpretación rápida:
 - si falla en modo estricto, la build instalada sigue sin ser compatible
 - si no quieres reconstruir TensorFlow, el contenedor normal sigue pudiendo ejecutar en CPU
 
-## Resumen
+#
 
 Este repositorio tuvo el problema típico de Blackwell con TensorFlow: la GPU se detectaba, pero el entrenamiento fallaba con errores de PTX al llegar a `model.fit()`.
 
@@ -30,7 +30,7 @@ Punto clave:
 - Los workarounds residuales de XLA que se probaron durante la investigación ya se eliminaron del flujo normal.
 - El repositorio conserva una protección útil: si alguien intenta usar una build incompatible en una GPU Blackwell, el runtime puede hacer fallback a CPU o fallar en seco si se pide modo estricto.
 
-## Qué pasaba exactamente
+#
 
 Con wheels no preparadas para `sm_120`, TensorFlow llegaba a detectar la GPU pero terminaba rompiendo en entrenamiento con errores como este:
 
@@ -44,9 +44,9 @@ Eso era especialmente confuso porque:
 - Algunas operaciones pequeñas podían ejecutarse.
 - El fallo aparecía tarde, normalmente en compilación o durante `model.fit()`.
 
-## Qué hicimos
+#
 
-### 1. Aislar el problema real
+##
 
 Se descartó que el problema fuera del proyecto, del modelo o de Keras. El bloqueo era de compatibilidad entre:
 
@@ -54,7 +54,7 @@ Se descartó que el problema fuera del proyecto, del modelo o de Keras. El bloqu
 - versión efectiva de CUDA/PTX de la build de TensorFlow cargada
 - toolchain usada para compilar la wheel
 
-### 2. Añadir protección en el runtime del proyecto
+##
 
 El runtime central en [educational_ai_analytics/tf_runtime.py](/workspace/TFM_education_ai_analytics/educational_ai_analytics/tf_runtime.py) hace ahora dos cosas importantes:
 
@@ -69,7 +69,7 @@ Comportamiento:
 
 Eso evita que otra persona pierda horas viendo una GPU “detectada” que en realidad no puede entrenar.
 
-### 3. Construir una wheel compatible con Blackwell
+##
 
 La solución definitiva fue preparar una build propia de TensorFlow para esta familia de GPUs.
 
@@ -89,16 +89,16 @@ La estrategia usada fue:
 
 El script también incorpora parches prácticos para problemas de build detectados durante el proceso, por ejemplo el mapping de PTX en Bazel y el layout de `cuda_nvvm`.
 
-## Estado final del repositorio
+#
 
-### Lo que sí se mantiene
+##
 
 - El chequeo de compatibilidad de Blackwell en el runtime.
 - `TFM_GPU_STRICT=1` como forma de verificar compatibilidad real.
 - Los scripts para construir e instalar la wheel custom.
 - La separación de dispositivo por modelo mediante `execution_device` en cada `hyperparams.py`, con override opcional vía `EXECUTION_DEVICE`.
 
-### Lo que se eliminó para no confundir
+##
 
 - `TF_XLA_FLAGS` en los entrypoints de entrenamiento.
 - `XLA_FLAGS=--xla_gpu_enable_triton_gemm=false` en los entrypoints de entrenamiento.
@@ -107,9 +107,9 @@ El script también incorpora parches prácticos para problemas de build detectad
 
 La conclusión importante para quien llegue nuevo es simple: si TensorFlow no está bien construido para Blackwell, no hay combinación razonable de flags que convierta esa build en estable para entrenamiento.
 
-## Cómo validar una máquina nueva
+#
 
-### Opción 1. Verificar que la build instalada ya sirve sin depender de datos del proyecto
+##
 
 ```bash
 make check_tf_blackwell
@@ -128,7 +128,7 @@ Interpretación:
 - si falla con `TFM_GPU_STRICT=1`, la build no es válida para esa GPU
 - si sin modo estricto hace fallback a CPU, el runtime te está protegiendo de una build incompatible
 
-### Opción 2. Construir la wheel desde este repo
+##
 
 ```bash
 make build_tf_blackwell_wheel
@@ -141,7 +141,7 @@ Después repite:
 make check_tf_blackwell
 ```
 
-### Opción 3. Validar entrenamiento real cuando ya tengas datos
+##
 
 Si además quieres validar el proyecto completo, entonces sí:
 
@@ -151,7 +151,7 @@ TFM_GPU_STRICT=1 EXECUTION_DEVICE=gpu make train_transformer
 
 Ese paso ya depende de tener los datos del proyecto preparados.
 
-## Comandos útiles
+#
 
 Entrenar explícitamente en CPU:
 
@@ -177,7 +177,7 @@ Benchmark de AE, sólo si ya tienes los datos del proyecto:
 make bench_tf_blackwell
 ```
 
-## Notas para mantenedores
+#
 
 - Si actualizas TensorFlow o el toolchain, vuelve a validar entrenamiento real, no sólo detección de GPU.
 - Si reaparece un error de PTX, revisa primero la build efectiva de TensorFlow antes de tocar modelos, callbacks o flags de entorno.

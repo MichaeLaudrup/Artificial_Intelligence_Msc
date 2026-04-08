@@ -45,7 +45,7 @@ def _ordered_metrics_to_show(metrics_a: dict, metrics_b: dict, num_classes: int)
     all_metrics = set(metrics_a.keys()).union(set(metrics_b.keys()))
     ordered = [k for k in preferred if k in all_metrics]
     if num_classes == 2:
-        # En binario sí mostramos extras para mantener compatibilidad histórica.
+        
         ordered += sorted(list(all_metrics - set(ordered)))
     return ordered
 
@@ -90,7 +90,7 @@ def compare_experiments(history_path: Path = Path("reports/transformer_training/
 
     print(f"\n📊 Análisis del Último Experimento ({len(history)} ejecuciones registradas en el historial)\n" + "="*80)
 
-    # Mostrar solo la comparativa más reciente (el último contra el penúltimo)
+    
     for i in range(len(history) - 1, len(history) - 2, -1):
         exp1 = history[i - 1]
         exp2 = history[i]
@@ -100,12 +100,12 @@ def compare_experiments(history_path: Path = Path("reports/transformer_training/
 
         print(f"\n🚀 COMPARATIVA: [{i}] {t1}  vs  [{i+1}] {t2}")
 
-        # Comparar hiperparámetros
+        
         params1 = exp1.get("hyperparameters", {})
         params2 = exp2.get("hyperparameters", {})
 
         changed_params = {}
-        # Unir claves de ambos diccionarios para no dejarnos ninguno
+        
         all_keys = set(params1.keys()).union(set(params2.keys()))
         for k in all_keys:
             v1 = params1.get(k)
@@ -120,7 +120,7 @@ def compare_experiments(history_path: Path = Path("reports/transformer_training/
             for k, (v1, v2) in changed_params.items():
                 print(f"      * {k}:  {v1}  --->  {v2}")
 
-        # Comparar métricas
+        
         metrics1 = exp1.get("validation_metrics", {})
         metrics2 = exp2.get("validation_metrics", {})
         num_classes_exp2 = int(exp2.get("hyperparameters", {}).get("num_classes", 2))
@@ -140,14 +140,14 @@ def compare_experiments(history_path: Path = Path("reports/transformer_training/
             diff = m2 - m1
             pct_change = (diff / abs(m1)) * 100 if m1 != 0 else 0
             
-            # Dirección de mejora
+            
             if "loss" in k.lower():
                 is_better = diff < 0
             else:
                 is_better = diff > 0
                 
             if abs(pct_change) < 0.05:
-                # Margen de ruido
+                
                 emoji = "⬜ Estable"
             elif is_better:
                 emoji = "🟩 MEJORÓ"
@@ -169,10 +169,10 @@ if __name__ == "__main__":
     )
     
     if len(sys.argv) > 1:
-        # If user provides a specific file path
+        
         compare_experiments(Path(sys.argv[1]))
     else:
-        # Search for all metric files in week_* folders
+        
         history_files = sorted(list(reports_dir.glob("week_*/experiments_history*.json")))
         
         if not history_files:

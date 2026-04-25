@@ -481,8 +481,6 @@ class AEUptoWFeaturesBuilder:
                 if c in dfW.columns:
                     dfW[c] = self._winsorize(dfW[c])
 
-            dfW["rel_eng_zscore"] = dfW["total_weighted_engagement"].astype(float)
-
             norm_cols = list(dfW.columns)
             dfW[norm_cols] = dfW[norm_cols].astype(float)
             if fit:

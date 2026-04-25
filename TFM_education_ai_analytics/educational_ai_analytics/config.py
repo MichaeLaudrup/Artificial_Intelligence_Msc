@@ -32,22 +32,9 @@ TRANSFORMERS_REPORTS_DIR = REPORTS_DIR / "transformers"
 
 OULAD_DATASET_URL = "https://analyse.kmi.open.ac.uk/open-dataset/download"
 
-
-
-
-
-
-
-
 TRANSFORMER_PROFILE = os.getenv("TFM_TRANSFORMER_PROFILE", "binary").strip().lower()
-
-
 W_WINDOWS = [1,3,5,8,10,12,15,18,20,24,28]
-
-
 N_CLUSTERS = 5
-
-
 
 try:
     from tqdm import tqdm
